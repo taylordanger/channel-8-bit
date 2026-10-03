@@ -32,11 +32,15 @@ log(`${config.networkName} is on the air at http://localhost:${config.port}${off
 log(`writer=${built.writers.map((w) => w.name).join(" > ")} tts=${built.tts.name} budget=$${config.dailyBudgetUsd}/day tz=${config.timeZone}`);
 if (config.writer === "improv") log("No Claude credentials found: the improv troupe is writing. Set ANTHROPIC_API_KEY to bring in the writers' room.");
 
-const shutdown = () => {
+const shutdown = (signal: string) => {
+  log(`received ${signal}: going off the air`);
   built.station.stop();
   http.close();
   built.db.close();
   process.exit(0);
 };
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.on(sig, () => shutdown(sig));
+// A 24/7 station shouldn't go dark over one bad request or segment: log and keep broadcasting.
+process.on("uncaughtException", (err) => log(`uncaught error (still on air): ${err.stack ?? err}`));
+process.on("unhandledRejection", (err) => log(`unhandled rejection (still on air): ${(err as Error)?.stack ?? err}`));
+process.on("exit", (code) => log(`process exiting with code ${code}`));
