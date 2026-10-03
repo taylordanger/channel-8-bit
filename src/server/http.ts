@@ -8,6 +8,8 @@ import { CHARACTERS } from "./catalog/characters.js";
 import { guide, slotAt } from "./catalog/schedule.js";
 import { SHOWS } from "./catalog/shows.js";
 import type { StationConfig } from "./config.js";
+import type { Topic } from "./desk.js";
+import { assertPublicUrl, URL_PATTERN } from "./sources.js";
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -60,27 +62,60 @@ function readJson(req: http.IncomingMessage, limit = 4096): Promise<unknown> {
   });
 }
 
+/** What the desk page sees: the topic plus a preview of what was read (never the full page). */
+function publicTopic(t: Topic) {
+  const { source, ...rest } = t;
+  return {
+    ...rest,
+    source: source
+      ? { title: source.title, site: source.site, publishedAt: source.publishedAt, description: source.description, preview: source.text.slice(0, 400), chars: source.text.length }
+      : null,
+  };
+}
+
 async function handleTopics(req: http.IncomingMessage, res: http.ServerResponse, url: URL, b: Built) {
-  if (req.method === "GET") return json(res, { topics: b.desk.list(), shows: Object.values(SHOWS).map((s) => ({ id: s.id, title: s.title })) });
+  const shows = Object.values(SHOWS).map((s) => ({ id: s.id, title: s.title }));
+  if (req.method === "GET") return json(res, { topics: b.desk.list().map(publicTopic), shows });
   if (!isLocal(req)) return json(res, { error: "the assignment desk only accepts changes from this machine" }, 403);
-  if (req.method === "POST") {
-    let body: { text?: unknown; showId?: unknown; maxUses?: unknown };
+  const [, , , idPart, action] = url.pathname.split("/");
+  if (req.method === "POST" && !idPart) {
+    let body: { text?: unknown; url?: unknown; showId?: unknown; maxUses?: unknown };
     try {
       body = (await readJson(req)) as typeof body;
     } catch (e) {
       return json(res, { error: (e as Error).message }, 400);
     }
-    const text = typeof body.text === "string" ? body.text : "";
+    let text = typeof body.text === "string" ? body.text : "";
+    let link = typeof body.url === "string" ? body.url.trim() : "";
+    // A link pasted into the topic box counts as the topic's link.
+    if (!link) {
+      const found = text.match(URL_PATTERN)?.[0];
+      if (found) {
+        link = found.replace(/[).,;]+$/, "");
+        text = text.replace(found, " ");
+      }
+    }
     const showId = typeof body.showId === "string" && body.showId in SHOWS ? body.showId : null;
     const maxUses = typeof body.maxUses === "number" ? body.maxUses : 2;
     try {
-      return json(res, b.desk.add(text, showId, maxUses, b.clock.now()), 201);
+      if (link) await assertPublicUrl(link);
+      const topic = b.desk.add(text, showId, maxUses, b.clock.now(), link || null);
+      if (topic.url) void b.desk.ingest(topic.id);
+      return json(res, publicTopic(topic), 201);
     } catch (e) {
       return json(res, { error: (e as Error).message }, 400);
     }
   }
-  const id = Number(url.pathname.split("/")[3]);
-  if (req.method === "DELETE" && Number.isInteger(id)) return json(res, { removed: b.desk.remove(id) });
+  const id = Number(idPart);
+  if (!Number.isInteger(id)) return json(res, { error: "unsupported" }, 405);
+  if (req.method === "POST" && action === "retry") {
+    const t = b.desk.get(id);
+    if (!t?.url) return json(res, { error: "that topic has no link" }, 400);
+    b.db.prepare("UPDATE topics SET fetch_status = 'pending', fetch_error = NULL WHERE id = ?").run(id);
+    void b.desk.ingest(id);
+    return json(res, publicTopic(b.desk.get(id)!));
+  }
+  if (req.method === "DELETE") return json(res, { removed: b.desk.remove(id) });
   return json(res, { error: "unsupported" }, 405);
 }
 

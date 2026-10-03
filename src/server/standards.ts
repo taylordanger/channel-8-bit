@@ -23,17 +23,18 @@ export const MIN_BEATS = 4;
 const MAX_WORDS = 60;
 
 export interface StandardsPolicy {
-  /** Case-insensitive patterns that kill a line outright (real names you never want aired, etc.). */
+  /** Case-insensitive patterns that kill a line outright, always (extend via data/standards.json). */
   blocklist: RegExp[];
+  /** Real-world news drift; only enforced on purely fictional segments (no submitted source). */
+  fictionBlocklist: RegExp[];
 }
 
 export const DEFAULT_POLICY: StandardsPolicy = {
   blocklist: [
-    // Writers drifting into real-world news/politics. Extend via data/standards.json.
-    /\b(senator|congress(wo)?man|prime minister|white house|supreme court)\b/i,
     /\b(buy|sell|short)\s+(the\s+)?(stock|shares|crypto|coin)\b/i,
     /\b(dosage|diagnos(e|is) you|legal advice|financial advice)\b/i,
   ],
+  fictionBlocklist: [/\b(senator|congress(wo)?man|prime minister|white house|supreme court)\b/i],
 };
 
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
@@ -68,7 +69,7 @@ function capWords(line: string, max: number): string {
  */
 export function deterministicStandards(
   input: Script,
-  brief: Pick<WriterBrief, "cast" | "show" | "recentLines">,
+  brief: Pick<WriterBrief, "cast" | "show" | "recentLines" | "source">,
   policy: StandardsPolicy = DEFAULT_POLICY,
 ): StandardsResult {
   const notes: StandardsNote[] = [];
@@ -91,7 +92,7 @@ export function deterministicStandards(
       notes.push({ verdict: "cut", line: raw.line, reason: "nothing speakable left" });
       continue;
     }
-    const hit = policy.blocklist.find((re) => re.test(b.line));
+    const hit = [...policy.blocklist, ...(brief.source ? [] : policy.fictionBlocklist)].find((re) => re.test(b.line));
     if (hit) {
       notes.push({ verdict: "cut", line: b.line, reason: `blocklisted: ${hit.source}` });
       continue;
@@ -156,13 +157,14 @@ export class LlmStandards {
     this.client = client ?? new Anthropic();
   }
 
-  async review(script: Script, showId: string): Promise<StandardsResult> {
+  async review(script: Script, showId: string, sourced = false): Promise<StandardsResult> {
     const numbered = script.beats.map((b, i) => `${i}. [${b.speaker}] ${b.line}`).join("\n");
     const response = await this.client.messages.parse({
       model: this.opts.model,
       max_tokens: 4000,
-      system:
-        "You are the standards and practices editor for a fictional entertainment TV network. All characters are invented. Flag only lines that: name or make claims about real living people or real organizations' conduct; state real-world facts that could be false (statistics, prices, medical/legal/financial claims); contain slurs, sexual content, or harassment. Fictional absurdity, mild insults between characters, and comedy are fine. Prefer rewrite over cut when a small change fixes it; rewrites must keep the speaker's voice and fit the scene.",
+      system: sourced
+        ? "You are the standards and practices editor for an entertainment TV network whose fictional cast is discussing a real article (a separate fact-checker verifies facts against it). Flag only lines that: are defamatory or harassing toward real people; contain slurs or sexual content; give medical, legal or financial advice; or mock real victims of tragedy. Discussing real people and events, opinions, and comedy are fine. Prefer rewrite over cut; rewrites must keep the speaker's voice."
+        : "You are the standards and practices editor for a fictional entertainment TV network. All characters are invented. Flag only lines that: name or make claims about real living people or real organizations' conduct; state real-world facts that could be false (statistics, prices, medical/legal/financial claims); contain slurs, sexual content, or harassment. Fictional absurdity, mild insults between characters, and comedy are fine. Prefer rewrite over cut when a small change fixes it; rewrites must keep the speaker's voice and fit the scene.",
       messages: [{ role: "user", content: `Review these lines:\n${numbered}` }],
       output_config: { format: zodOutputFormat(ReviewSchema), effort: "low" },
     });

@@ -3,6 +3,7 @@ import { ACTIONS, EMOTIONS } from "../../shared/types.js";
 import type { Character } from "../catalog/characters.js";
 import type { Show } from "../catalog/shows.js";
 import type { Memory, Relationship } from "../memory.js";
+import type { Source } from "../sources.js";
 
 /**
  * What every writer must hand back. Kept free of min/max constraints so it maps
@@ -56,6 +57,8 @@ export interface WriterBrief {
   topic: string;
   /** Set when the topic came from the assignment desk (a human asked for it). */
   deskTopicId?: number;
+  /** A real article the producers submitted. Facts must come from here. */
+  source?: Source;
   /** Characters on set for this segment (regulars plus any guest). */
   cast: Character[];
   guest?: Character;

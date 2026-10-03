@@ -27,15 +27,24 @@
       li.retired { opacity: 0.45; }
       li .text { flex: 1; font-size: 10px; line-height: 1.8; word-break: break-word; }
       li .meta { font-size: 8px; color: var(--muted); margin-top: 6px; }
+      .src { margin-top: 8px; font-size: 8px; line-height: 1.9; border-left: 2px solid var(--line); padding-left: 10px; color: var(--muted); }
+      .src b { color: var(--text); font-weight: normal; }
+      .src.ok { border-color: #2ec4b6; }
+      .src.failed { border-color: var(--accent); color: var(--accent); }
+      .src.pending { border-color: var(--gold); }
+      .src details { margin-top: 4px; }
+      .src summary { cursor: pointer; color: var(--gold); }
+      .actions { display: flex; flex-direction: column; gap: 6px; }
       .empty { color: var(--muted); font-size: 9px; text-align: center; padding: 18px; }
     </style>
   </head>
   <body>
     <main>
       <header><h1>ASSIGNMENT DESK</h1><a href="/">← back to the broadcast</a></header>
-      <p class="hint">Give the cast something to talk about. The writers build upcoming segments around these, in character and in each show's format. Pick a show or let whichever show is on air take it.</p>
+      <p class="hint">Give the cast something to talk about: an idea, a link to an article, or both. With a link, the station reads the page and the cast discusses the real story; a fact-checker cuts anything the article doesn't support. Pick a show or let whichever show is on air take it.</p>
       <form id="add">
-        <textarea id="text" maxlength="280" placeholder="e.g. Greg finds out the station replaced him with a weather app" required></textarea>
+        <textarea id="text" maxlength="280" placeholder="An idea (e.g. Greg finds out the station replaced him with a weather app) or an angle on the link below"></textarea>
+        <input id="url" type="url" placeholder="Link to an article (optional) - https://..." />
         <div class="row">
           <label>SHOW <select id="show"><option value="">Any show</option></select></label>
           <label>AIR IT <input id="uses" type="number" min="1" max="10" value="2" style="width:64px" /> TIMES</label>
@@ -70,18 +79,54 @@
           if (retired) li.className = "retired";
           const body = document.createElement("div");
           body.className = "text";
-          body.textContent = t.text;
+          body.textContent = t.text || t.url;
           const meta = document.createElement("div");
           meta.className = "meta";
-          meta.textContent = `${showName(t.showId)} · aired ${t.uses}/${t.maxUses}${retired ? " · retired" : t.uses ? "" : " · queued"}`;
+          const waiting = t.fetchStatus === "pending" ? " · reading link" : t.fetchStatus === "failed" ? " · on hold" : "";
+          meta.textContent = `${showName(t.showId)} · aired ${t.uses}/${t.maxUses}${retired ? " · retired" : waiting || (t.uses ? "" : " · queued")}`;
           body.append(meta);
-          const del = document.createElement("button");
-          del.className = "ghost";
-          del.textContent = "REMOVE";
-          del.onclick = async () => { await fetch(`/api/topics/${t.id}`, { method: "DELETE" }); load(); };
-          li.append(body, del);
+          if (t.url) body.append(sourceBox(t));
+          const actions = document.createElement("div");
+          actions.className = "actions";
+          if (t.fetchStatus === "failed") actions.append(button("RETRY", async () => { await fetch(`/api/topics/${t.id}/retry`, { method: "POST" }); load(); }));
+          actions.append(button("REMOVE", async () => { await fetch(`/api/topics/${t.id}`, { method: "DELETE" }); load(); }));
+          li.append(body, actions);
           list.append(li);
         }
+      }
+
+      function button(label, onclick) {
+        const b = document.createElement("button");
+        b.className = "ghost";
+        b.textContent = label;
+        b.onclick = onclick;
+        return b;
+      }
+
+      function sourceBox(t) {
+        const box = document.createElement("div");
+        box.className = `src ${t.fetchStatus}`;
+        const line = (label, value) => {
+          const div = document.createElement("div");
+          const b = document.createElement("b");
+          b.textContent = value;
+          div.append(label, b);
+          return div;
+        };
+        box.append(line("LINK ", t.url));
+        if (t.fetchStatus === "pending") box.append(line("", "Reading the page…"));
+        if (t.fetchStatus === "failed") box.append(line("COULDN'T READ IT: ", t.fetchError ?? "unknown error"));
+        if (t.fetchStatus === "ok" && t.source) {
+          box.append(line("READ ", `${t.source.title} — ${t.source.site}${t.source.publishedAt ? " · " + t.source.publishedAt.slice(0, 10) : ""}`));
+          const d = document.createElement("details");
+          const sum = document.createElement("summary");
+          sum.textContent = `What the writers will see (${t.source.chars.toLocaleString()} characters)`;
+          const p = document.createElement("div");
+          p.textContent = (t.source.description ? t.source.description + " — " : "") + t.source.preview + (t.source.chars > 400 ? "…" : "");
+          d.append(sum, p);
+          box.append(d);
+        }
+        return box;
       }
 
       $("add").addEventListener("submit", async (e) => {
@@ -90,15 +135,16 @@
         const res = await fetch("/api/topics", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ text: $("text").value, showId: $("show").value || null, maxUses: Number($("uses").value) }),
+          body: JSON.stringify({ text: $("text").value, url: $("url").value, showId: $("show").value || null, maxUses: Number($("uses").value) }),
         });
         if (!res.ok) { $("error").textContent = (await res.json()).error ?? "Couldn't add that."; return; }
         $("text").value = "";
+        $("url").value = "";
         load();
       });
 
       load();
-      setInterval(load, 10000);
+      setInterval(load, 4000);
     </script>
   </body>
 </html>

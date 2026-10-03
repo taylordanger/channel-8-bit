@@ -81,5 +81,19 @@ export function openDb(file: string): DB {
   const db = new Database(file);
   db.pragma("journal_mode = WAL");
   db.exec(SCHEMA);
+  migrate(db);
   return db;
+}
+
+/** Additive column migrations for databases created by earlier versions. */
+function migrate(db: DB) {
+  const cols = (table: string) => new Set((db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name));
+  const topics = cols("topics");
+  const add: [string, string][] = [
+    ["url", "TEXT"],
+    ["source", "TEXT"], // Source JSON once the link has been read
+    ["fetch_status", "TEXT NOT NULL DEFAULT 'none'"], // none | pending | ok | failed
+    ["fetch_error", "TEXT"],
+  ];
+  for (const [name, type] of add) if (!topics.has(name)) db.exec(`ALTER TABLE topics ADD COLUMN ${name} ${type}`);
 }

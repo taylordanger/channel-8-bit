@@ -34,6 +34,23 @@ Set `ANTHROPIC_API_KEY` to bring in the Claude writers' room.
 | Timeline | `src/server/timeline.ts` | One append-only, non-overlapping timeline in SQLite |
 | Player | `src/web/` | Canvas renderer (procedural pixel characters, sets, lower thirds, captions), NTP-style clock sync, Web Audio scheduling |
 
+## Giving the cast things to talk about
+
+Open **/desk.html** (the assignment desk). Add an idea, a link, or both, and pick a show or "any show".
+
+- **Ideas** ("Greg finds out he's been replaced by a weather app") become the segment's topic.
+- **Links** are read by the station (headline, site, date, article text). The cast discusses the real story;
+  every factual claim must come from the article. Sourced segments go through:
+  1. the deterministic standards desk (with real-world topics allowed, since there's a source),
+  2. a number check: every number spoken on air must appear in the article,
+  3. a Claude standards review (defamation, harassment, advice),
+  4. a Claude fact-check of every line against the article - unsupported claims are rewritten or cut.
+- Page text is treated as untrusted data, never instructions. Only public http(s) pages are read (no local
+  network, every redirect re-checked, 3 MB / 12 s limits). Desk changes are only accepted from this machine.
+- Without an API key, the improv troupe can only use a link's headline.
+
+The cast lineup (**/lineup.html**, `?ids=rex,glimmer` for close-ups) shows every character's look.
+
 ## Safety rails
 
 - `npm run check` — typecheck + tests, including **shadow runs**: a whole simulated day through the real

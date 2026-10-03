@@ -11,6 +11,7 @@ import { Ledger } from "./ledger.js";
 import { MemoryBank } from "./memory.js";
 import { Producer } from "./producer.js";
 import { TopicDesk } from "./desk.js";
+import { FactChecker } from "./factcheck.js";
 import { DEFAULT_POLICY, LlmStandards, type StandardsPolicy } from "./standards.js";
 import { Station } from "./station.js";
 import { Timeline } from "./timeline.js";
@@ -18,6 +19,7 @@ import { SayTTS, SilentTTS, installedSayVoices, type TTSEngine } from "./tts.js"
 import { ClaudeWriter } from "./writers/claude.js";
 import { ImprovWriter } from "./writers/improv.js";
 import type { Writer } from "./writers/script.js";
+import type { Source } from "./sources.js";
 
 export interface BuildOptions {
   clock?: Clock;
@@ -26,6 +28,8 @@ export interface BuildOptions {
   writers?: Writer[];
   onSegment?: (s: Segment) => void;
   log?: (msg: string) => void;
+  /** Override how assignment-desk links are read (tests). */
+  sourceReader?: (url: string) => Promise<Source>;
 }
 
 /** Extra blocklist patterns from data/standards.json: { "blocklist": ["regex", ...] }. */
@@ -33,7 +37,7 @@ function loadPolicy(dataDir: string): StandardsPolicy {
   const file = path.join(dataDir, "standards.json");
   if (!fs.existsSync(file)) return DEFAULT_POLICY;
   const extra = (JSON.parse(fs.readFileSync(file, "utf8")) as { blocklist?: string[] }).blocklist ?? [];
-  return { blocklist: [...DEFAULT_POLICY.blocklist, ...extra.map((p) => new RegExp(p, "i"))] };
+  return { ...DEFAULT_POLICY, blocklist: [...DEFAULT_POLICY.blocklist, ...extra.map((p) => new RegExp(p, "i"))] };
 }
 
 export async function checkVoices(): Promise<string[]> {
@@ -49,7 +53,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   const db = openDb(o.dbFile ?? path.join(config.dataDir, "station.db"));
   const timeline = new Timeline(db);
   const memory = new MemoryBank(db);
-  const desk = new TopicDesk(db);
+  const desk = new TopicDesk(db, o.sourceReader);
   const ledger = new Ledger(db, config.timeZone);
   const governor = new Governor({ ...config, ledger });
   const tts = o.tts ?? (config.tts === "say" ? new SayTTS(path.join(config.dataDir, "media")) : new SilentTTS());
@@ -65,6 +69,8 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
       ? new LlmStandards({ model: config.models.premium, ledger, clock })
       : undefined;
 
+  const factChecker =
+    config.writer === "claude" && !o.writers ? new FactChecker({ model: config.models.premium, ledger, clock }) : undefined;
   const producer = new Producer({
     timeline,
     memory,
@@ -72,6 +78,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     tts,
     writers,
     llmStandards,
+    factChecker,
     policy: loadPolicy(config.dataDir),
     timeZone: config.timeZone,
     log: o.log,
@@ -87,6 +94,8 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     onSegment: o.onSegment,
     log: o.log,
   });
+  // Finish reading any links a restart interrupted.
+  for (const t of desk.pending()) void desk.ingest(t.id);
   return { db, clock, timeline, memory, desk, ledger, governor, tts, writers, producer, station };
 }
 

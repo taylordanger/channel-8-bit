@@ -22,7 +22,13 @@ beforeAll(async () => {
   fs.mkdirSync(path.join(dataDir, "media"));
   fs.writeFileSync(path.join(dataDir, "secret.txt"), "nope");
   const config = { ...loadConfig({}), dataDir, port: 0, tts: "silent" as const, writer: "improv" as const, timeZone: "UTC" };
-  built = buildStation(config, { clock: new ManualClock(Date.UTC(2026, 9, 3, 12)), dbFile: ":memory:", tts: new SilentTTS(), writers: [new ImprovWriter(1)] });
+  built = buildStation(config, {
+    clock: new ManualClock(Date.UTC(2026, 9, 3, 12)),
+    dbFile: ":memory:",
+    tts: new SilentTTS(),
+    writers: [new ImprovWriter(1)],
+    sourceReader: async (url) => ({ url, title: "Goat Mayor", site: "Example", description: "", publishedAt: "", text: "A goat won." }),
+  });
   http = startHttp(config, built, publicDir);
   await new Promise((r) => http.server.once("listening", r));
   const addr = http.server.address() as { port: number };
@@ -61,6 +67,28 @@ describe("http + ws", () => {
     expect(list.topics.map((t: { id: number }) => t.id)).toContain(topic.id);
     expect(list.shows.length).toBe(4);
     expect(await (await fetch(`${base}/api/topics/${topic.id}`, { method: "DELETE" })).json()).toEqual({ removed: true });
+  });
+
+  it("accepts a link pasted into the topic box, reads it, and refuses local links", async () => {
+    const res = await fetch(base + "/api/topics", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: "react to this https://93.184.216.34/goat please" }),
+    });
+    expect(res.status).toBe(201);
+    const t = await res.json();
+    expect(t.url).toBe("https://93.184.216.34/goat");
+    expect(t.text).toBe("react to this please");
+    await new Promise((r) => setTimeout(r, 50));
+    const listed = (await (await fetch(base + "/api/topics")).json()).topics.find((x: { id: number }) => x.id === t.id);
+    expect(listed).toMatchObject({ fetchStatus: "ok", source: { title: "Goat Mayor" } });
+    expect(listed.source.text).toBeUndefined(); // full page text stays on the server
+    const local = await fetch(base + "/api/topics", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: "http://127.0.0.1:8088/api/status" }),
+    });
+    expect(local.status).toBe(400);
   });
 
   it("refuses path traversal out of the media and public dirs", async () => {

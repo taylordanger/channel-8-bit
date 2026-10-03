@@ -5,7 +5,15 @@ import type { ScheduledSlot } from "./catalog/schedule.js";
 import { getShow, type Show } from "./catalog/shows.js";
 import type { TopicDesk } from "./desk.js";
 import type { MemoryBank } from "./memory.js";
-import { deterministicStandards, type LlmStandards, type StandardsNote, type StandardsPolicy, DEFAULT_POLICY } from "./standards.js";
+import { checkNumbers, type FactChecker } from "./factcheck.js";
+import {
+  deterministicStandards,
+  type LlmStandards,
+  type StandardsNote,
+  type StandardsPolicy,
+  type StandardsResult,
+  DEFAULT_POLICY,
+} from "./standards.js";
 import type { Timeline } from "./timeline.js";
 import type { TTSEngine } from "./tts.js";
 import { rng } from "./writers/improv.js";
@@ -37,6 +45,8 @@ export interface ProducerDeps {
   /** Tried in order; the last one should never fail (the improv writer). */
   writers: Writer[];
   llmStandards?: LlmStandards;
+  /** Verifies sourced segments against the submitted article. */
+  factChecker?: FactChecker;
   policy?: StandardsPolicy;
   timeZone: string;
   log?: (msg: string) => void;
@@ -126,6 +136,7 @@ export class Producer {
       segmentType,
       topic: desk?.text ?? pick(show.topics),
       deskTopicId: desk?.id,
+      source: desk?.fetchStatus === "ok" ? (desk.source ?? undefined) : undefined,
       cast,
       guest,
       targetSeconds: Math.max(20, targetSeconds),
@@ -145,19 +156,12 @@ export class Producer {
 
   private async live(at: number, slot: ScheduledSlot, targetSeconds: number, writers: Writer[]): Promise<Produced> {
     const brief = this.brief(at, slot, targetSeconds);
-    const policy = this.d.policy ?? DEFAULT_POLICY;
     let lastError = "";
 
     for (const writer of writers) {
       try {
         const { script: draft, writer: writerName } = await writer.write(brief);
-        let checked = deterministicStandards(draft, brief, policy);
-        if (!checked.rejected && this.d.llmStandards && brief.show.tier === "premium" && writer.name !== "improv") {
-          const reviewed = await this.d.llmStandards.review(checked.script, brief.show.id);
-          checked = reviewed.rejected
-            ? reviewed
-            : { ...deterministicStandards(reviewed.script, brief, policy), notes: [...checked.notes, ...reviewed.notes] };
-        }
+        const checked = await this.clear(draft, brief, writer.name !== "improv");
         if (checked.rejected) {
           lastError = `${writer.name}: ${checked.rejected}`;
           this.d.log?.(`standards rejected a ${brief.show.id} script from ${writer.name}: ${checked.rejected}`);
@@ -172,6 +176,42 @@ export class Producer {
       }
     }
     throw new Error(`every writer failed (${lastError})`);
+  }
+
+  /**
+   * Everything a script must pass before air, in order. Each model pass is followed by
+   * the deterministic desk again, since rewrites are new text.
+   */
+  private async clear(draft: Script, brief: WriterBrief, modelPasses: boolean): Promise<StandardsResult> {
+    const policy = this.d.policy ?? DEFAULT_POLICY;
+    const notes: StandardsNote[] = [];
+    const step = (r: StandardsResult) => {
+      notes.push(...r.notes);
+      return r;
+    };
+    let r = step(deterministicStandards(draft, brief, policy));
+    if (r.rejected) return { ...r, notes };
+
+    if (modelPasses && this.d.llmStandards && (brief.show.tier === "premium" || brief.source)) {
+      r = step(await this.d.llmStandards.review(r.script, brief.show.id, Boolean(brief.source)));
+      if (r.rejected) return { ...r, notes };
+      r = step(deterministicStandards(r.script, brief, policy));
+      if (r.rejected) return { ...r, notes };
+    }
+
+    if (brief.source) {
+      r = step(checkNumbers(r.script, brief.source));
+      if (r.rejected) return { ...r, notes };
+      if (modelPasses && this.d.factChecker) {
+        r = step(await this.d.factChecker.check(r.script, brief.source, brief.show.id));
+        if (r.rejected) return { ...r, notes };
+        r = step(deterministicStandards(r.script, brief, policy));
+        if (r.rejected) return { ...r, notes };
+        r = step(checkNumbers(r.script, brief.source));
+        if (r.rejected) return { ...r, notes };
+      }
+    }
+    return { script: r.script, notes };
   }
 
   /** Voice every line and lay the cues end to end. Durations come from the real audio. */
