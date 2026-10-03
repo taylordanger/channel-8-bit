@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "npm run build:web && tsx watch src/server/main.ts",
     "start": "npm run build:web && tsx src/server/main.ts",
-    "build:web": "esbuild src/web/main.ts --bundle --format=esm --outfile=public/app.js --sourcemap",
+    "build:web": "esbuild src/web/main.ts src/web/lineup.ts --bundle --format=esm --outdir=public --entry-names=[name] --sourcemap && mv public/main.js public/app.js && mv public/main.js.map public/app.js.map && sed -i '' 's/main.js.map/app.js.map/' public/app.js",
     "shadow": "tsx src/server/shadow.ts",
     "rehearse": "npm run build:web && CLOCK_OFFSET_MIN=${OFFSET:-540} DATA_DIR=data-rehearsal PORT=8089 tsx src/server/main.ts",
     "test": "vitest run",

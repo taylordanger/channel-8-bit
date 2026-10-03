@@ -44,6 +44,25 @@ describe("http + ws", () => {
     expect(status.decision.reason).toBe("nobody watching");
   });
 
+  it("serves the cast and lets this machine manage the assignment desk", async () => {
+    const cast = await (await fetch(base + "/api/cast")).json();
+    expect(cast.length).toBeGreaterThanOrEqual(16);
+    const add = await fetch(base + "/api/topics", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: "Rex buys a boat", showId: "late_byte", maxUses: 3 }),
+    });
+    expect(add.status).toBe(201);
+    const topic = await add.json();
+    expect(topic).toMatchObject({ text: "Rex buys a boat", showId: "late_byte", maxUses: 3 });
+    const bad = await fetch(base + "/api/topics", { method: "POST", body: "{not json" });
+    expect(bad.status).toBe(400);
+    const list = await (await fetch(base + "/api/topics")).json();
+    expect(list.topics.map((t: { id: number }) => t.id)).toContain(topic.id);
+    expect(list.shows.length).toBe(4);
+    expect(await (await fetch(`${base}/api/topics/${topic.id}`, { method: "DELETE" })).json()).toEqual({ removed: true });
+  });
+
   it("refuses path traversal out of the media and public dirs", async () => {
     expect((await fetch(base + "/media/..%2Fsecret.txt")).status).toBe(404);
     expect((await fetch(base + "/media/../secret.txt")).status).toBe(404);

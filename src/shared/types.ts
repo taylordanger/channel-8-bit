@@ -8,22 +8,44 @@ export type Emotion = (typeof EMOTIONS)[number];
 export const ACTIONS = ["none", "laugh", "lean_in", "gesture", "stand", "dance", "walk_off", "enter", "applause"] as const;
 export type Action = (typeof ACTIONS)[number];
 
-export const HAIR_STYLES = ["short", "long", "bald", "mohawk", "bun", "afro", "spiky", "bob"] as const;
+export const HAIR_STYLES = [
+  "short", "long", "bald", "mohawk", "bun", "afro", "spiky", "bob",
+  "pompadour", "swoop", "wild", "ponytail", "huge",
+] as const;
 export type HairStyle = (typeof HAIR_STYLES)[number];
 
-export const ACCESSORIES = ["none", "glasses", "shades", "hat", "bowtie", "earrings", "headphones", "beanie"] as const;
+export const ACCESSORIES = [
+  "glasses", "shades", "goggles", "hat", "starhat", "beanie", "headband",
+  "headphones", "headset", "bowtie", "earrings", "necklace", "bandage",
+] as const;
 export type Accessory = (typeof ACCESSORIES)[number];
+
+export type Build = "slim" | "average" | "broad" | "round" | "tiny";
+export type Eyes = "dot" | "wide" | "sleepy" | "lashes" | "beady";
+export type Nose = "none" | "small" | "big" | "long";
+export type FacialFeature = "none" | "mustache" | "beard" | "stubble" | "freckles" | "blush";
+export type Outfit = "plain" | "stripes" | "suit" | "hoodie" | "dress" | "gown" | "labcoat" | "tank" | "turtleneck" | "vest";
 
 /** Procedural pixel-art description of a character. The player draws it; no sprite files needed. */
 export interface Look {
   skin: string;
   hair: string;
   hairStyle: HairStyle;
+  /** Main garment color. */
   shirt: string;
   pants: string;
-  accessory: Accessory;
-  /** Body height in logical pixels (roughly 30-40). */
+  /** Secondary color: tie, stripes, trim. */
+  accent: string;
+  outfit: Outfit;
+  build: Build;
+  eyes: Eyes;
+  nose: Nose;
+  facial: FacialFeature;
+  accessories: Accessory[];
+  /** Body height in logical pixels (roughly 34-48). */
   height: number;
+  /** Visual glitching (for characters who are "slightly malfunctioning"). */
+  glitch?: boolean;
 }
 
 export type SetId = "late_night" | "morning_couch" | "soap_livingroom" | "basement" | "bumper";

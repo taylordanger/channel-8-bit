@@ -3,6 +3,7 @@ import type { CastMember, Cue, Segment } from "../shared/types.js";
 import { getCharacter, type Character } from "./catalog/characters.js";
 import type { ScheduledSlot } from "./catalog/schedule.js";
 import { getShow, type Show } from "./catalog/shows.js";
+import type { TopicDesk } from "./desk.js";
 import type { MemoryBank } from "./memory.js";
 import { deterministicStandards, type LlmStandards, type StandardsNote, type StandardsPolicy, DEFAULT_POLICY } from "./standards.js";
 import type { Timeline } from "./timeline.js";
@@ -31,6 +32,7 @@ export interface Produced {
 export interface ProducerDeps {
   timeline: Timeline;
   memory: MemoryBank;
+  desk?: TopicDesk;
   tts: TTSEngine;
   /** Tried in order; the last one should never fail (the improv writer). */
   writers: Writer[];
@@ -88,8 +90,16 @@ export class Producer {
     const recentIds = new Set(this.d.timeline.range(at - 6 * 3_600_000, at).map((s) => s.id));
     const old = this.d.timeline.pickRerun(showId, maxMs, recentIds);
     if (!old) return undefined;
+    // Characters get redesigned; encores show everyone as they look today.
+    const cast = old.cast.map((m) => {
+      try {
+        return { ...m, look: getCharacter(m.id).look };
+      } catch {
+        return m;
+      }
+    });
     return {
-      segment: { ...old, id: crypto.randomUUID(), startAt: 0, kind: "rerun", title: `${old.title} (encore)` },
+      segment: { ...old, cast, id: crypto.randomUUID(), startAt: 0, kind: "rerun", title: `${old.title.replace(/ \(encore\)$/, "")} (encore)` },
       summary: "",
       notes: [],
       rerunOf: old.id,
@@ -110,10 +120,12 @@ export class Producer {
     }
     const cast = [...show.cast.map(getCharacter), ...(guest ? [guest] : [])];
     const ids = cast.map((c) => c.id);
+    const desk = this.d.desk?.nextFor(show.id);
     return {
       show,
       segmentType,
-      topic: pick(show.topics),
+      topic: desk?.text ?? pick(show.topics),
+      deskTopicId: desk?.id,
       cast,
       guest,
       targetSeconds: Math.max(20, targetSeconds),
@@ -152,6 +164,7 @@ export class Producer {
           continue;
         }
         const segment = await this.assemble(brief.show, brief.cast, checked.script, writerName);
+        if (brief.deskTopicId) this.d.desk?.markUsed(brief.deskTopicId, at);
         return { segment, summary: checked.script.summary, script: checked.script, notes: checked.notes };
       } catch (err) {
         lastError = `${writer.name}: ${(err as Error).message}`;

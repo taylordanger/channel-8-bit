@@ -105,10 +105,12 @@ export class ImprovWriter implements Writer {
     const cast = b.cast;
     const fill = (l: Line, who: Character, other: Character): Beat => ({
       speaker: who.id,
-      line: l.text
-        .replaceAll("{catch}", pick(who.catchphrases))
-        .replaceAll("{topic}", b.topic)
-        .replaceAll("{other}", other.name.split(" ")[0]),
+      line: sentenceCase(
+        l.text
+          .replaceAll("{catch}", pick(who.catchphrases))
+          .replaceAll("{topic}", b.topic)
+          .replaceAll("{other}", other.name.split(" ")[0]),
+      ),
       emotion: l.emotion,
       action: l.action ?? "none",
       target: l.target === "other" ? other.id : (l.target ?? other.id),
@@ -123,6 +125,7 @@ export class ImprovWriter implements Writer {
     const beats: Beat[] = [];
     const recent = new Set(b.recentLines);
     const usedCores = new Set<Line>();
+    const usedBits = new Set<string>();
     let speakerIdx = 0;
     const next = () => cast[speakerIdx++ % cast.length];
     const otherThan = (c: Character) => pick(cast.filter((x) => x.id !== c.id)) ?? c;
@@ -133,6 +136,17 @@ export class ImprovWriter implements Writer {
     const target = b.targetSeconds * 1000 * 0.85;
     for (let guard = 0; ms < target && guard < 60; guard++) {
       const who = r() < 0.25 ? pick(cast) : next();
+      // Signature bits make the troupe sound like the actual characters.
+      const freshBits = who.bits.filter((x) => !usedBits.has(x));
+      if (freshBits.length && r() < 0.4) {
+        const bitText = pick(freshBits);
+        usedBits.add(bitText);
+        const beat = fill({ text: bitText, emotion: pick(BIT_EMOTIONS), action: r() < 0.25 ? "gesture" : "none", target: "other" }, who, otherThan(who));
+        if (recent.has(beat.line) || beats.some((x) => x.line === beat.line)) continue;
+        beats.push(beat);
+        ms += estimateSpeechMs(beat.line) + 350;
+        continue;
+      }
       const core = pick(middle);
       if (usedCores.has(core) && usedCores.size < middle.length) continue;
       usedCores.add(core);
@@ -170,5 +184,10 @@ function hash(s: string): number {
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
 }
+
+/** Capitalize the start of each sentence (slots can drop lowercase text at a sentence start). */
+const sentenceCase = (s: string) => s.replace(/(^|[.!?]\s+)([a-z])/g, (_m, pre: string, ch: string) => pre + ch.toUpperCase());
+
+const BIT_EMOTIONS: Emotion[] = ["smug", "happy", "neutral", "surprised", "angry"];
 
 const titleCase = (s: string) => s.replace(/(^|\s)\w/g, (c) => c.toUpperCase());

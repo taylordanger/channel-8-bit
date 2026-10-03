@@ -24,8 +24,16 @@ ${show.bible}
 Segment types this show runs: ${show.segmentTypes.join(", ")}.
 ${show.serialized ? "This show is SERIALIZED: every segment must advance the plot, and you must return the updated storyState." : "This show is episodic: storyState must be an empty string."}
 
-CHARACTERS (id - name: bible | catchphrases):
-${people.map((c) => `- ${c.id} - ${c.name}: ${c.bible} | ${c.catchphrases.map((p) => `"${p}"`).join(", ")}`).join("\n")}`;
+CHARACTERS (id - name: bible | catchphrases | sample lines showing their voice - write NEW lines in this voice, don't reuse these):
+${people
+  .map(
+    (c) =>
+      `- ${c.id} - ${c.name}: ${c.bible} | ${c.catchphrases.map((p) => `"${p}"`).join(", ")} | e.g. ${c.bits
+        .slice(0, 3)
+        .map((b) => `"${b}"`)
+        .join(" ")}`,
+  )
+  .join("\n")}`;
 }
 
 /** The volatile part: this segment's assignment and the cast's current state. */
@@ -35,7 +43,9 @@ export function userPrompt(b: WriterBrief): string {
   const sections = [
     `ASSIGNMENT: Write a "${b.segmentType}" segment, about ${b.targetSeconds} seconds of air time (roughly ${lines} lines). It is ${b.localTime} at the station.`,
     `ON SET: ${b.cast.map((c) => `${c.id} (${c.name})`).join(", ")}.${b.guest ? ` Tonight's guest is ${b.guest.name} (${b.guest.id}).` : ""}`,
-    `TOPIC SEED (use it, twist it, or abandon it for a better bit): ${b.topic}`,
+    b.deskTopicId
+      ? `TOPIC FROM THE ASSIGNMENT DESK (the producers asked for this - build the segment around it, in character, for this show's format): ${b.topic}`
+      : `TOPIC SEED (use it, twist it, or abandon it for a better bit): ${b.topic}`,
   ];
   if (b.storyState) sections.push(`STORY SO FAR:\n${b.storyState}`);
   if (b.previously.length) sections.push(`PREVIOUSLY:\n${b.previously.map((s) => `- ${s}`).join("\n")}`);

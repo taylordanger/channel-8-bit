@@ -57,6 +57,16 @@ CREATE TABLE IF NOT EXISTS usage (
 );
 CREATE INDEX IF NOT EXISTS usage_day ON usage(day);
 
+CREATE TABLE IF NOT EXISTS topics (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  text         TEXT NOT NULL,
+  show_id      TEXT,                -- NULL = any show
+  created_at   INTEGER NOT NULL,
+  uses         INTEGER NOT NULL DEFAULT 0,
+  max_uses     INTEGER NOT NULL DEFAULT 2,
+  last_used_at INTEGER
+);
+
 CREATE TABLE IF NOT EXISTS standards_log (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   at         INTEGER NOT NULL,

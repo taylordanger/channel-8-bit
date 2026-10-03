@@ -54,6 +54,8 @@ export interface WriterBrief {
   show: Show;
   segmentType: string;
   topic: string;
+  /** Set when the topic came from the assignment desk (a human asked for it). */
+  deskTopicId?: number;
   /** Characters on set for this segment (regulars plus any guest). */
   cast: Character[];
   guest?: Character;

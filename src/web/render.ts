@@ -1,4 +1,5 @@
-import { ENVELOPE_STEP_MS, type CastMember, type Cue, type GuideEntry, type Look, type Segment, type SetId } from "../shared/types.js";
+import { ENVELOPE_STEP_MS, type CastMember, type Cue, type GuideEntry, type Segment, type SetId } from "../shared/types.js";
+import { drawSprite, shade } from "./sprite.js";
 
 export const W = 320;
 export const H = 180;
@@ -16,11 +17,6 @@ const noise = (i: number) => {
   return x - Math.floor(x);
 };
 
-function shade(hex: string, amt: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  const f = (c: number) => Math.max(0, Math.min(255, Math.round(c + amt * 255)));
-  return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
-}
 
 // ---------------------------------------------------------------------------
 // Sets: background, marks (where cast members stand/sit), and foreground props.
@@ -242,186 +238,6 @@ const SETS: Record<Exclude<SetId, "bumper">, SetDef> = {
 };
 
 // ---------------------------------------------------------------------------
-// Characters
-
-interface Pose {
-  mouth: number; // 0..9
-  emotion: Cue["emotion"];
-  blink: boolean;
-  dx: number;
-  dy: number;
-  armUp: boolean;
-  face: 1 | -1;
-}
-
-function drawHair(g: Ctx, look: Look, hx: number, hy: number) {
-  const c = look.hair;
-  switch (look.hairStyle) {
-    case "bald":
-      break;
-    case "short":
-      px(g, c, hx - 1, hy - 2, 12, 4);
-      px(g, c, hx - 1, hy, 2, 3);
-      break;
-    case "long":
-      px(g, c, hx - 2, hy - 2, 14, 4);
-      px(g, c, hx - 2, hy, 3, 14);
-      px(g, c, hx + 9, hy, 3, 14);
-      break;
-    case "bob":
-      px(g, c, hx - 2, hy - 2, 14, 4);
-      px(g, c, hx - 2, hy, 3, 9);
-      px(g, c, hx + 9, hy, 3, 9);
-      break;
-    case "bun":
-      px(g, c, hx - 1, hy - 2, 12, 4);
-      px(g, c, hx + 3, hy - 6, 5, 5);
-      break;
-    case "afro":
-      px(g, c, hx - 4, hy - 6, 18, 9);
-      px(g, c, hx - 4, hy + 2, 3, 6);
-      px(g, c, hx + 11, hy + 2, 3, 6);
-      break;
-    case "mohawk":
-      px(g, c, hx + 3, hy - 6, 4, 7);
-      break;
-    case "spiky":
-      for (let i = 0; i < 5; i++) px(g, c, hx - 1 + i * 2.5, hy - 4 + (i % 2) * 2, 2, 5);
-      px(g, c, hx - 1, hy - 1, 12, 2);
-      break;
-  }
-}
-
-function drawCharacter(g: Ctx, look: Look, mark: Mark, p: Pose) {
-  const h = look.height;
-  const x = mark.x + p.dx;
-  const feet = mark.y + p.dy + (mark.seated ? 8 : 0);
-  const headH = 10;
-  const torsoH = Math.round(h * 0.38);
-  const legH = h - headH - torsoH;
-  const top = feet - h;
-  const hx = x - 5; // head left
-  const hy = top;
-  const tx = x - 6; // torso left
-  const ty = top + headH;
-
-  // legs
-  px(g, look.pants, tx + 1, ty + torsoH, 4, legH);
-  px(g, look.pants, tx + 7, ty + torsoH, 4, legH);
-  px(g, "#1a1a1a", tx, feet - 2, 5, 2);
-  px(g, "#1a1a1a", tx + 7, feet - 2, 5, 2);
-  // torso + arms
-  px(g, look.shirt, tx, ty, 12, torsoH);
-  px(g, shade(look.shirt, -0.12), tx, ty + torsoH - 2, 12, 2);
-  if (p.armUp) {
-    const ax = p.face === 1 ? tx + 12 : tx - 3;
-    px(g, look.shirt, ax, ty - 6, 3, 9);
-    px(g, look.skin, ax, ty - 9, 3, 3);
-  } else {
-    px(g, shade(look.shirt, -0.08), tx - 2, ty + 1, 2, torsoH - 3);
-    px(g, shade(look.shirt, -0.08), tx + 12, ty + 1, 2, torsoH - 3);
-    px(g, look.skin, tx - 2, ty + torsoH - 2, 2, 2);
-    px(g, look.skin, tx + 12, ty + torsoH - 2, 2, 2);
-  }
-  // neck + head
-  px(g, look.skin, x - 2, ty - 1, 4, 2);
-  px(g, look.skin, hx, hy, 10, headH);
-  px(g, shade(look.skin, -0.08), hx, hy + headH - 1, 10, 1);
-
-  // face: eyes look toward where the character is facing
-  const ex = hx + (p.face === 1 ? 3 : 2);
-  const ey = hy + 4;
-  if (p.blink) {
-    px(g, "#1a1a1a", ex, ey + 1, 2, 1);
-    px(g, "#1a1a1a", ex + 4, ey + 1, 2, 1);
-  } else {
-    px(g, "#1a1a1a", ex + (p.face === 1 ? 1 : 0), ey, 1, 2);
-    px(g, "#1a1a1a", ex + 4 + (p.face === 1 ? 1 : 0), ey, 1, 2);
-  }
-  // brows by emotion
-  const brow = "#2a1a10";
-  switch (p.emotion) {
-    case "angry":
-      px(g, brow, ex, ey - 2, 1, 1);
-      px(g, brow, ex + 1, ey - 1, 1, 1);
-      px(g, brow, ex + 5, ey - 2, 1, 1);
-      px(g, brow, ex + 4, ey - 1, 1, 1);
-      break;
-    case "sad":
-    case "nervous":
-      px(g, brow, ex + 1, ey - 2, 1, 1);
-      px(g, brow, ex, ey - 1, 1, 1);
-      px(g, brow, ex + 4, ey - 2, 1, 1);
-      px(g, brow, ex + 5, ey - 1, 1, 1);
-      break;
-    case "surprised":
-      px(g, brow, ex, ey - 3, 2, 1);
-      px(g, brow, ex + 4, ey - 3, 2, 1);
-      break;
-    case "smug":
-      px(g, brow, ex, ey - 2, 2, 1);
-      px(g, brow, ex + 4, ey - 3, 2, 1);
-      break;
-    default:
-      px(g, brow, ex, ey - 2, 2, 1);
-      px(g, brow, ex + 4, ey - 2, 2, 1);
-  }
-  // mouth: open height follows the voice envelope
-  const mx = hx + 3;
-  const my = hy + 7;
-  const open = p.mouth >= 6 ? 2 : p.mouth >= 2 ? 1 : 0;
-  if (open) {
-    px(g, "#3a0a0a", mx, my, 4, open + 1);
-    if (open === 2) px(g, "#c0392b", mx + 1, my + 2, 2, 1);
-  } else if (p.emotion === "happy" || p.emotion === "smug") {
-    px(g, "#3a0a0a", mx, my, 1, 1);
-    px(g, "#3a0a0a", mx + 1, my + 1, 2, 1);
-    px(g, "#3a0a0a", mx + 3, p.emotion === "smug" ? my - 1 : my, 1, 1);
-  } else if (p.emotion === "sad" || p.emotion === "angry") {
-    px(g, "#3a0a0a", mx, my + 1, 1, 1);
-    px(g, "#3a0a0a", mx + 1, my, 2, 1);
-    px(g, "#3a0a0a", mx + 3, my + 1, 1, 1);
-  } else {
-    px(g, "#3a0a0a", mx, my, 4, 1);
-  }
-
-  drawHair(g, look, hx, hy);
-  switch (look.accessory) {
-    case "glasses":
-      g.strokeStyle = "#222";
-      g.lineWidth = 1;
-      g.strokeRect(ex - 0.5, ey - 0.5, 3, 3);
-      g.strokeRect(ex + 3.5, ey - 0.5, 3, 3);
-      break;
-    case "shades":
-      px(g, "#000", ex - 1, ey - 1, 8, 3);
-      break;
-    case "hat":
-      px(g, "#222", hx - 3, hy - 2, 16, 2);
-      px(g, "#222", hx, hy - 7, 10, 5);
-      break;
-    case "beanie":
-      px(g, "#c0392b", hx - 1, hy - 4, 12, 6);
-      px(g, "#e74c3c", hx - 1, hy + 1, 12, 1);
-      break;
-    case "bowtie":
-      px(g, "#d4af37", x - 3, ty, 2, 3);
-      px(g, "#d4af37", x + 1, ty, 2, 3);
-      px(g, "#b8962e", x - 1, ty + 1, 2, 1);
-      break;
-    case "earrings":
-      px(g, "#ffd700", hx - 1, hy + 6, 1, 2);
-      px(g, "#ffd700", hx + 10, hy + 6, 1, 2);
-      break;
-    case "headphones":
-      px(g, "#333", hx - 1, hy - 3, 12, 1);
-      px(g, "#333", hx - 2, hy + 3, 2, 4);
-      px(g, "#333", hx + 10, hy + 3, 2, 4);
-      break;
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Scene state: who's speaking, who's on set, what they're doing at time t.
 
 function envAt(cue: Cue, local: number): number {
@@ -500,8 +316,39 @@ export class Renderer {
     o.fillRect(0, 0, this.out.width, this.out.height);
     const ox = Math.floor((this.out.width - W * scale) / 2);
     const oy = Math.floor((this.out.height - H * scale) / 2);
-    o.drawImage(this.sceneCanvas, ox, oy, W * scale, H * scale);
+    const cam = seg && seg.set !== "bumper" ? this.camera : WIDE;
+    const sw = W / cam.zoom;
+    const sh = H / cam.zoom;
+    const sx = Math.max(0, Math.min(W - sw, cam.x - sw / 2));
+    const sy = Math.max(0, Math.min(H - sh, cam.y - sh / 2));
+    o.drawImage(this.sceneCanvas, sx, sy, sw, sh, ox, oy, W * scale, H * scale);
+    o.drawImage(this.crt(scale), ox, oy);
     this.overlay(o, f, ox, oy, scale);
+  }
+
+  private camera: Shot = WIDE;
+  private crtCanvas?: HTMLCanvasElement;
+  private crtScale = 0;
+
+  /** Scanlines + vignette, rebuilt only when the output scale changes. */
+  private crt(scale: number): HTMLCanvasElement {
+    if (this.crtCanvas && this.crtScale === scale) return this.crtCanvas;
+    const c = document.createElement("canvas");
+    c.width = W * scale;
+    c.height = H * scale;
+    const g = c.getContext("2d")!;
+    if (scale >= 3) {
+      g.fillStyle = "rgba(0,0,0,0.13)";
+      for (let y = scale - 1; y < c.height; y += scale) g.fillRect(0, y, c.width, 1);
+    }
+    const v = g.createRadialGradient(c.width / 2, c.height / 2, c.height * 0.35, c.width / 2, c.height / 2, c.width * 0.62);
+    v.addColorStop(0, "rgba(0,0,0,0)");
+    v.addColorStop(1, "rgba(0,0,0,0.45)");
+    g.fillStyle = v;
+    g.fillRect(0, 0, c.width, c.height);
+    this.crtCanvas = c;
+    this.crtScale = scale;
+    return c;
   }
 
   private show(g: Ctx, seg: Segment, now: number) {
@@ -516,7 +363,11 @@ export class Renderer {
     const ev: SceneEvents = { crowd };
     set.back(g, now, ev);
 
-    for (const st of castStates(seg, local, set.marks)) {
+    // Draw back-to-front so seated people on the couch overlap naturally.
+    const states = castStates(seg, local, set.marks).sort(
+      (a, b) => set.marks[a.member.mark % set.marks.length].y - set.marks[b.member.mark % set.marks.length].y,
+    );
+    for (const st of states) {
       if (!st.present) continue;
       const mark = set.marks[st.member.mark % set.marks.length];
       const speaking = cue?.speaker === st.member.id ? cue : undefined;
@@ -527,15 +378,13 @@ export class Renderer {
       const targetId = speaking?.target ?? (cue && cue.speaker !== st.member.id ? cue.speaker : undefined);
       const target = seg.cast.find((c) => c.id === targetId);
       if (target) face = set.marks[target.mark % set.marks.length].x >= mark.x ? 1 : -1;
-      else if (speaking && (speaking.target === "camera" || speaking.target === "audience")) face = mark.face;
 
       const mouth = speaking ? envAt(speaking, local) : 0;
-      const seed = st.member.id.charCodeAt(0);
-      const blink = (now + seed * 777) % 4200 < 120;
-      let dx = st.slide * 140;
+      const seed = st.member.id.charCodeAt(0) * 131 + st.member.id.length * 977;
+      let dx = st.slide * 160;
       let dy = 0;
-      if (speaking && mouth > 5) dy -= 1;
-      if (action === "laugh") dy -= Math.abs(Math.sin(now / 70)) * 2;
+      if (speaking && mouth > 6) dy -= 1;
+      if (action === "laugh") dy -= Math.round(Math.abs(Math.sin(now / 70)) * 2);
       if (action === "lean_in") dx += face * 3;
       if (action === "stand" && mark.seated) dy -= 8;
       if (action === "dance") {
@@ -544,18 +393,20 @@ export class Renderer {
         dx += [0, 2, 0, -2][step];
         dy -= step % 2;
       }
-      drawCharacter(g, st.member.look, mark, {
+      drawSprite(g, st.member.look, mark.x + dx, mark.y + (mark.seated ? 8 : 0) + dy, {
         mouth,
         // Listeners keep the expression from their own last line for a few seconds.
         emotion: speaking?.emotion ?? (own && local - own.t < own.dur + 4000 ? own.emotion : "neutral"),
-        blink,
-        dx,
-        dy,
-        armUp: action === "gesture" || action === "applause" || (action === "dance" && Math.floor(now / 360) % 2 === 0),
-        face,
+        blink: (now + seed) % 4200 < 130,
+        breathe: Math.floor((now + seed) / 900) % 2,
+        armUp: action === "gesture" || (action === "dance" && Math.floor(now / 360) % 2 === 0),
+        clap: action === "applause",
+        facing: face,
+        t: now,
       });
     }
     set.front?.(g, now, ev);
+    this.camera = shotFor(seg, local, set.marks);
   }
 
   private bumper(g: Ctx, now: number, seg: Segment, network: string) {
@@ -635,14 +486,19 @@ export class Renderer {
     // Closed captions.
     const cue = seg.cues.find((c) => local >= c.t && local < c.t + c.dur + 250);
     if (cue) {
-      const name = seg.cast.find((c) => c.id === cue.speaker)?.name ?? cue.speaker;
-      const lines = wrap(`${name.toUpperCase()}: ${cue.text}`, 54);
-      const boxH = (lines.length * 7 + 5) * s;
+      const member = seg.cast.find((c) => c.id === cue.speaker);
+      const name = (member?.name ?? cue.speaker).toUpperCase();
+      const lines = wrap(cue.text, 54);
+      const boxH = ((lines.length + 1) * 7 + 5) * s;
+      const top = oy + (H - 6) * s - boxH;
       o.fillStyle = "#000000d9";
-      o.fillRect(ox + 10 * s, oy + (H - 6) * s - boxH, (W - 20) * s, boxH);
-      o.fillStyle = "#fff";
+      o.fillRect(ox + 10 * s, top, (W - 20) * s, boxH);
+      o.fillStyle = member ? nameColor(member.look.shirt, member.look.accent) : "#ffe066";
+      o.fillRect(ox + 10 * s, top, 2 * s, boxH);
       o.font = font(4);
-      lines.forEach((l, i) => o.fillText(l, ox + 14 * s, oy + (H - 6) * s - boxH + (3 + i * 7) * s));
+      o.fillText(name, ox + 15 * s, top + 3 * s);
+      o.fillStyle = "#fff";
+      lines.forEach((l, i) => o.fillText(l, ox + 15 * s, top + (10 + i * 7) * s));
     }
   }
 }
@@ -660,4 +516,64 @@ function wrap(text: string, width: number): string[] {
   }
   if (line) out.push(line);
   return out.slice(-3);
+}
+
+// ---------------------------------------------------------------------------
+// The director: picks a camera shot for every moment. Shots are derived purely
+// from the segment data, so every viewer sees the same cuts.
+
+interface Shot {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+const WIDE: Shot = { x: W / 2, y: H / 2, zoom: 1 };
+
+function hashStr(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+function shotFor(seg: Segment, local: number, marks: Mark[]): Shot {
+  if (local < 2500) return WIDE; // establishing shot
+  // The shot follows the most recent line (holds through pauses).
+  let i = -1;
+  for (let k = 0; k < seg.cues.length; k++) if (seg.cues[k].t <= local) i = k;
+  // Very short lines don't earn a cut; keep the previous line's shot.
+  while (i > 0 && seg.cues[i].dur < 1200) i--;
+  if (i < 0) return WIDE;
+  const cue = seg.cues[i];
+  const wideActions = ["applause", "walk_off", "enter", "dance", "laugh"];
+  if (cue.target === "audience" || wideActions.includes(cue.action)) return WIDE;
+
+  const head = (id: string) => {
+    const m = seg.cast.find((c) => c.id === id);
+    if (!m) return undefined;
+    const mark = marks[m.mark % marks.length];
+    return { x: mark.x, y: mark.y + (mark.seated ? 8 : 0) - m.look.height * 0.72 };
+  };
+  const speaker = head(cue.speaker);
+  if (!speaker) return WIDE;
+  const roll = hashStr(seg.id + ":" + i) % 10;
+  if (roll < 5) return { x: speaker.x, y: speaker.y + 6, zoom: 2 };
+  if (roll < 8) {
+    const other = head(cue.target) ?? head(seg.cues[i - 1]?.speaker ?? "");
+    if (other && Math.abs(other.x - speaker.x) < 150 && other.x !== speaker.x)
+      return { x: (speaker.x + other.x) / 2, y: (speaker.y + other.y) / 2 + 14, zoom: 1.45 };
+    return { x: speaker.x, y: speaker.y + 10, zoom: 1.6 };
+  }
+  return WIDE;
+}
+
+/** Speaker name color for captions: their outfit color, lightened if it's too dark to read. */
+function nameColor(shirt: string, accent: string): string {
+  const lum = (hex: string) => {
+    const n = parseInt(hex.slice(1, 7), 16);
+    return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  };
+  if (lum(shirt) > 0.35) return shirt;
+  if (lum(accent) > 0.35) return accent;
+  return shade(shirt, 0.45);
 }

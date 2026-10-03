@@ -10,6 +10,7 @@ import { Governor } from "./governor.js";
 import { Ledger } from "./ledger.js";
 import { MemoryBank } from "./memory.js";
 import { Producer } from "./producer.js";
+import { TopicDesk } from "./desk.js";
 import { DEFAULT_POLICY, LlmStandards, type StandardsPolicy } from "./standards.js";
 import { Station } from "./station.js";
 import { Timeline } from "./timeline.js";
@@ -48,6 +49,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   const db = openDb(o.dbFile ?? path.join(config.dataDir, "station.db"));
   const timeline = new Timeline(db);
   const memory = new MemoryBank(db);
+  const desk = new TopicDesk(db);
   const ledger = new Ledger(db, config.timeZone);
   const governor = new Governor({ ...config, ledger });
   const tts = o.tts ?? (config.tts === "say" ? new SayTTS(path.join(config.dataDir, "media")) : new SilentTTS());
@@ -66,6 +68,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   const producer = new Producer({
     timeline,
     memory,
+    desk,
     tts,
     writers,
     llmStandards,
@@ -84,7 +87,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     onSegment: o.onSegment,
     log: o.log,
   });
-  return { db, clock, timeline, memory, ledger, governor, tts, writers, producer, station };
+  return { db, clock, timeline, memory, desk, ledger, governor, tts, writers, producer, station };
 }
 
 export type Built = ReturnType<typeof buildStation>;

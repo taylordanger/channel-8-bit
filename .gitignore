@@ -5,3 +5,6 @@ public/app.js.map
 .env
 scratch/
 data-rehearsal/
+public/lineup.js
+public/lineup.js.map
+data-preview/

@@ -4,7 +4,9 @@ import path from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { ClientMessage, ServerMessage, Segment } from "../shared/types.js";
 import type { Built } from "./build.js";
+import { CHARACTERS } from "./catalog/characters.js";
 import { guide, slotAt } from "./catalog/schedule.js";
+import { SHOWS } from "./catalog/shows.js";
 import type { StationConfig } from "./config.js";
 
 const TYPES: Record<string, string> = {
@@ -28,10 +30,59 @@ function serveFile(res: http.ServerResponse, root: string, rel: string, cache: s
   fs.createReadStream(file).pipe(res);
 }
 
-const json = (res: http.ServerResponse, body: unknown) => {
-  res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+const json = (res: http.ServerResponse, body: unknown, status = 200) => {
+  res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
   res.end(JSON.stringify(body));
 };
+
+/** The assignment desk changes what airs, so only this machine may edit it. */
+const isLocal = (req: http.IncomingMessage) =>
+  ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress ?? "");
+
+function readJson(req: http.IncomingMessage, limit = 4096): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk: Buffer) => {
+      body += chunk;
+      if (body.length > limit) {
+        reject(new Error("body too large"));
+        req.destroy();
+      }
+    });
+    req.on("end", () => {
+      try {
+        resolve(JSON.parse(body || "{}"));
+      } catch {
+        reject(new Error("invalid JSON"));
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+async function handleTopics(req: http.IncomingMessage, res: http.ServerResponse, url: URL, b: Built) {
+  if (req.method === "GET") return json(res, { topics: b.desk.list(), shows: Object.values(SHOWS).map((s) => ({ id: s.id, title: s.title })) });
+  if (!isLocal(req)) return json(res, { error: "the assignment desk only accepts changes from this machine" }, 403);
+  if (req.method === "POST") {
+    let body: { text?: unknown; showId?: unknown; maxUses?: unknown };
+    try {
+      body = (await readJson(req)) as typeof body;
+    } catch (e) {
+      return json(res, { error: (e as Error).message }, 400);
+    }
+    const text = typeof body.text === "string" ? body.text : "";
+    const showId = typeof body.showId === "string" && body.showId in SHOWS ? body.showId : null;
+    const maxUses = typeof body.maxUses === "number" ? body.maxUses : 2;
+    try {
+      return json(res, b.desk.add(text, showId, maxUses, b.clock.now()), 201);
+    } catch (e) {
+      return json(res, { error: (e as Error).message }, 400);
+    }
+  }
+  const id = Number(url.pathname.split("/")[3]);
+  if (req.method === "DELETE" && Number.isInteger(id)) return json(res, { removed: b.desk.remove(id) });
+  return json(res, { error: "unsupported" }, 405);
+}
 
 export function startHttp(config: StationConfig, b: Built, publicDir: string) {
   const mediaDir = path.join(config.dataDir, "media");
@@ -40,6 +91,10 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://x");
     const now = b.clock.now();
+    if (url.pathname === "/api/topics" || url.pathname.startsWith("/api/topics/")) {
+      void handleTopics(req, res, url, b);
+      return;
+    }
     switch (url.pathname) {
       case "/api/now":
         return json(res, { serverNow: now, network: config.networkName, onNow: slotAt(now, config.timeZone) });
@@ -48,6 +103,13 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
         const to = Math.min(Number(url.searchParams.get("to") ?? now + 600_000), from + 3_600_000);
         return json(res, b.timeline.range(from, to));
       }
+      case "/api/cast":
+        return json(
+          res,
+          Object.values(SHOWS).flatMap((show) =>
+            [...show.cast, ...(show.guestPool ?? [])].map((id) => ({ id, name: CHARACTERS[id].name, show: show.title, look: CHARACTERS[id].look })),
+          ),
+        );
       case "/api/guide":
         return json(res, guide(now, 24, config.timeZone));
       case "/api/status": {

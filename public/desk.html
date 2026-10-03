@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Assignment Desk</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <style>
+      :root { --bg: #0b0814; --panel: #15102a; --line: #2a2140; --text: #e9e4ff; --muted: #8a82b0; --accent: #ff3355; --gold: #ffe066; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font-family: "Press Start 2P", monospace; padding: 16px; }
+      main { max-width: 860px; margin: 0 auto; }
+      header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
+      h1 { font-size: 16px; margin: 0; }
+      a { color: var(--gold); font-size: 10px; }
+      p.hint { color: var(--muted); font-size: 9px; line-height: 1.9; margin: 0 0 16px; }
+      form { background: var(--panel); border-radius: 8px; padding: 16px; display: grid; gap: 12px; }
+      textarea, select, input, button { font: inherit; font-size: 11px; color: var(--text); background: #0f0b1f; border: 2px solid var(--line); border-radius: 4px; padding: 10px; }
+      textarea { min-height: 84px; resize: vertical; line-height: 1.7; }
+      .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+      .row label { font-size: 9px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+      button { background: var(--accent); border-color: var(--accent); cursor: pointer; }
+      button.ghost { background: transparent; border-color: var(--line); color: var(--muted); padding: 6px 8px; font-size: 9px; }
+      #error { color: var(--accent); font-size: 9px; min-height: 1em; }
+      ul { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 10px; }
+      li { background: var(--panel); border-radius: 8px; padding: 12px 14px; display: flex; gap: 14px; align-items: center; }
+      li.retired { opacity: 0.45; }
+      li .text { flex: 1; font-size: 10px; line-height: 1.8; word-break: break-word; }
+      li .meta { font-size: 8px; color: var(--muted); margin-top: 6px; }
+      .empty { color: var(--muted); font-size: 9px; text-align: center; padding: 18px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header><h1>ASSIGNMENT DESK</h1><a href="/">← back to the broadcast</a></header>
+      <p class="hint">Give the cast something to talk about. The writers build upcoming segments around these, in character and in each show's format. Pick a show or let whichever show is on air take it.</p>
+      <form id="add">
+        <textarea id="text" maxlength="280" placeholder="e.g. Greg finds out the station replaced him with a weather app" required></textarea>
+        <div class="row">
+          <label>SHOW <select id="show"><option value="">Any show</option></select></label>
+          <label>AIR IT <input id="uses" type="number" min="1" max="10" value="2" style="width:64px" /> TIMES</label>
+          <button type="submit">SEND TO WRITERS</button>
+        </div>
+        <div id="error"></div>
+      </form>
+      <ul id="topics"></ul>
+    </main>
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      let shows = [];
+      const showName = (id) => shows.find((s) => s.id === id)?.title ?? "Any show";
+
+      async function load() {
+        const data = await (await fetch("/api/topics")).json();
+        if (!shows.length) {
+          shows = data.shows;
+          for (const s of shows) $("show").append(new Option(s.title, s.id));
+        }
+        const list = $("topics");
+        list.replaceChildren();
+        if (!data.topics.length) {
+          const li = document.createElement("li");
+          li.className = "empty";
+          li.textContent = "No topics yet. The writers are making things up.";
+          list.append(li);
+        }
+        for (const t of data.topics) {
+          const li = document.createElement("li");
+          const retired = t.uses >= t.maxUses;
+          if (retired) li.className = "retired";
+          const body = document.createElement("div");
+          body.className = "text";
+          body.textContent = t.text;
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = `${showName(t.showId)} · aired ${t.uses}/${t.maxUses}${retired ? " · retired" : t.uses ? "" : " · queued"}`;
+          body.append(meta);
+          const del = document.createElement("button");
+          del.className = "ghost";
+          del.textContent = "REMOVE";
+          del.onclick = async () => { await fetch(`/api/topics/${t.id}`, { method: "DELETE" }); load(); };
+          li.append(body, del);
+          list.append(li);
+        }
+      }
+
+      $("add").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        $("error").textContent = "";
+        const res = await fetch("/api/topics", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ text: $("text").value, showId: $("show").value || null, maxUses: Number($("uses").value) }),
+        });
+        if (!res.ok) { $("error").textContent = (await res.json()).error ?? "Couldn't add that."; return; }
+        $("text").value = "";
+        load();
+      });
+
+      load();
+      setInterval(load, 10000);
+    </script>
+  </body>
+</html>
