@@ -1,5 +1,6 @@
 import type { Segment } from "../shared/types.js";
-import { slotAt } from "./catalog/schedule.js";
+import { getShow } from "./catalog/shows.js";
+import { programAt, type Override } from "./catalog/schedule.js";
 import type { Clock } from "./clock.js";
 import type { DB } from "./db.js";
 import type { Governor } from "./governor.js";
@@ -54,7 +55,7 @@ export class Station {
     try {
       const decision = this.d.governor.decide(this.d.clock.now());
       const planAt = this.nextStart();
-      const slot = slotAt(planAt, this.d.timeZone);
+      const slot = programAt(planAt, this.d.timeZone, this.override());
       const coldStart = this.d.timeline.tailEnd() < this.d.clock.now();
       const produced = await this.d.producer.produce(planAt, slot, { rerun: decision.rerunsOnly, coldStart });
       this.commit(produced);
@@ -92,6 +93,32 @@ export class Station {
       `committed ${p.segment.kind} "${p.segment.title}" (${p.segment.showId}, ${(p.segment.durationMs / 1000).toFixed(0)}s, ${p.segment.writer}) at ${new Date(p.segment.startAt).toISOString()}`,
     );
     this.d.onSegment?.(p.segment);
+  }
+
+  /** The special programming in effect now or later, if any. */
+  override(): Override | null {
+    const row = this.d.db
+      .prepare("SELECT show_id, start_at, end_at FROM overrides WHERE end_at > ? ORDER BY id DESC LIMIT 1")
+      .get(this.d.clock.now()) as { show_id: string; start_at: number; end_at: number } | undefined;
+    return row ? { showId: row.show_id, startAt: row.start_at, endAt: row.end_at } : null;
+  }
+
+  /**
+   * Break into programming: air a show starting with the next segment, for `minutes`.
+   * What's already on the timeline still plays (it's what viewers were promised).
+   */
+  airNow(showId: string, minutes: number): Override {
+    getShow(showId);
+    const startAt = this.nextStart();
+    const endAt = startAt + Math.max(5, Math.min(360, minutes)) * 60_000;
+    this.d.db.prepare("INSERT INTO overrides (show_id, start_at, end_at) VALUES (?,?,?)").run(showId, startAt, endAt);
+    this.d.log?.(`special programming: ${showId} until ${new Date(endAt).toISOString()}`);
+    return { showId, startAt, endAt };
+  }
+
+  /** Return to the regular schedule after whatever is already written. */
+  endOverride(): void {
+    this.d.db.prepare("UPDATE overrides SET end_at = ? WHERE end_at > ?").run(this.nextStart(), this.d.clock.now());
   }
 
   start(intervalMs = 1000): void {

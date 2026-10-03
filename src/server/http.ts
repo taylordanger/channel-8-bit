@@ -5,7 +5,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import type { ClientMessage, ServerMessage, Segment } from "../shared/types.js";
 import type { Built } from "./build.js";
 import { CHARACTERS } from "./catalog/characters.js";
-import { guide, slotAt } from "./catalog/schedule.js";
+import { guideWith, programAt } from "./catalog/schedule.js";
 import { SHOWS } from "./catalog/shows.js";
 import type { StationConfig } from "./config.js";
 import type { Topic } from "./desk.js";
@@ -119,6 +119,27 @@ async function handleTopics(req: http.IncomingMessage, res: http.ServerResponse,
   return json(res, { error: "unsupported" }, 405);
 }
 
+async function handleOverride(req: http.IncomingMessage, res: http.ServerResponse, b: Built) {
+  if (req.method === "GET") return json(res, { override: b.station.override() });
+  if (!isLocal(req)) return json(res, { error: "programming changes are only accepted from this machine" }, 403);
+  if (req.method === "DELETE") {
+    b.station.endOverride();
+    return json(res, { override: null });
+  }
+  if (req.method === "POST") {
+    let body: { showId?: unknown; minutes?: unknown };
+    try {
+      body = (await readJson(req)) as typeof body;
+    } catch (e) {
+      return json(res, { error: (e as Error).message }, 400);
+    }
+    if (typeof body.showId !== "string" || !(body.showId in SHOWS)) return json(res, { error: "unknown show" }, 400);
+    const minutes = typeof body.minutes === "number" ? body.minutes : 60;
+    return json(res, { override: b.station.airNow(body.showId, minutes) }, 201);
+  }
+  return json(res, { error: "unsupported" }, 405);
+}
+
 export function startHttp(config: StationConfig, b: Built, publicDir: string) {
   const mediaDir = path.join(config.dataDir, "media");
   const sockets = new Set<WebSocket>();
@@ -126,13 +147,17 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://x");
     const now = b.clock.now();
+    if (url.pathname === "/api/override") {
+      void handleOverride(req, res, b);
+      return;
+    }
     if (url.pathname === "/api/topics" || url.pathname.startsWith("/api/topics/")) {
       void handleTopics(req, res, url, b);
       return;
     }
     switch (url.pathname) {
       case "/api/now":
-        return json(res, { serverNow: now, network: config.networkName, onNow: slotAt(now, config.timeZone) });
+        return json(res, { serverNow: now, network: config.networkName, onNow: programAt(now, config.timeZone, b.station.override()), override: b.station.override() });
       case "/api/timeline": {
         const from = Number(url.searchParams.get("from") ?? now - 60_000);
         const to = Math.min(Number(url.searchParams.get("to") ?? now + 600_000), from + 3_600_000);
@@ -146,7 +171,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
           ),
         );
       case "/api/guide":
-        return json(res, guide(now, 24, config.timeZone));
+        return json(res, guideWith(now, 24, config.timeZone, b.station.override()));
       case "/api/status": {
         const decision = b.governor.decide(now);
         return json(res, {

@@ -82,3 +82,52 @@ export function guide(from: number, hours: number, timeZone: string, grid: Slot[
   }
   return out;
 }
+
+/** Special programming: a show airing outside its slot, e.g. "put Pixel Heights on now for an hour". */
+export interface Override {
+  showId: string;
+  startAt: number;
+  endAt: number;
+}
+
+/** Like slotAt, but an active override takes the air. */
+export function programAt(t: number, timeZone: string, override?: Override | null): ScheduledSlot {
+  if (override && t >= override.startAt && t < override.endAt) {
+    return {
+      slot: { startHour: -1, endHour: -1, showId: override.showId, mode: "live" },
+      showId: override.showId,
+      title: getShow(override.showId).title,
+      startAt: override.startAt,
+      endAt: override.endAt,
+      mode: "live",
+    };
+  }
+  const s = slotAt(t, timeZone);
+  // The regular slot resumes when the override ends; don't report it as starting earlier.
+  if (override && override.endAt > s.startAt && override.endAt <= t) return { ...s, startAt: Math.max(s.startAt, override.endAt) };
+  return s;
+}
+
+/** Program guide with any override spliced in. */
+export function guideWith(from: number, hours: number, timeZone: string, override?: Override | null): GuideEntry[] {
+  const base = guide(from, hours, timeZone);
+  if (!override || override.endAt <= from) return base;
+  const special: GuideEntry = { showId: override.showId, title: getShow(override.showId).title, startAt: override.startAt, endAt: override.endAt, mode: "live" };
+  const out: GuideEntry[] = [];
+  for (const g of base) {
+    if (g.endAt <= override.startAt || g.startAt >= override.endAt) out.push(g);
+    else {
+      if (g.startAt < override.startAt) out.push({ ...g, endAt: override.startAt });
+      if (g.endAt > override.endAt) out.push({ ...g, startAt: override.endAt });
+    }
+  }
+  out.push(special);
+  // A special that runs into the same show's regular slot reads as one entry.
+  const merged: GuideEntry[] = [];
+  for (const g of out.sort((a, b) => a.startAt - b.startAt).filter((x) => x.endAt > from)) {
+    const last = merged[merged.length - 1];
+    if (last && last.showId === g.showId && last.mode === g.mode && last.endAt === g.startAt) last.endAt = g.endAt;
+    else merged.push({ ...g });
+  }
+  return merged;
+}

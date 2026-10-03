@@ -67,6 +67,13 @@ CREATE TABLE IF NOT EXISTS topics (
   last_used_at INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS overrides (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  show_id    TEXT NOT NULL,
+  start_at   INTEGER NOT NULL,
+  end_at     INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS standards_log (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   at         INTEGER NOT NULL,

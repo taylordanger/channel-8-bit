@@ -35,6 +35,8 @@
       .src details { margin-top: 4px; }
       .src summary { cursor: pointer; color: var(--gold); }
       .actions { display: flex; flex-direction: column; gap: 6px; }
+      h2.sec { font-size: 12px; margin: 34px 0 10px; }
+      #sp-status { font-size: 9px; color: var(--gold); }
       .empty { color: var(--muted); font-size: 9px; text-align: center; padding: 18px; }
     </style>
   </head>
@@ -53,6 +55,17 @@
         <div id="error"></div>
       </form>
       <ul id="topics"></ul>
+      <h2 class="sec">SPECIAL PROGRAMMING</h2>
+      <p class="hint">Break into the schedule: put any show on air right after the segment that's playing now. The regular schedule resumes when it ends.</p>
+      <form id="special">
+        <div class="row">
+          <label>SHOW <select id="sp-show"></select></label>
+          <label>FOR <select id="sp-min"><option value="30">30 min</option><option value="60" selected>1 hour</option><option value="120">2 hours</option><option value="240">4 hours</option></select></label>
+          <button type="submit">AIR NOW</button>
+          <button type="button" class="ghost" id="sp-end" hidden>END &amp; RETURN TO SCHEDULE</button>
+        </div>
+        <div id="sp-status" class="meta"></div>
+      </form>
     </main>
     <script type="module">
       const $ = (id) => document.getElementById(id);
@@ -63,7 +76,10 @@
         const data = await (await fetch("/api/topics")).json();
         if (!shows.length) {
           shows = data.shows;
-          for (const s of shows) $("show").append(new Option(s.title, s.id));
+          for (const s of shows) {
+            $("show").append(new Option(s.title, s.id));
+            $("sp-show").append(new Option(s.title, s.id));
+          }
         }
         const list = $("topics");
         list.replaceChildren();
@@ -143,8 +159,27 @@
         load();
       });
 
-      load();
-      setInterval(load, 4000);
+      async function loadSpecial() {
+        const { override } = await (await fetch("/api/override")).json();
+        const fmt = (t) => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        $("sp-end").hidden = !override;
+        $("sp-status").textContent = override
+          ? `${showName(override.showId)} is on special from ${fmt(override.startAt)} until ${fmt(override.endAt)}.`
+          : "Regular schedule.";
+      }
+      $("special").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await fetch("/api/override", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ showId: $("sp-show").value, minutes: Number($("sp-min").value) }),
+        });
+        loadSpecial();
+      });
+      $("sp-end").onclick = async () => { await fetch("/api/override", { method: "DELETE" }); loadSpecial(); };
+
+      load().then(loadSpecial);
+      setInterval(() => { load(); loadSpecial(); }, 4000);
     </script>
   </body>
 </html>
