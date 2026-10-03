@@ -1,0 +1,32 @@
+{
+  "name": "ai-network",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A 24/7 AI-run pixel-art television network",
+  "scripts": {
+    "dev": "npm run build:web && tsx watch src/server/main.ts",
+    "start": "npm run build:web && tsx src/server/main.ts",
+    "build:web": "esbuild src/web/main.ts --bundle --format=esm --outfile=public/app.js --sourcemap",
+    "shadow": "tsx src/server/shadow.ts",
+    "rehearse": "npm run build:web && CLOCK_OFFSET_MIN=${OFFSET:-540} DATA_DIR=data-rehearsal PORT=8089 tsx src/server/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "better-sqlite3": "^13.0.3",
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.4",
+    "@types/ws": "^8.18.2",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}
