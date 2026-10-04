@@ -146,6 +146,8 @@ export class Station {
     getShow(showId);
     const startAt = this.nextStart();
     const endAt = startAt + Math.max(5, Math.min(360, minutes)) * 60_000;
+    // A new special replaces any earlier one rather than resuming it afterwards.
+    this.d.db.prepare("UPDATE overrides SET end_at = ? WHERE end_at > ?").run(startAt, startAt);
     this.d.db.prepare("INSERT INTO overrides (show_id, start_at, end_at) VALUES (?,?,?)").run(showId, startAt, endAt);
     this.d.log?.(`special programming: ${showId} until ${new Date(endAt).toISOString()}`);
     return { showId, startAt, endAt };

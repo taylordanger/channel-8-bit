@@ -43,6 +43,15 @@ describe("special programming", () => {
     expect(b.timeline.range(0, Infinity).at(-1)?.showId).toBe("couch_coop");
   });
 
+  it("a new special replaces an earlier one instead of letting it resume", () => {
+    const clock = new ManualClock(afternoon);
+    const b = buildStation({ ...loadConfig({}), timeZone: TZ, tts: "silent", writer: "improv" }, { clock, dbFile: ":memory:", tts: new SilentTTS(), writers: [new ImprovWriter(1)] });
+    b.station.airNow("rise_and_pixel", 120);
+    const nada = b.station.airNow("nada", 30);
+    clock.set(nada.endAt + 1000);
+    expect(b.station.override()).toBeNull();
+  });
+
   it("regular shadow runs are unaffected", async () => {
     const r = await runShadow({ startAt: afternoon, hours: 2, config: { timeZone: TZ } });
     expect(r.violations).toEqual([]);
