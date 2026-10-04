@@ -1,6 +1,6 @@
 import type { SetId } from "../../shared/types.js";
 
-export type ShowFormat = "late_night" | "morning" | "soap" | "hangout" | "sitcom" | "cartoon" | "gameshow" | "commercial";
+export type ShowFormat = "late_night" | "morning" | "soap" | "hangout" | "sitcom" | "cartoon" | "gameshow" | "news" | "commercial";
 
 export interface Show {
   id: string;
@@ -186,6 +186,29 @@ export const SHOWS: Record<string, Show> = {
       "a mysterious mascot appears in Pleasantburg",
       "Grimsworth wants the family's house for a parking lot",
     ],
+  },
+  news: {
+    id: "news",
+    title: "The 8-Bit Report",
+    format: "news",
+    set: "news_desk",
+    tier: "standard",
+    cast: ["lance", "paige", "wren"],
+    serialized: false,
+    bible:
+      "The network's evening news, a parody of a self-important local newscast. Lance anchors with total gravitas and no understanding; Paige fact-checks him live; Wren reports 'live from the scene' from the wrong place. When a segment has SOURCE MATERIAL (a real article from the assignment desk), that's the top story: report it accurately from the source, and the comedy comes from the anchors' reactions, never from inventing facts. Otherwise the news is about this network's own fictional world - who won Hot Seat, who stormed off Pixel Heights, feuds, rumors from the halls of Channel 8-Bit - and never real-world news.",
+    segmentTypes: ["top story", "network news", "field report", "corrections", "viewer questions", "kicker"],
+    mailSegment: "viewer questions",
+    topics: [
+      "a feud on another show here at the network",
+      "the station's vending machine, which has achieved sentience",
+      "a ratings war between two shows on this network",
+      "the studio's mysterious seventh floor",
+      "a lost-and-found box with alarming contents",
+      "the network's new mascot, which nobody approved",
+    ],
+    example:
+      "lance: Good evening, and brace yourselves. Tonight's top story: a fire at the network. Paige?\npaige: A small correction, Lance. It's a fire drill.\nlance: A fire drill. Was anyone drilled?\npaige: Nobody was drilled. It's a practice.\nlance: Then let's go live to Wren, who is practicing at the scene.\nwren: Lance, I'm live outside the building, which is the wrong building. But the people here are very calm.\nlance: Chilling. Back to you, Paige.\npaige: You can't send it back to me. I'm sitting right here.",
   },
   hot_seat: {
     id: "hot_seat",

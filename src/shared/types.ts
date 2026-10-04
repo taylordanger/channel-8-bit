@@ -65,6 +65,7 @@ export type SetId =
   | "family_couch"
   | "music_stage"
   | "game_show"
+  | "news_desk"
   | "commercial"
   | "bumper";
 

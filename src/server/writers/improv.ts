@@ -1,5 +1,6 @@
 import type { Action, Emotion } from "../../shared/types.js";
 import type { Character } from "../catalog/characters.js";
+import type { ShowFormat } from "../catalog/shows.js";
 import { estimateSpeechMs, type Beat, type Script, type Writer, type WriterBrief, type WriterResult } from "./script.js";
 
 /** Small seeded PRNG so improv output is reproducible in tests and shadow runs. */
@@ -92,12 +93,16 @@ OPENERS.gameshow = [
   { text: "Welcome to Hot Seat! Tonight's round is all about {topic}. Let's turn up the heat!", emotion: "happy", action: "gesture", target: "audience" },
   { text: "Contestants, your next challenge: {topic}. Lock it in!", emotion: "happy", target: "other" },
 ];
+OPENERS.news = [
+  { text: "Good evening. Our top story tonight: {topic}. We'll tell you what we know, which is very little.", emotion: "neutral", target: "camera" },
+  { text: "This just in: {topic}. I'm told this is news. Let's find out together.", emotion: "surprised", action: "gesture", target: "camera" },
+];
 OPENERS.cartoon = [
   { text: "Family meeting! It's about {topic}. And also dinner.", emotion: "happy", action: "gesture", target: "other" },
   { text: "Kids, your father has a brilliant idea involving {topic}.", emotion: "nervous", target: "other" },
 ];
 
-const CLOSERS: Record<string, Line[]> = {
+const CLOSERS: Record<ShowFormat, Line[]> = {
   late_night: [{ text: "We'll be right back, {catch}!", emotion: "happy", action: "gesture", target: "camera" }],
   morning: [{ text: "Stay with us, we've got more after the break. {catch}!", emotion: "happy", target: "camera" }],
   soap: [
@@ -111,6 +116,7 @@ const CLOSERS: Record<string, Line[]> = {
   ],
   commercial: [{ text: "Find it at the link! Operators are probably standing by!", emotion: "happy", action: "gesture", target: "camera" }],
   gameshow: [{ text: "Folks at home, you know what to do. Vote now! The people have spoken... soon.", emotion: "happy", action: "gesture", target: "camera" }],
+  news: [{ text: "That's the news. Corrections, as always, at the end of the broadcast.", emotion: "neutral", target: "camera" }],
   cartoon: [
     { text: "Kids, let this be a lesson. About... something. Let's eat.", emotion: "happy", target: "other" },
     { text: "Well, at least nobody got hurt. Much.", emotion: "nervous", target: "other" },

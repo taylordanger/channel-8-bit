@@ -44,6 +44,8 @@ interface SceneEvents {
   music?: MusicState;
   /** Commercials: the product being sold. */
   ad?: { title: string };
+  /** The segment's title (the news ticker scrolls it). */
+  headline?: string;
   /** Game shows: contestants, scores, and how the current vote is going. */
   game?: { names: Record<string, string>; contestants: string[]; scores: Record<string, number>; leading?: string; champion?: string };
 }
@@ -593,6 +595,65 @@ const SETS: Record<Exclude<SetId, "bumper">, SetDef> = {
       }
     },
   },
+  news_desk: {
+    marks: [
+      { x: 104, y: 124, seated: true, face: 1 }, // Lance, anchor chair
+      { x: 160, y: 124, seated: true, face: -1 }, // Paige, co-anchor chair
+      { x: 262, y: 140, seated: false, face: -1 }, // Wren, "live on location" by the video wall
+    ],
+    back: (g, t) => {
+      px(g, "#0b1a33", 0, 0, W, H);
+      // a slowly turning globe of latitude lines
+      g.strokeStyle = "#1f3f6e";
+      g.lineWidth = 1;
+      g.beginPath();
+      g.arc(70, 56, 34, 0, Math.PI * 2);
+      g.stroke();
+      for (let i = 0; i < 4; i++) {
+        const w = Math.abs(Math.cos(t / 3000 + (i * Math.PI) / 4)) * 34;
+        g.beginPath();
+        g.ellipse(70, 56, w, 34, 0, 0, Math.PI * 2);
+        g.stroke();
+      }
+      for (const dy of [-20, 0, 20]) px(g, "#1f3f6e", 70 - Math.sqrt(34 * 34 - dy * dy), 56 + dy, 2 * Math.sqrt(34 * 34 - dy * dy), 1);
+      // logo
+      px(g, "#c8102e", 118, 24, 96, 26);
+      g.fillStyle = "#fff";
+      g.font = "bold 10px monospace";
+      g.fillText("THE 8-BIT", 138, 35);
+      g.fillText("REPORT", 146, 46);
+      // the "live" video wall Wren reports in front of: a parking lot, naturally
+      px(g, "#16243d", 228, 18, 80, 60);
+      px(g, "#4a5a6a", 230, 54, 76, 22);
+      for (let x = 236; x < 306; x += 14) px(g, "#f2f2f2", x, 64, 2, 8);
+      px(g, "#7a9cc6", 230, 20, 76, 34);
+      px(g, Math.floor(t / 600) % 2 ? "#ff3355" : "#7a1020", 234, 24, 4, 4);
+      g.fillStyle = "#fff";
+      g.font = "6px monospace";
+      g.fillText("LIVE", 241, 29);
+      // floor
+      px(g, "#0f2240", 0, 132, W, 48);
+    },
+    front: (g, t, ev) => {
+      // the anchor desk
+      px(g, "#1d3b66", 70, 118, 130, 30);
+      px(g, "#c8102e", 70, 118, 130, 3);
+      px(g, "#e8e2d0", 96, 112, 16, 6); // Lance's unread papers
+      px(g, "#e8e2d0", 152, 113, 14, 5);
+      // the headline crawl, on an LED strip across the desk front (the captions own the bottom of the screen)
+      px(g, "#081324", 74, 130, 122, 10);
+      g.save();
+      g.beginPath();
+      g.rect(74, 130, 122, 10);
+      g.clip();
+      g.fillStyle = "#ffd23f";
+      g.font = "7px monospace";
+      const text = `${(ev.headline ?? "THE 8-BIT REPORT").toUpperCase()}  +++  CORRECTIONS AT THE END OF THE BROADCAST  +++  `;
+      const width = g.measureText(text).width;
+      g.fillText(text + text + text, 74 - ((t / 30) % width), 138);
+      g.restore();
+    },
+  },
   morning_couch: {
     marks: [
       { x: 118, y: 128, seated: true, face: 1 },
@@ -853,6 +914,7 @@ export class Renderer {
       crowd,
       music,
       ad: seg.ad ? { title: seg.ad.title } : undefined,
+      headline: seg.title.replace(/ \(encore\)$/, ""),
       game: seg.game
         ? {
             names: Object.fromEntries(seg.cast.map((c) => [c.id, c.name.split(" ")[0]])),

@@ -58,7 +58,7 @@ export function checkNoPrices(script: Script): StandardsResult {
 }
 
 /** Formats whose casts talk to the audience (and so may read the live chat). */
-const FOURTH_WALL = new Set(["late_night", "morning", "hangout", "gameshow"]);
+const FOURTH_WALL = new Set(["late_night", "morning", "hangout", "gameshow", "news"]);
 
 /** Finished commercials kept per product; once there are this many, breaks rotate them. */
 export const ADS_PER_PRODUCT = 3;
@@ -316,10 +316,15 @@ export class Producer {
       return m ? [{ id, mood: m.mood, reason: m.reason }] : [];
     });
     const desk = this.d.desk?.nextFor(show.id);
+    // The news covers the network itself: today's big moments on other shows.
+    const headlines =
+      show.format === "news"
+        ? this.d.memory.latest(200).filter((m) => m.createdAt > at - 12 * 3_600_000 && m.showId !== show.id && m.weight >= 0.6).map((m) => m.text)
+        : [];
     return {
       show,
       segmentType,
-      topic: desk?.text ?? pick(show.topics),
+      topic: desk?.text ?? (headlines.length && r() < 0.7 ? `network news: ${pick(headlines)}` : pick(show.topics)),
       deskTopicId: desk?.id,
       source: desk?.fetchStatus === "ok" ? (desk.source ?? undefined) : undefined,
       cast,

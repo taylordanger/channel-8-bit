@@ -723,6 +723,67 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
       },
     }),
 
+    // --- The 8-Bit Report (news) -------------------------------------------------
+    c({
+      id: "lance",
+      name: "Lance Headline",
+      bible:
+        "Anchor of The 8-Bit Report. Square jaw, perfect hair, total gravitas, no idea what any story means. Reads everything on the prompter with the same doom-laden authority - typos, stage directions, his own lunch order. Believes he once won an award; it was a raffle.",
+      catchphrases: ["good evening, and brace yourselves", "this just in", "back to you, Paige"],
+      bits: [
+        "Good evening. Tonight: {topic}. Also tonight, I'm told, some sort of weather.",
+        "This just in, and I want to stress that I have not read it yet.",
+        "The prompter says 'Lance, pause for effect.' ... Lance, pause for effect.",
+        "I've covered wars, {other}. Well, I've covered a story about a war. Okay, a board game.",
+        "We reached out to {other} for comment. They said 'no comment.' Riveting.",
+        "That's the news. If it happened, we said it. If we said it, it probably happened.",
+      ],
+      voice: { say: "Daniel (English (UK))", rate: 175, kokoro: "bm_george", speed: 0.92 },
+      look: {
+        skin: "#f0c8a0", hair: "#3a2a1a", hairStyle: "swoop", shirt: "#1d2b4f", pants: "#1d2b4f", accent: "#c8102e",
+        outfit: "suit", build: "broad", eyes: "dot", nose: "big", facial: "none", accessories: [], height: 46,
+      },
+    }),
+    c({
+      id: "paige",
+      name: "Paige Turner",
+      bible:
+        "Co-anchor of The 8-Bit Report and the only person in the building who reads the stories first. Precise, dry, increasingly exhausted by Lance. Fact-checks him live on air. Has a correction for everything, including other corrections.",
+      catchphrases: ["a small correction", "that is not what the story says, Lance", "we'll fix it in the corrections"],
+      bits: [
+        "A small correction, Lance: that wasn't a scandal, that was a typo.",
+        "I read the whole article, {other}. Someone in this building had to.",
+        "For the record, we checked. Then we checked again. Lance did not check.",
+        "That is not what the story says. That is what the headline wishes it said.",
+        "Our corrections segment is now longer than our news segment. I'm proud of it.",
+        "Thank you, Lance. Now here's what actually happened with {topic}.",
+      ],
+      voice: { say: "Kate (English (UK))", rate: 185, kokoro: "bf_alice", speed: 1.0 },
+      look: {
+        skin: "#a0673a", hair: "#151515", hairStyle: "bun", shirt: "#e8e2d0", pants: "#34343f", accent: "#2a6f97",
+        outfit: "vest", build: "slim", eyes: "lashes", nose: "small", facial: "none", accessories: ["glasses"], height: 41,
+      },
+    }),
+    c({
+      id: "wren",
+      name: "Wren Locke",
+      bible:
+        "Field reporter for The 8-Bit Report, always live on location and always at the wrong location - the story's in the studio and she's in the parking garage. Relentlessly upbeat, interviews whoever is nearby (a pigeon, a vending machine), never lets a bad assignment stop a good stand-up.",
+      catchphrases: ["live from the scene, more or less", "I'm getting reactions", "back to you in the studio, which is where the story is"],
+      bits: [
+        "I'm live at the scene of {topic}. Well, near it. I can see the building it happened near.",
+        "I spoke to a local resident. It was a pigeon, but it had strong opinions.",
+        "Lance, I'm being told I'm in the wrong city. I'm going to report anyway.",
+        "Witnesses describe it as 'a thing that happened.' Gripping stuff out here.",
+        "{other}, can you hear me? The connection is bad and so is the parking.",
+        "This is Wren Locke, live, outdoors, slightly lost. Back to you.",
+      ],
+      voice: { say: "Samantha", rate: 195, kokoro: "af_river", speed: 1.1 },
+      look: {
+        skin: "#f3d2b5", hair: "#d4692c", hairStyle: "ponytail", shirt: "#f2c14e", pants: "#3e4a61", accent: "#1f1f1f",
+        outfit: "plain", build: "average", eyes: "wide", nose: "small", facial: "freckles", accessories: ["headset"], height: 39,
+      },
+    }),
     // --- Commercials ------------------------------------------------------------
     c({
       id: "vance",

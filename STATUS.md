@@ -38,7 +38,7 @@ https://github.com/taylordanger/channel-8-bit*
 - **Set up the permanent address** once you have a domain (named Cloudflare tunnel).
 - **Raise the share of fresh airtime:** it was low today (lots of encores) because the local model needs about 2 minutes per
   scene. Options: smarter scheduling, shorter scenes, or Claude.
-- **More shows:** a cooking show, a call-in advice show, a news-parody desk that reads assignment-desk links.
+- **More shows:** a cooking show, a call-in advice show.
 
 ---
 
@@ -54,7 +54,8 @@ A 24/7 pixel-art TV network, written by AI, voiced by AI, and the same broadcast
 | 2–4am | Much Ado About Nada (encores) |
 | 4–6am | The Pixelsons (encores) |
 | 6–10am | **Rise & Pixel**: morning show (Sunny, grumpy Greg, intern Pip), viewer call-ins |
-| 10am–12pm, 5–7pm | **Pixel Heights**: an ongoing soap opera with a plot that carries forward |
+| 10am–12pm, 5–6pm | **Pixel Heights**: an ongoing soap opera with a plot that carries forward |
+| 6–7pm | **The 8-Bit Report**: news parody; reads your assignment-desk links, otherwise reports on the network itself |
 | 12–1pm, 8–9pm | **Much Ado About Nada**: a sitcom about nothing, laugh track, slap bass |
 | 1–2pm, 9–10pm | **Hot Seat**: a game show where viewers vote on every round |
 | 2–5pm | **Couch Co-op**: three friends in a 90s basement talking old games |
@@ -123,6 +124,7 @@ npm run shadow -- 24           # simulate a whole day in seconds and check for p
 29. **The local writer writes a compact format:** I measured it first. On this Mac the model writes only about 6–8 tokens per second, and most of what it wrote was JSON labels, not dialogue (863 tokens for about 160 tokens of speech). Lines are now short tuples, the bookkeeping is trimmed, and the story notes are rewritten only at an episode's setup and payoff. Result: about 30–40% more airtime per second of model time, with roughly half the output per scene.
 30. **Weekly seasons for Pixel Heights:** on Monday the writer plans the week around one question viewers want answered, with a development for each day and the answer in Sunday's finale. Each episode plan gets that day's development; the answer stays hidden until Sunday. The Drama board shows "THIS WEEK · DAY N OF 7". A season only starts Monday to Thursday (a Sunday start would reveal its answer at once), so the first one begins Monday.
 31. **Twitch chat on the network:** set `TWITCH_CHANNEL=yourchannel` in `.env` and restart. Your Twitch chat then shows in the website chat, labeled TWITCH and moderated like everything else, and the cast can react to it. No key or password is needed to read chat. At most 6 Twitch messages a minute are relayed, so moderation doesn't crowd out the writer.
+32. **A new show, The 8-Bit Report (6–7 PM):** a news parody with anchor Lance Headline (total gravitas, no understanding), co-anchor Paige Turner (fact-checks him live) and field reporter Wren Locke (always live from the wrong place). Links you paste on the assignment desk become its top stories, fact-checked against the article. Otherwise it covers the network itself: today's Hot Seat results, walk-offs and feuds, never real news. It has a new news-desk set with a headline crawl, and new voices. Pixel Heights' evening slot is now 5–6 PM; it still airs 3 hours a day.
 
 ---
 

@@ -66,7 +66,7 @@ describe("http + ws", () => {
     expect(bad.status).toBe(400);
     const list = await (await fetch(base + "/api/topics")).json();
     expect(list.topics.map((t: { id: number }) => t.id)).toContain(topic.id);
-    expect(list.shows.length).toBe(7);
+    expect(list.shows.length).toBe(8);
     expect(await (await fetch(`${base}/api/topics/${topic.id}`, { method: "DELETE" })).json()).toEqual({ removed: true });
   });
 

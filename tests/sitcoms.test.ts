@@ -67,3 +67,28 @@ describe("sitcom and cartoon", () => {
     expect(made).toBe(3);
   });
 });
+
+describe("every show", () => {
+  it("can be written by the improv troupe (the writer that must never fail)", async () => {
+    const { SHOWS } = await import("../src/server/catalog/shows.js");
+    const { CHARACTERS } = await import("../src/server/catalog/characters.js");
+    const { ImprovWriter } = await import("../src/server/writers/improv.js");
+    for (const show of Object.values(SHOWS)) {
+      const out = await new ImprovWriter(5).write({
+        show, segmentType: show.segmentTypes[0], topic: show.topics[0], cast: show.cast.map((id) => CHARACTERS[id]),
+        targetSeconds: 60, localTime: "Monday 6:00 PM", previously: [], memories: [], relationships: [], storyState: "", recentLines: [],
+      });
+      expect(out.script.beats.length, show.id).toBeGreaterThan(3);
+    }
+  });
+
+  it("the news covers what happened on the network today", () => {
+    const db = openDb(":memory:");
+    const memory = new MemoryBank(db);
+    const t = Date.UTC(2026, 9, 5, 18, 5);
+    memory.remember("hot_seat", ["pip", "greg"], "Pip won the Golden Pixel on Hot Seat, beating Greg.", 0.65, t - 3_600_000);
+    const p = new Producer({ timeline: new Timeline(db), memory, tts: new SilentTTS(), writers: [new ImprovWriter(1)], timeZone: "UTC" });
+    const topics = Array.from({ length: 20 }, (_, i) => p.brief(t + i * 1000, slotAt(t, "UTC"), 60).topic);
+    expect(topics.some((x) => x.includes("Pip won the Golden Pixel"))).toBe(true);
+  });
+});
