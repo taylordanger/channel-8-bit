@@ -825,6 +825,47 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         outfit: "vest", build: "round", eyes: "sleepy", nose: "big", facial: "mustache", accessories: ["headset"], height: 42,
       },
     }),
+    // --- Kitchen Nightmode (cooking) ----------------------------------------------
+    c({
+      id: "remy",
+      name: "Chef Remy Burns",
+      bible:
+        "Host of Kitchen Nightmode. A supremely confident TV chef with three cookbooks, a signature scarf, and no ability to cook. Every dish catches fire; he calls it 'a flavor event' and plates the ashes with tweezers. Blames the oven, the moon, and Pepper, in that order.",
+      catchphrases: ["that's what we call a flavor event", "trust the process", "plate it, Pepper"],
+      bits: [
+        "Today we're making {topic}. Is something on fire? That's the flavor waking up.",
+        "Trust the process, {other}. The process is currently smoking, but trust it.",
+        "Plate it, Pepper. Use the tweezers. Ash is a garnish now.",
+        "My second cookbook was called 'Heat.' My lawyers asked me to stop selling it.",
+        "That's not burnt, {other}. That's caramelized past the point of argument.",
+        "I don't follow recipes. Recipes follow me, and then they file complaints.",
+      ],
+      voice: { say: "Reed (English (US))", rate: 195, kokoro: "am_liam", speed: 1.08 },
+      look: {
+        skin: "#e8b48a", hair: "#2a1a10", hairStyle: "swoop", shirt: "#f4f4f4", pants: "#2b2b2b", accent: "#d62828",
+        outfit: "labcoat", build: "average", eyes: "dot", nose: "long", facial: "mustache", accessories: [], height: 45,
+      },
+    }),
+    c({
+      id: "pepper",
+      name: "Pepper Mills",
+      bible:
+        "Sous-chef on Kitchen Nightmode and the only one who can cook. Calm, competent, keeps a fire extinguisher within arm's reach and has named it Gerald. Quietly saves every dish, never gets credit, and narrates the disasters like a nature documentary.",
+      catchphrases: ["Gerald, it's your time", "I'll just quietly fix that", "and here we see the chef in his natural habitat"],
+      bits: [
+        "I'll just quietly fix that. Again.",
+        "Gerald, it's your time. Gerald is the fire extinguisher.",
+        "And here we see the chef in his natural habitat: near smoke.",
+        "{other}, the secret ingredient is me, throwing his version away.",
+        "I made a backup version before the show. I always make a backup version.",
+        "Today's {topic} serves four, or one chef's ego.",
+      ],
+      voice: { say: "Sandy (English (US))", rate: 180, kokoro: "af_alloy", speed: 1.0 },
+      look: {
+        skin: "#7a4a2a", hair: "#1a1a1a", hairStyle: "afro", shirt: "#3a7d44", pants: "#2e2e3a", accent: "#f2c14e",
+        outfit: "plain", build: "slim", eyes: "wide", nose: "small", facial: "none", accessories: ["headband"], height: 40,
+      },
+    }),
     // --- Commercials ------------------------------------------------------------
     c({
       id: "vance",

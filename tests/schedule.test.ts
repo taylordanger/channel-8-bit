@@ -14,15 +14,15 @@ describe("schedule", () => {
 
   it("finds the slot airing at an instant, with absolute boundaries", () => {
     const s = slotAt(t, TZ);
-    expect(s.showId).toBe("couch_coop"); // 14-17 local
+    expect(s.showId).toBe("couch_coop"); // 14-16 local
     expect(s.startAt).toBe(Date.UTC(2026, 9, 3, 18, 0));
-    expect(s.endAt).toBe(Date.UTC(2026, 9, 3, 21, 0));
+    expect(s.endAt).toBe(Date.UTC(2026, 9, 3, 20, 0));
   });
 
   it("slot boundaries are half-open", () => {
-    const boundary = Date.UTC(2026, 9, 3, 21, 0); // 17:00 local
+    const boundary = Date.UTC(2026, 9, 3, 20, 0); // 16:00 local
     expect(slotAt(boundary - 1, TZ).showId).toBe("couch_coop");
-    expect(slotAt(boundary, TZ).showId).toBe("pixel_heights");
+    expect(slotAt(boundary, TZ).showId).toBe("cooking");
   });
 
   it("works in half-hour offset zones", () => {

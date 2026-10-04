@@ -1,6 +1,6 @@
 import type { SetId } from "../../shared/types.js";
 
-export type ShowFormat = "late_night" | "morning" | "soap" | "hangout" | "sitcom" | "cartoon" | "gameshow" | "news" | "callin" | "commercial";
+export type ShowFormat = "late_night" | "morning" | "soap" | "hangout" | "sitcom" | "cartoon" | "gameshow" | "news" | "callin" | "cooking" | "commercial";
 
 export interface Show {
   id: string;
@@ -237,6 +237,30 @@ export const SHOWS: Record<string, Show> = {
     ],
     example:
       "dot: You're on the air, sweetie. What's troubling you?\ngreg: My co-host keeps stealing my weather segment.\ndot: Have you considered becoming the weather?\ngreg: I... what?\ndot: Wear a cloud costume. She can't steal you if you are the forecast.\nmurray: Doc, he's a grown man.\ndot: A grown man who will soon be a cumulonimbus. Doctor's orders!\ngreg: Seventy percent chance I hang up.\nmurray: My mic was off for the good advice again, wasn't it.",
+  },
+  cooking: {
+    id: "cooking",
+    title: "Kitchen Nightmode",
+    format: "cooking",
+    set: "kitchen",
+    tier: "standard",
+    cast: ["remy", "pepper"],
+    guestPool: ["brick", "greg", "victoria", "lenny", "dash", "oolong", "marisol", "tony", "hank"],
+    serialized: false,
+    bible:
+      "An afternoon cooking show. Chef Remy Burns cooks with total confidence and sets everything on fire; Pepper Mills actually cooks, quietly saves the dish, and narrates the disasters. Each day a guest from another show on the network is the taste tester and has to eat the result. The recipes are absurd and fictional (an eight-layer 8-bit lasagna, a soup that's 'mostly confidence') - never real cooking instructions, food-safety tips or nutrition claims. Physical comedy goes in the action field; fire and smoke are funny, nobody gets hurt.",
+    segmentTypes: ["recipe intro", "the cook", "something's burning", "guest taste test", "viewer recipe", "plating"],
+    mailSegment: "viewer recipe",
+    topics: [
+      "an eight-layer 8-bit lasagna",
+      "a soup that is mostly confidence",
+      "breakfast for dinner for breakfast",
+      "a cake shaped like the network's logo",
+      "the world's most dramatic grilled cheese",
+      "a salad with a secret",
+    ],
+    example:
+      "remy: Welcome to Kitchen Nightmode! Today: crème brûlée. The torch is my favorite instrument.\npepper: It's a dessert, Remy, not a band.\nremy: Everything is a band if you believe. Watch the sugar caramelize.\npepper: That's the dish towel.\nremy: Then the dish towel is caramelizing. Flavor event!\npepper: Gerald, it's your time.\nremy: Plate it, Pepper.\npepper: I'm plating the backup I made at six a.m. Like every day.",
   },
   hot_seat: {
     id: "hot_seat",

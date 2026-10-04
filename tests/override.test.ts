@@ -14,14 +14,14 @@ describe("special programming", () => {
   it("an override takes the air for its window, then the grid resumes", () => {
     const o = { showId: "pixel_heights", startAt: afternoon, endAt: afternoon + 3_600_000 };
     expect(programAt(afternoon + 1000, TZ, o)).toMatchObject({ showId: "pixel_heights", endAt: o.endAt });
-    expect(programAt(o.endAt, TZ, o).showId).toBe("couch_coop");
+    expect(programAt(o.endAt, TZ, o).showId).toBe("cooking"); // the grid resumes at 16:00
     expect(programAt(afternoon - 1, TZ, o).showId).toBe("couch_coop");
   });
 
   it("the guide splices the special into the regular schedule", () => {
     const o = { showId: "pixel_heights", startAt: afternoon + 600_000, endAt: afternoon + 4_200_000 };
     const g = guideWith(afternoon, 6, TZ, o);
-    expect(g.map((x) => x.showId).slice(0, 3)).toEqual(["couch_coop", "pixel_heights", "couch_coop"]);
+    expect(g.map((x) => x.showId).slice(0, 3)).toEqual(["couch_coop", "pixel_heights", "cooking"]);
     expect(g[1]).toMatchObject({ startAt: o.startAt, endAt: o.endAt });
     for (let i = 1; i < g.length; i++) expect(g[i].startAt).toBe(g[i - 1].endAt);
   });

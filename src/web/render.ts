@@ -595,6 +595,64 @@ const SETS: Record<Exclude<SetId, "bumper">, SetDef> = {
       }
     },
   },
+  kitchen: {
+    marks: [
+      { x: 112, y: 128, seated: false, face: 1 }, // Remy at the stove
+      { x: 178, y: 128, seated: false, face: -1 }, // Pepper at the prep counter
+      { x: 258, y: 140, seated: true, face: -1 }, // the taste tester on a stool
+    ],
+    back: (g, t) => {
+      // tiled wall
+      px(g, "#f3ead8", 0, 0, W, H);
+      for (let y = 0; y < 112; y += 10) px(g, "#e2d6bd", 0, y, W, 1);
+      for (let x = 0; x < W; x += 10) px(g, "#e2d6bd", x, 0, 1, 112);
+      // show sign
+      px(g, "#d62828", 106, 10, 108, 22);
+      g.fillStyle = "#fff";
+      g.font = "bold 9px monospace";
+      g.fillText("KITCHEN", 140, 20);
+      g.fillText("NIGHTMODE", 136, 29);
+      // hanging pans
+      for (const [x, r] of [[30, 9], [52, 7], [70, 8]] as const) {
+        px(g, "#555", x, 8, 1, 14);
+        g.fillStyle = "#3a3a3a";
+        g.beginPath();
+        g.arc(x, 22 + r, r, 0, Math.PI * 2);
+        g.fill();
+      }
+      // fridge
+      px(g, "#d9dde0", 278, 40, 36, 92);
+      px(g, "#b8bec2", 278, 76, 36, 2);
+      px(g, "#888", 282, 50, 2, 16);
+      // the smoke detector, which has seen things
+      px(g, "#ddd", 230, 6, 14, 5);
+      px(g, Math.floor(t / 500) % 2 ? "#ff3355" : "#551020", 236, 8, 2, 2);
+      // floor
+      px(g, "#8a6d4a", 0, 132, W, 48);
+      for (let x = 0; x < W; x += 16) px(g, "#7a5f40", x, 132, 1, 48);
+    },
+    front: (g, t) => {
+      // stove + counter run
+      px(g, "#5a5a62", 70, 118, 90, 30);
+      px(g, "#2a2a2e", 70, 116, 90, 4);
+      px(g, "#c9c9c9", 150, 116, 80, 4);
+      px(g, "#a07850", 150, 120, 80, 28);
+      // a pan on the burner that is always, always flickering
+      // (beside Remy, not in front of him)
+      px(g, "#222", 72, 110, 22, 4);
+      for (let i = 0; i < 4; i++) {
+        const h = 3 + ((Math.floor(t / 90) + i * 3) % 5);
+        px(g, i % 2 ? "#ffb703" : "#fb5607", 74 + i * 5, 110 - h, 3, h);
+      }
+      // Gerald, the fire extinguisher
+      px(g, "#d62828", 222, 102, 6, 14);
+      px(g, "#222", 223, 99, 4, 3);
+      // the taste tester's stool
+      px(g, "#6b4f2f", 250, 150, 18, 3);
+      px(g, "#6b4f2f", 252, 153, 2, 14);
+      px(g, "#6b4f2f", 264, 153, 2, 14);
+    },
+  },
   radio_booth: {
     marks: [
       { x: 96, y: 124, seated: true, face: 1 }, // Dr. Dot at the big mic

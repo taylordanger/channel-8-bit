@@ -93,6 +93,10 @@ OPENERS.gameshow = [
   { text: "Welcome to Hot Seat! Tonight's round is all about {topic}. Let's turn up the heat!", emotion: "happy", action: "gesture", target: "audience" },
   { text: "Contestants, your next challenge: {topic}. Lock it in!", emotion: "happy", target: "other" },
 ];
+OPENERS.cooking = [
+  { text: "Welcome to the kitchen! Today we're making {topic}. Pepper, hand me the fire extinguisher. For later.", emotion: "happy", action: "gesture", target: "camera" },
+  { text: "Today's dish is {topic}. The secret ingredient is confidence. The other secret ingredient is smoke.", emotion: "smug", target: "camera" },
+];
 OPENERS.callin = [
   { text: "You're on the air with Dr. Dot. Today's topic: {topic}. Lines are open, sweetie.", emotion: "happy", action: "gesture", target: "camera" },
   { text: "Next caller, tell me about {topic}. And take your time. You have twenty seconds.", emotion: "happy", target: "other" },
@@ -121,6 +125,7 @@ const CLOSERS: Record<ShowFormat, Line[]> = {
   commercial: [{ text: "Find it at the link! Operators are probably standing by!", emotion: "happy", action: "gesture", target: "camera" }],
   gameshow: [{ text: "Folks at home, you know what to do. Vote now! The people have spoken... soon.", emotion: "happy", action: "gesture", target: "camera" }],
   news: [{ text: "That's the news. Corrections, as always, at the end of the broadcast.", emotion: "neutral", target: "camera" }],
+  cooking: [{ text: "And that's what we call a flavor event. Don't try this at home. Or anywhere.", emotion: "happy", action: "gesture", target: "camera" }],
   callin: [{ text: "That's all the time we have. Remember: doctor's orders. Murray, who's on line two?", emotion: "happy", target: "camera" }],
   cartoon: [
     { text: "Kids, let this be a lesson. About... something. Let's eat.", emotion: "happy", target: "other" },

@@ -67,6 +67,7 @@ export type SetId =
   | "game_show"
   | "news_desk"
   | "radio_booth"
+  | "kitchen"
   | "commercial"
   | "bumper";
 

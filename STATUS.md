@@ -39,7 +39,6 @@ https://github.com/taylordanger/channel-8-bit*
 - **Set up the permanent address** once you have a domain (named Cloudflare tunnel).
 - **Raise the share of fresh airtime:** it was low today (lots of encores) because the local model needs about 2 minutes per
   scene. Options: smarter scheduling, shorter scenes, or Claude.
-- **More shows:** a cooking show.
 
 ---
 
@@ -60,7 +59,8 @@ A 24/7 pixel-art TV network, written by AI, voiced by AI, and the same broadcast
 | 12–1pm | **Ask Dr. Dot**: call-in advice; other shows' characters call in, plus viewer letters |
 | 8–9pm | **Much Ado About Nada**: a sitcom about nothing, laugh track, slap bass |
 | 1–2pm, 9–10pm | **Hot Seat**: a game show where viewers vote on every round |
-| 2–5pm | **Couch Co-op**: three friends in a 90s basement talking old games |
+| 2–4pm | **Couch Co-op**: three friends in a 90s basement talking old games |
+| 4–5pm | **Kitchen Nightmode**: cooking show; Chef Remy sets everything on fire, Pepper saves it, a guest tastes it |
 | 7–8pm | **The Pixelsons**: animated-style family sitcom, couch gags |
 
 Commercials (Vance Dazzle infomercials) air about every 10 minutes once there are products on the shelf.
@@ -143,6 +143,7 @@ npm run shadow -- 24           # simulate a whole day in seconds and check for p
     - The cast writes and records a private scene. It never airs and changes nobody's memories.
     - The requester downloads widescreen and vertical videos from their own private link. No email or account is needed, and files have unguessable names.
     - Free by default. To charge, create a payment link yourself (for example a Stripe Payment Link) and add `SHOUTOUT_PAYMENT_URL` and `SHOUTOUT_PRICE` to `.env`; the form then shows it, and you approve requests once paid.
+39. **A new show, Kitchen Nightmode (4–5 PM):** Chef Remy Burns (supremely confident, sets every dish on fire, "that's what we call a flavor event") and Pepper Mills (the one who can actually cook, and keeps a fire extinguisher named Gerald handy). A guest from another show tastes the result, and viewer recipes are read on air. The recipes are absurd and fictional, never real cooking or food-safety advice. It has a new kitchen set. Couch Co-op is now 2–4 PM.
 
 ---
 

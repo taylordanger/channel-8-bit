@@ -59,7 +59,7 @@ export function checkNoPrices(script: Script): StandardsResult {
 }
 
 /** Formats whose casts talk to the audience (and so may read the live chat). */
-const FOURTH_WALL = new Set(["late_night", "morning", "hangout", "gameshow", "news", "callin"]);
+const FOURTH_WALL = new Set(["late_night", "morning", "hangout", "gameshow", "news", "callin", "cooking"]);
 
 /** Finished commercials kept per product; once there are this many, breaks rotate them. */
 export const ADS_PER_PRODUCT = 3;
