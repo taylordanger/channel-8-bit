@@ -35,6 +35,7 @@ export const script = (beats: Script["beats"], over: Partial<Script> = {}): Scri
   beats,
   memories: [],
   relationshipChanges: [],
+  moodChanges: [],
   storyState: "",
   ...over,
 });

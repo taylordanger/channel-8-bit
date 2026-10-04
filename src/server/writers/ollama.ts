@@ -82,6 +82,7 @@ export function normalizeSpeakers(script: Script, castIds: string[]): Script {
     beats: script.beats.map((b) => ({ ...b, speaker: fix(b.speaker), target: ["camera", "audience"].includes(b.target) ? b.target : fix(b.target) })),
     memories: script.memories.map((m) => ({ ...m, about: m.about.map(fix) })),
     relationshipChanges: script.relationshipChanges.map((r) => ({ ...r, from: fix(r.from), to: fix(r.to) })),
+    moodChanges: (script.moodChanges ?? []).map((m) => ({ ...m, character: fix(m.character) })),
   };
 }
 
@@ -109,6 +110,7 @@ export function localScriptSchema(castIds: string[], minBeats: number, maxBeats:
       .max(maxBeats),
     memories: ScriptSchema.shape.memories.max(2),
     relationshipChanges: ScriptSchema.shape.relationshipChanges.max(2),
+    moodChanges: ScriptSchema.shape.moodChanges.max(2),
   });
 }
 
@@ -147,7 +149,7 @@ export function tameActions(script: Script): Script {
 
 const LOCAL_ADDENDUM = `
 
-OUTPUT FORMAT: Reply with one JSON object only, matching the schema. "speaker" and "target" must be character ids exactly as listed (lowercase ids like "rex", not names). Every line must sound like that specific character - use their catchphrases and personality. Make it funny and specific; avoid generic filler. Keep lines short and punchy (under 25 words). Don't copy the sample lines - write new ones. Use "none" for action on most lines; walk_off is rare and dramatic. Keep the extras brief: summary is one sentence, storyState at most three sentences, at most two memories and two relationshipChanges.`;
+OUTPUT FORMAT: Reply with one JSON object only, matching the schema. "speaker" and "target" must be character ids exactly as listed (lowercase ids like "rex", not names). Every line must sound like that specific character - use their catchphrases and personality. Make it funny and specific; avoid generic filler. Keep lines short and punchy (under 25 words). Don't copy the sample lines - write new ones. Use "none" for action on most lines; walk_off is rare and dramatic. Keep the extras brief: summary is one sentence, storyState at most three sentences, at most two memories, two relationshipChanges and two moodChanges.`;
 
 /** Writes segments with a model running locally in Ollama: free, private, offline. */
 export class OllamaWriter implements Writer {

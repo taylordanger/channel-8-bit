@@ -4,7 +4,8 @@ import { programAt, type Override } from "./catalog/schedule.js";
 import type { Clock } from "./clock.js";
 import type { DB } from "./db.js";
 import type { Governor } from "./governor.js";
-import { SEED_RELATIONSHIPS, type MemoryBank } from "./memory.js";
+import { SEED_RELATIONSHIPS, type CharacterStates, type MemoryBank } from "./memory.js";
+import { CHARACTERS } from "./catalog/characters.js";
 import type { Produced, Producer } from "./producer.js";
 import type { Timeline } from "./timeline.js";
 
@@ -18,6 +19,7 @@ export interface StationDeps {
   clock: Clock;
   timeline: Timeline;
   memory: MemoryBank;
+  states?: CharacterStates;
   producer: Producer;
   governor: Governor;
   timeZone: string;
@@ -52,6 +54,31 @@ export class Station {
     d.hurryBelowMs ??= 75_000;
     const now = d.clock.now();
     for (const [a, b, score, note] of SEED_RELATIONSHIPS) d.memory.seed(a, b, score, note, now);
+  }
+
+  /**
+   * Moods and walk-offs. Absences count down with each scene of the show; a regular who
+   * storms off (walk_off without coming back) sits out the next few and is furious until
+   * a scene says otherwise. Guests can leave whenever - that's just the end of the interview.
+   */
+  private applyCharacterState(p: Produced, now: number): void {
+    const states = this.d.states;
+    if (!states || !p.script) return;
+    const showId = p.segment.showId;
+    const show = getShow(showId);
+    const speakers = [...new Set(p.segment.cues.map((c) => c.speaker))];
+    states.segmentAired(showId, speakers);
+    for (const m of p.script.moodChanges) states.setMood(m.character, m.mood, m.reason, now);
+    for (const id of speakers) {
+      if (!show.cast.includes(id)) continue;
+      const theirs = p.segment.cues.filter((c) => c.speaker === id);
+      const last = theirs[theirs.length - 1];
+      if (last?.action !== "walk_off") continue;
+      states.walkOff(id, showId, last.text.slice(0, 120));
+      if (!p.script.moodChanges.some((m) => m.character === id)) states.setMood(id, "furious", `stormed off ${show.title}: "${last.text.slice(0, 80)}"`, now);
+      this.d.memory.remember(showId, [id], `${CHARACTERS[id]?.name ?? id} stormed off the set of ${show.title}: "${last.text.slice(0, 100)}"`, 0.75, now);
+      this.d.log?.(`${CHARACTERS[id]?.name ?? id} walked off ${show.title}`);
+    }
   }
 
   /** Where the next segment will start if produced now. */
@@ -125,6 +152,7 @@ export class Station {
         for (const m of p.script.memories) this.d.memory.remember(show, m.about, m.text, m.importance, now);
         for (const r of p.script.relationshipChanges) this.d.memory.adjust(r.from, r.to, r.delta, r.reason, now);
         if (p.script.storyState) this.d.memory.setStoryState(show, p.script.storyState, now);
+        this.applyCharacterState(p, now);
       }
       for (const n of p.notes.filter((x) => x.verdict !== "fix")) {
         this.d.db

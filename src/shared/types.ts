@@ -10,6 +10,10 @@ export type Emotion = (typeof EMOTIONS)[number];
 export const ACTIONS = ["none", "laugh", "lean_in", "gesture", "stand", "dance", "walk_off", "enter", "applause"] as const;
 export type Action = (typeof ACTIONS)[number];
 
+/** Lasting moods: they persist across segments and shows until something changes them. */
+export const MOODS = ["neutral", "elated", "furious", "heartbroken", "smug", "anxious", "embarrassed", "scheming"] as const;
+export type Mood = (typeof MOODS)[number];
+
 export const HAIR_STYLES = [
   "short", "long", "bald", "mohawk", "bun", "afro", "spiky", "bob",
   "pompadour", "swoop", "wild", "ponytail", "huge", "beehive", "fringe",
@@ -70,6 +74,8 @@ export interface CastMember {
   mark: number;
   /** Whether the character is on set when the segment starts. */
   onSetAtStart: boolean;
+  /** Their lasting mood going into the scene (sets their resting expression). */
+  mood?: Mood;
   /** Music segments: what they play ("vocals", "guitar", "bass", "keys", "drums", "host"). */
   role?: string;
 }

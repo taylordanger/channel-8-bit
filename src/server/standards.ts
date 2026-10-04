@@ -126,6 +126,10 @@ export function deterministicStandards(
     relationshipChanges: input.relationshipChanges
       .filter((r) => known(r.from) && known(r.to) && r.from !== r.to)
       .map((r) => ({ ...r, delta: Math.max(-25, Math.min(25, r.delta)) })),
+    moodChanges: (input.moodChanges ?? [])
+      .filter((m) => known(m.character) && m.reason.trim())
+      .map((m) => ({ ...m, reason: m.reason.trim().slice(0, 160) }))
+      .slice(0, 3),
     storyState: brief.show.serialized ? input.storyState.trim().slice(0, 1200) : "",
   };
 

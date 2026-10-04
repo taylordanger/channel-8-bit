@@ -67,6 +67,17 @@ CREATE TABLE IF NOT EXISTS topics (
   last_used_at INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS character_state (
+  id              TEXT PRIMARY KEY,
+  mood            TEXT NOT NULL DEFAULT 'neutral',
+  mood_reason     TEXT NOT NULL DEFAULT '',
+  mood_at         INTEGER NOT NULL DEFAULT 0,
+  off_show        TEXT,               -- show they stormed off from
+  off_reason      TEXT NOT NULL DEFAULT '',
+  off_remaining   INTEGER NOT NULL DEFAULT 0,  -- segments of that show they sit out
+  owed_entrance   INTEGER NOT NULL DEFAULT 0   -- 1 = owed an entrance in their next scene
+);
+
 CREATE TABLE IF NOT EXISTS overrides (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   show_id    TEXT NOT NULL,

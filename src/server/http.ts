@@ -195,6 +195,36 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
             look: c.look,
           })),
         );
+      case "/api/drama": {
+        // Who feels what about whom, right now - for the Drama page.
+        const states = new Map(b.states.all(now).map((x) => [x.id, x]));
+        const name = (id: string) => CHARACTERS[id]?.name ?? id;
+        return json(res, {
+          shows: Object.values(SHOWS).map((show) => {
+            const ids = show.cast;
+            const pairs = ids.flatMap((a) => ids.filter((x) => x !== a).map((x) => ({ ...b.memory.relationship(a, x), fromName: name(a), toName: name(x) })));
+            return {
+              id: show.id,
+              title: show.title,
+              cast: ids.map((id) => {
+                const st = states.get(id);
+                return {
+                  id,
+                  name: name(id),
+                  mood: st?.mood ?? "neutral",
+                  reason: st?.mood !== "neutral" ? st?.reason ?? "" : "",
+                  offSet: st?.offShow === show.id && (st?.offRemaining ?? 0) > 0,
+                  returning: st?.offShow === show.id && st?.returning,
+                };
+              }),
+              feuds: b.memory.feuds(ids).map((f) => ({ a: name(f.a), b: name(f.b), score: f.score })),
+              tensions: [...pairs].sort((x, y) => x.score - y.score).slice(0, 3),
+              bonds: [...pairs].sort((x, y) => y.score - x.score).slice(0, 2),
+            };
+          }),
+          memories: b.memory.latest(20).map((m) => ({ text: m.text, about: m.about.map(name), at: m.createdAt, show: SHOWS[m.showId]?.title ?? m.showId })),
+        });
+      }
       case "/api/guide":
         return json(res, guideWith(now, 24, config.timeZone, b.station.override()));
       case "/api/status": {

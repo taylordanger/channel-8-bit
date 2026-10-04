@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Drama Board</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <style>
+      :root { --bg: #0b0814; --panel: #15102a; --line: #2a2140; --text: #e9e4ff; --muted: #8a82b0; --hot: #ff3355; --warm: #ffe066; --cool: #2ec4b6; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font-family: "Press Start 2P", monospace; padding: 16px; }
+      main { max-width: 1100px; margin: 0 auto; }
+      header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+      h1 { font-size: 16px; margin: 0; }
+      a { color: var(--warm); font-size: 10px; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+      .card { background: var(--panel); border-radius: 8px; padding: 14px; }
+      .card h2 { font-size: 11px; margin: 0 0 12px; color: var(--warm); }
+      .cast { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+      .who { font-size: 9px; line-height: 1.8; }
+      .who .mood { color: var(--muted); }
+      .who.furious .mood, .who.heartbroken .mood { color: var(--hot); }
+      .who.elated .mood, .who.smug .mood, .who.scheming .mood { color: var(--warm); }
+      .tag { font-size: 7px; padding: 2px 5px; border-radius: 3px; margin-left: 6px; background: var(--hot); color: #fff; }
+      .tag.back { background: var(--cool); }
+      .rel { font-size: 8px; line-height: 2; color: var(--muted); }
+      .rel b { color: var(--text); font-weight: normal; }
+      .feud { font-size: 9px; color: var(--hot); margin-bottom: 8px; }
+      .bar { display: inline-block; height: 6px; vertical-align: middle; margin-left: 6px; border-radius: 2px; }
+      .mem { margin-top: 18px; }
+      .mem li { font-size: 8px; line-height: 2; color: var(--muted); list-style: none; border-left: 2px solid var(--line); padding-left: 10px; margin-bottom: 6px; }
+      .mem li b { color: var(--text); font-weight: normal; }
+      ul { padding: 0; margin: 0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header><h1>DRAMA BOARD</h1><a href="/">← back to the broadcast</a></header>
+      <div class="grid" id="shows"></div>
+      <div class="card mem"><h2>WHAT THEY'LL REMEMBER</h2><ul id="mems"></ul></div>
+    </main>
+    <script type="module">
+      const MOOD = { neutral: "fine", elated: "elated", furious: "FURIOUS", heartbroken: "heartbroken", smug: "smug", anxious: "anxious", embarrassed: "embarrassed", scheming: "scheming" };
+      const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+      const bar = (score) => { const b = el("span", "bar"); b.style.width = Math.abs(score) / 2 + "px"; b.style.background = score < 0 ? "var(--hot)" : "var(--cool)"; return b; };
+      const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`; };
+
+      async function load() {
+        const d = await (await fetch("/api/drama")).json();
+        const shows = document.getElementById("shows");
+        shows.replaceChildren(...d.shows.map((s) => {
+          const card = el("div", "card");
+          card.append(el("h2", null, s.title.toUpperCase()));
+          const cast = el("div", "cast");
+          for (const c of s.cast) {
+            const w = el("div", `who ${c.mood}`);
+            w.append(el("span", null, c.name + " "), el("span", "mood", `· ${MOOD[c.mood] ?? c.mood}${c.reason ? " - " + c.reason : ""}`));
+            if (c.offSet) w.append(el("span", "tag", "STORMED OFF"));
+            if (c.returning) w.append(el("span", "tag back", "COMING BACK"));
+            cast.append(w);
+          }
+          card.append(cast);
+          for (const f of s.feuds) card.append(el("div", "feud", `FEUD: ${f.a} vs ${f.b}`));
+          for (const r of [...s.tensions, ...s.bonds]) {
+            const line = el("div", "rel");
+            line.append(el("b", null, `${r.fromName.split(" ")[0]} → ${r.toName.split(" ")[0]}`), document.createTextNode(` ${Math.round(r.score)}`), bar(r.score));
+            if (r.note) line.append(document.createTextNode(`  ${r.note}`));
+            card.append(line);
+          }
+          return card;
+        }));
+        document.getElementById("mems").replaceChildren(...d.memories.map((m) => {
+          const li = el("li");
+          li.append(el("b", null, m.text), document.createTextNode(` - ${m.show}, ${ago(m.at)}`));
+          return li;
+        }));
+      }
+      load();
+      setInterval(load, 15000);
+    </script>
+  </body>
+</html>

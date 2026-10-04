@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ACTIONS, EMOTIONS } from "../../shared/types.js";
+import { ACTIONS, EMOTIONS, MOODS } from "../../shared/types.js";
 import type { Character } from "../catalog/characters.js";
 import type { Show } from "../catalog/shows.js";
 import type { Memory, Relationship } from "../memory.js";
@@ -43,6 +43,15 @@ export const ScriptSchema = z.object({
       }),
     )
     .describe("How feelings shifted this segment (can be empty)"),
+  moodChanges: z
+    .array(
+      z.object({
+        character: z.string(),
+        mood: z.enum(MOODS),
+        reason: z.string().describe("Short, specific: 'Greg stole her weather segment again'"),
+      }),
+    )
+    .describe("Characters whose lasting mood changed this segment (0-2; 'neutral' means they got over it)"),
   storyState: z
     .string()
     .describe("For serialized shows: the updated plot state in 3-6 sentences. Empty string otherwise."),
@@ -71,6 +80,14 @@ export interface WriterBrief {
   storyState: string;
   /** Lines aired recently; writers must not repeat them. */
   recentLines: string[];
+  /** Lasting moods of the cast going into this scene. */
+  moods?: { id: string; mood: string; reason: string }[];
+  /** Regulars who stormed off earlier and aren't in this scene. */
+  offSet?: { id: string; reason: string }[];
+  /** Regulars coming back after storming off: they need an entrance. */
+  returning?: string[];
+  /** Pairs of characters on set who are in a full-blown feud. */
+  feuds?: { a: string; b: string }[];
 }
 
 export interface WriterResult {

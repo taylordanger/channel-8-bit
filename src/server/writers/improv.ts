@@ -189,6 +189,7 @@ export class ImprovWriter implements Writer {
       beats,
       memories: [],
       relationshipChanges: [],
+      moodChanges: [],
       storyState: "",
     };
     return { script, writer: this.name };

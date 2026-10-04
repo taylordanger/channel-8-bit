@@ -8,7 +8,7 @@ import type { StationConfig } from "./config.js";
 import { openDb } from "./db.js";
 import { Governor } from "./governor.js";
 import { Ledger } from "./ledger.js";
-import { MemoryBank } from "./memory.js";
+import { CharacterStates, MemoryBank } from "./memory.js";
 import { Producer } from "./producer.js";
 import { TopicDesk } from "./desk.js";
 import { FactChecker, LocalFactChecker } from "./factcheck.js";
@@ -55,6 +55,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   const db = openDb(o.dbFile ?? path.join(config.dataDir, "station.db"));
   const timeline = new Timeline(db);
   const memory = new MemoryBank(db);
+  const states = new CharacterStates(db);
   const desk = new TopicDesk(db, o.sourceReader);
   const ledger = new Ledger(db, config.timeZone);
   const governor = new Governor({ ...config, ledger });
@@ -99,6 +100,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   const producer = new Producer({
     timeline,
     memory,
+    states,
     desk,
     tts,
     writers,
@@ -113,6 +115,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     clock,
     timeline,
     memory,
+    states,
     producer,
     governor,
     timeZone: config.timeZone,
@@ -122,7 +125,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   });
   // Finish reading any links a restart interrupted.
   for (const t of desk.pending()) void desk.ingest(t.id);
-  return { ollama, db, clock, timeline, memory, desk, ledger, governor, tts, writers, producer, station };
+  return { ollama, db, clock, timeline, memory, states, desk, ledger, governor, tts, writers, producer, station };
 }
 
 export type Built = ReturnType<typeof buildStation>;

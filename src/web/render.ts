@@ -766,7 +766,8 @@ export class Renderer {
       drawSprite(g, st.member.look, mark.x + dx, mark.y + (seated ? 8 : 0) + dy, {
         mouth: bandMouth >= 0 ? bandMouth : mouth,
         // Listeners keep the expression from their own last line for a few seconds.
-        emotion: speaking?.emotion ?? (own && local - own.t < own.dur + 4000 ? own.emotion : "neutral"),
+        // ...otherwise their lasting mood shows on their face.
+        emotion: speaking?.emotion ?? (own && local - own.t < own.dur + 4000 ? own.emotion : MOOD_FACE[st.member.mood ?? "neutral"]),
         blink: (now + seed) % 4200 < 130,
         breathe: Math.floor((now + seed) / 900) % 2,
         armUp: bandArm || action === "gesture" || (action === "dance" && Math.floor(now / 360) % 2 === 0),
@@ -904,6 +905,18 @@ function wrap(text: string, width: number): string[] {
 }
 
 const COUCH_GAG_MS = 2600;
+
+/** Resting expression for a lasting mood. */
+const MOOD_FACE: Record<string, Cue["emotion"]> = {
+  neutral: "neutral",
+  elated: "happy",
+  furious: "angry",
+  heartbroken: "sad",
+  smug: "smug",
+  anxious: "nervous",
+  embarrassed: "nervous",
+  scheming: "smug",
+};
 
 // ---------------------------------------------------------------------------
 // The director: picks a camera shot for every moment. Shots are derived purely

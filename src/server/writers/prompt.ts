@@ -78,6 +78,16 @@ export function userPrompt(b: WriterBrief): string {
         .map((r) => `- ${name(r.a)} -> ${name(r.b)}: ${Math.round(r.score)}${r.note ? ` (${r.note})` : ""}`)
         .join("\n")}`,
     );
+  if (b.moods?.length)
+    sections.push(`MOODS (lasting - play them, and report changes in moodChanges):\n${b.moods.map((m) => `- ${name(m.id)} is ${m.mood}: ${m.reason}`).join("\n")}`);
+  if (b.offSet?.length)
+    sections.push(
+      `OFF THE SET: ${b.offSet.map((o) => `${name(o.id)} stormed off earlier ("${o.reason}") and is NOT in this scene`).join("; ")}. The others should react to the absence - gossip, guilt, relief - but nobody may speak as them.`,
+    );
+  if (b.returning?.length)
+    sections.push(`BACK ON SET: ${b.returning.map(name).join(", ")} returns after storming off. Give them an entrance: their FIRST line uses action "enter", and the room should feel it.`);
+  if (b.feuds?.length)
+    sections.push(`FEUD: ${b.feuds.map((f) => `${name(f.a)} vs ${name(f.b)}`).join("; ")} - a full-blown feud. Escalate it with a petty new front, or stage a messy, short-lived reconciliation. Report the shift in relationshipChanges.`);
   if (b.recentLines.length) sections.push(`RECENTLY AIRED (do not repeat):\n${b.recentLines.slice(-40).map((l) => `- ${l}`).join("\n")}`);
   return sections.join("\n\n");
 }

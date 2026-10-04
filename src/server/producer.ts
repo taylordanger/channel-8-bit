@@ -4,7 +4,7 @@ import { getCharacter, type Character } from "./catalog/characters.js";
 import { slotAt, type ScheduledSlot } from "./catalog/schedule.js";
 import { getShow, type Show } from "./catalog/shows.js";
 import type { TopicDesk } from "./desk.js";
-import type { MemoryBank } from "./memory.js";
+import type { CharacterStates, MemoryBank } from "./memory.js";
 import { checkNames, checkNumbers, checkVerbatim, type SourceChecker } from "./factcheck.js";
 import { CHARACTERS } from "./catalog/characters.js";
 import { SHOWS } from "./catalog/shows.js";
@@ -59,6 +59,7 @@ export interface Produced {
 export interface ProducerDeps {
   timeline: Timeline;
   memory: MemoryBank;
+  states?: CharacterStates;
   desk?: TopicDesk;
   tts: TTSEngine;
   /** Tried in order; the last one should never fail (the improv writer). */
@@ -172,8 +173,18 @@ export class Producer {
       guest = getCharacter(show.guestPool[Math.floor(slot.startAt / 3_600_000) % show.guestPool.length]);
     }
     const solo = show.soloFor?.[segmentType];
-    const cast = solo ? [getCharacter(solo)] : [...show.cast.map(getCharacter), ...(guest ? [guest] : [])];
+    let cast = solo ? [getCharacter(solo)] : [...show.cast.map(getCharacter), ...(guest ? [guest] : [])];
+    // Whoever stormed off this show sits out - as long as at least two people are left to talk.
+    const off = solo ? [] : (this.d.states?.offSet(show.id) ?? []);
+    if (off.length) {
+      const remaining = cast.filter((c) => !off.some((o) => o.id === c.id));
+      if (remaining.length >= 2) cast = remaining;
+    }
     const ids = cast.map((c) => c.id);
+    const moods = ids.flatMap((id) => {
+      const m = this.d.states?.mood(id, at);
+      return m ? [{ id, mood: m.mood, reason: m.reason }] : [];
+    });
     const desk = this.d.desk?.nextFor(show.id);
     return {
       show,
@@ -195,6 +206,10 @@ export class Producer {
       relationships: this.d.memory.relationshipsAmong(ids),
       storyState: show.serialized ? this.d.memory.storyState(show.id) || (show.storySeed ?? "") : "",
       recentLines: this.d.timeline.recentLines(show.id, at, 6),
+      moods,
+      offSet: off.filter((o) => !ids.includes(o.id)).map((o) => ({ id: o.id, reason: o.reason })),
+      returning: (this.d.states?.returning(show.id) ?? []).filter((id) => ids.includes(id)),
+      feuds: this.d.memory.feuds(ids).map(({ a, b }) => ({ a, b })),
     };
   }
 
@@ -213,7 +228,7 @@ export class Producer {
           this.d.log?.(`standards rejected a ${brief.show.id} script from ${writer.name}: ${checked.rejected}`);
           continue;
         }
-        const segment = await this.assemble(brief.show, brief.cast, checked.script, writerName, brief.segmentType);
+        const segment = await this.assemble(brief.show, brief.cast, checked.script, writerName, brief.segmentType, brief.moods);
         if (brief.deskTopicId) this.d.desk?.markUsed(brief.deskTopicId, at);
         return {
           segment,
@@ -332,7 +347,14 @@ export class Producer {
   }
 
   /** Voice every line and lay the cues end to end. Durations come from the real audio. */
-  async assemble(show: Show, cast: Character[], script: Script, writer: string, segmentType = ""): Promise<Segment> {
+  async assemble(
+    show: Show,
+    cast: Character[],
+    script: Script,
+    writer: string,
+    segmentType = "",
+    moods: { id: string; mood: string }[] = [],
+  ): Promise<Segment> {
     const byId = new Map(cast.map((c) => [c.id, c]));
     // Voice lines a few at a time; timing is laid out afterwards from the real durations.
     const voices = await mapLimit(script.beats, 4, (b) => this.d.tts.voice(b.line, byId.get(b.speaker)!));
@@ -362,6 +384,7 @@ export class Producer {
       look: c.look,
       mark: i,
       onSetAtStart: firstAction.get(c.id) !== "enter",
+      mood: moods.find((m) => m.id === c.id)?.mood as CastMember["mood"],
     }));
     return {
       id: crypto.randomUUID(),

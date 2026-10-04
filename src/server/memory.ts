@@ -58,6 +58,13 @@ export class MemoryBank {
       .map((x) => x.m);
   }
 
+  latest(limit: number): Memory[] {
+    const rows = this.db.prepare("SELECT * FROM memories ORDER BY created_at DESC LIMIT ?").all(limit) as {
+      id: number; created_at: number; show_id: string; about: string; text: string; weight: number;
+    }[];
+    return rows.map((r) => ({ id: r.id, createdAt: r.created_at, showId: r.show_id, about: JSON.parse(r.about) as string[], text: r.text, weight: r.weight }));
+  }
+
   relationship(a: string, b: string): Relationship {
     const row = this.db.prepare("SELECT a, b, score, note FROM relationships WHERE a = ? AND b = ?").get(a, b) as
       | Relationship
@@ -85,6 +92,17 @@ export class MemoryBank {
       .run(a, b, score, note, at);
   }
 
+  /** Pairs among `ids` where either side's feelings have sunk to feud level. */
+  feuds(ids: string[]): { a: string; b: string; score: number }[] {
+    const out: { a: string; b: string; score: number }[] = [];
+    for (let i = 0; i < ids.length; i++)
+      for (let j = i + 1; j < ids.length; j++) {
+        const score = Math.min(this.relationship(ids[i], ids[j]).score, this.relationship(ids[j], ids[i]).score);
+        if (score <= FEUD_SCORE) out.push({ a: ids[i], b: ids[j], score });
+      }
+    return out;
+  }
+
   relationshipsAmong(ids: string[]): Relationship[] {
     const out: Relationship[] = [];
     for (const a of ids) for (const b of ids) if (a !== b) out.push(this.relationship(a, b));
@@ -103,6 +121,101 @@ export class MemoryBank {
          ON CONFLICT(show_id) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at`,
       )
       .run(showId, state.trim(), at);
+  }
+}
+
+/** Moods fade on their own after this long unless a scene renews them. */
+export const MOOD_TTL_MS = 6 * 3_600_000;
+/** Relationship score at or below which two characters are in a feud. */
+export const FEUD_SCORE = -60;
+/** How many of that show's segments someone sits out after storming off. */
+export const WALK_OFF_SEGMENTS = 2;
+
+export interface CharacterMood {
+  id: string;
+  mood: string;
+  reason: string;
+  at: number;
+}
+
+interface StateRow {
+  id: string;
+  mood: string;
+  mood_reason: string;
+  mood_at: number;
+  off_show: string | null;
+  off_reason: string;
+  off_remaining: number;
+  owed_entrance: number;
+}
+
+/**
+ * Lasting character state: moods that follow a character across shows, and walk-offs
+ * that keep them off a show's set for a while. Lives alongside the memory bank.
+ */
+export class CharacterStates {
+  constructor(private db: DB) {}
+
+  private row(id: string): StateRow | undefined {
+    return this.db.prepare("SELECT * FROM character_state WHERE id = ?").get(id) as StateRow | undefined;
+  }
+
+  private ensure(id: string) {
+    this.db.prepare("INSERT OR IGNORE INTO character_state (id) VALUES (?)").run(id);
+  }
+
+  setMood(id: string, mood: string, reason: string, at: number): void {
+    this.ensure(id);
+    this.db.prepare("UPDATE character_state SET mood = ?, mood_reason = ?, mood_at = ? WHERE id = ?").run(mood, reason, at, id);
+  }
+
+  /** Current mood, or undefined if neutral or faded. */
+  mood(id: string, now: number): CharacterMood | undefined {
+    const r = this.row(id);
+    if (!r || r.mood === "neutral" || now - r.mood_at > MOOD_TTL_MS) return undefined;
+    return { id, mood: r.mood, reason: r.mood_reason, at: r.mood_at };
+  }
+
+  /** Someone stormed off a show: they sit out its next few segments. */
+  walkOff(id: string, showId: string, reason: string, segments = WALK_OFF_SEGMENTS): void {
+    this.ensure(id);
+    this.db
+      .prepare("UPDATE character_state SET off_show = ?, off_reason = ?, off_remaining = ?, owed_entrance = 0 WHERE id = ?")
+      .run(showId, reason, segments, id);
+  }
+
+  offSet(showId: string): { id: string; reason: string; remaining: number }[] {
+    return (this.db.prepare("SELECT * FROM character_state WHERE off_show = ? AND off_remaining > 0").all(showId) as StateRow[]).map((r) => ({
+      id: r.id,
+      reason: r.off_reason,
+      remaining: r.off_remaining,
+    }));
+  }
+
+  /** Characters who've served their time away from this show and are owed an entrance. */
+  returning(showId: string): string[] {
+    return (this.db.prepare("SELECT id FROM character_state WHERE off_show = ? AND owed_entrance = 1").all(showId) as { id: string }[]).map((r) => r.id);
+  }
+
+  /** A segment of this show aired: absences count down; whoever reaches zero comes back next time. */
+  segmentAired(showId: string, appearedIds: string[]): void {
+    this.db.prepare("UPDATE character_state SET off_remaining = off_remaining - 1 WHERE off_show = ? AND off_remaining > 0").run(showId);
+    this.db.prepare("UPDATE character_state SET owed_entrance = 1 WHERE off_show = ? AND off_remaining = 0 AND owed_entrance = 0 AND off_reason != ''").run(showId);
+    // Once they've made their entrance, the walk-off is over.
+    for (const id of appearedIds)
+      this.db.prepare("UPDATE character_state SET owed_entrance = 0, off_show = NULL, off_reason = '' WHERE id = ? AND off_show = ? AND owed_entrance = 1").run(id, showId);
+  }
+
+  all(now: number): (CharacterMood & { offShow: string | null; offRemaining: number; returning: boolean })[] {
+    return (this.db.prepare("SELECT * FROM character_state").all() as StateRow[]).map((r) => ({
+      id: r.id,
+      mood: r.mood !== "neutral" && now - r.mood_at <= MOOD_TTL_MS ? r.mood : "neutral",
+      reason: r.mood_reason,
+      at: r.mood_at,
+      offShow: r.off_remaining > 0 || r.owed_entrance ? r.off_show : null,
+      offRemaining: r.off_remaining,
+      returning: Boolean(r.owed_entrance),
+    }));
   }
 }
 
