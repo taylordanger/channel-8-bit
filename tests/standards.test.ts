@@ -80,3 +80,29 @@ describe("standards desk", () => {
     expect(r.script.storyState).toBe("The will is forged.");
   });
 });
+
+describe("overused phrases", () => {
+  it("finds clichés repeated across scenes, but not catchphrases, story nouns or one-offs", async () => {
+    const { overusedPhrases } = await import("../src/server/standards.js");
+    const scenes = [
+      ["Don't play dumb with me, Lola.", "The anonymous letters were yours.", "My beautiful insomniacs, welcome!"],
+      ["Don't play dumb, Marcus.", "I found the anonymous letters.", "My beautiful insomniacs!"],
+      ["Oh, don't play dumb.", "Burn the anonymous letters.", "Hello, my beautiful insomniacs."],
+      ["A yacht. A whole yacht."],
+    ];
+    const found = overusedPhrases(scenes, 3, 10, ["my beautiful insomniacs"]);
+    expect(found).toContain("don't play dumb");
+    expect(found.some((p) => p.includes("anonymous letters"))).toBe(false);
+    expect(found.some((p) => p.includes("insomniacs"))).toBe(false);
+    expect(found.some((p) => p.includes("yacht"))).toBe(false);
+  });
+
+  it("ignores everyday speech and trims only the sentences that use a banned phrase", async () => {
+    const { overusedPhrases, dropOverused } = await import("../src/server/standards.js");
+    const scenes = [["I don't know, what's going on?"], ["I don't know what's going on."], ["Honestly I don't know. What's going on?"]];
+    expect(overusedPhrases(scenes)).toEqual([]);
+    expect(dropOverused("Don't play dumb, Lola. I know about the yacht.", ["don't play dumb"])).toBe("I know about the yacht.");
+    expect(dropOverused("Don't play dumb!", ["don't play dumb"])).toBe("");
+    expect(dropOverused("Playing dumbbells is fine.", ["don't play dumb"])).toBe("Playing dumbbells is fine.");
+  });
+});

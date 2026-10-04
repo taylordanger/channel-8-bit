@@ -11,7 +11,7 @@ import type { EpisodePhase, EpisodePlan } from "../episodes.js";
  * cleanly onto structured outputs; the standards desk enforces limits instead.
  */
 export const ScriptSchema = z.object({
-  title: z.string().describe("Short episode/segment title shown in the lower third"),
+  title: z.string().describe("Short title for THIS scene, shown in the lower third - specific, never just the segment type"),
   summary: z.string().describe("One or two sentences: what happened, for future 'previously on' context"),
   beats: z
     .array(
@@ -85,6 +85,10 @@ export interface WriterBrief {
   storyState: string;
   /** Lines aired recently; writers must not repeat them. */
   recentLines: string[];
+  /** What this airing's earlier fresh scenes already did (so this one moves on). */
+  episodeSoFar?: string[];
+  /** Phrases repeated across recent scenes: banned for now. */
+  overused?: string[];
   /** Lasting moods of the cast going into this scene. */
   moods?: { id: string; mood: string; reason: string }[];
   /** Regulars who stormed off earlier and aren't in this scene. */

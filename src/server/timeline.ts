@@ -92,6 +92,22 @@ export class Timeline {
     return rows.map((r) => r.summary).reverse();
   }
 
+  /** Summaries of the fresh scenes of a show aired in [from, before): what this episode has done so far. */
+  sceneSummaries(showId: string, from: number, before: number, limit = 6): string[] {
+    const rows = this.db
+      .prepare("SELECT summary FROM segments WHERE show_id = ? AND kind = 'live' AND summary != '' AND start_at >= ? AND start_at < ? ORDER BY start_at DESC LIMIT ?")
+      .all(showId, from, before, limit) as { summary: string }[];
+    return rows.map((r) => r.summary).reverse();
+  }
+
+  /** The lines of a show's last few fresh scenes, one array per scene. */
+  recentScenes(showId: string, before: number, scenes: number): string[][] {
+    const rows = this.db
+      .prepare("SELECT body FROM segments WHERE show_id = ? AND kind = 'live' AND start_at < ? ORDER BY start_at DESC LIMIT ?")
+      .all(showId, before, scenes) as { body: string }[];
+    return rows.map((r) => (JSON.parse(r.body) as Segment).cues.map((c) => c.text));
+  }
+
   /** Recently aired lines across a show, to stop the writers repeating themselves. */
   recentLines(showId: string, before: number, segments: number): string[] {
     const rows = this.db

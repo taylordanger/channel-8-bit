@@ -138,6 +138,11 @@ export function userPrompt(b: WriterBrief): string {
       lines.push(`THIS SEGMENT: play the ${g.step}. Give every contestant a distinct, memorable moment. The host must NOT pick a winner - end with the host telling viewers at home to vote now.`);
     sections.push(lines.join("\n"));
   }
+  if (b.episodeSoFar?.length)
+    sections.push(
+      `ALREADY ON AIR THIS EPISODE (don't restage any of these - this scene must add something new: a new fact, a decision, or a reversal):\n${b.episodeSoFar.map((s) => `- ${s}`).join("\n")}`,
+    );
+  if (b.overused?.length) sections.push(`OVERUSED LATELY (never use these phrases): ${b.overused.map((p) => `"${p}"`).join(", ")}.`);
   if (b.recentLines.length) sections.push(`RECENTLY AIRED (do not repeat):\n${b.recentLines.slice(-40).map((l) => `- ${l}`).join("\n")}`);
   return sections.join("\n\n");
 }

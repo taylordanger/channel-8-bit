@@ -135,6 +135,14 @@ describe("episode plans", () => {
     expect(episodes.get("pixel_heights", slot.startAt)?.writer).toBe("improv");
   });
 
+  it("tells the writer what this episode already aired and which phrases are worn out", async () => {
+    const { userPrompt } = await import("../src/server/writers/prompt.js");
+    const { soapBrief } = await import("./helpers.js");
+    const text = userPrompt({ ...soapBrief(), episodeSoFar: ["Victoria confronted Lola about the letters."], overused: ["don't play dumb"] });
+    expect(text).toMatch(/ALREADY ON AIR THIS EPISODE[\s\S]*Victoria confronted Lola/);
+    expect(text).toContain('OVERUSED LATELY (never use these phrases): "don\'t play dumb"');
+  });
+
   it("hides later beats from the scene being written", () => {
     const p = plan();
     const text = episodeBlock({ plan: p, phase: phaseAt(p, { startAt: 0, endAt: 100 }, 25) }, (id) => id, false);

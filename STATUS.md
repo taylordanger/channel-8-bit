@@ -131,6 +131,11 @@ npm run shadow -- 24           # simulate a whole day in seconds and check for p
 34. **Kinder handling of serious letters:** a letter describing a real crisis (self-harm, abuse, danger, a medical emergency) never airs, and the sender sees a kind message pointing to real help (988 in the US; 911 or the local emergency number if someone is in danger). Tested on the real model: 6 of 6 sample letters were handled correctly.
 35. **`npm run reload`:** restarts only the station with new code while `npm run onair` keeps running. The tunnel and the public address stay the same, viewers reconnect by themselves, and open pages refresh when the player code changed.
 36. **Vertical clips for TikTok / Shorts / Reels:** every clip now also comes as a 1080×1920 version: the whole scene, captions included, over a blurred copy of itself. In the control room, each ready clip has DOWNLOAD 16:9 and VERTICAL 9:16. The vertical copy takes about 20 seconds after the clip finishes.
+37. **Less repetitive writing:** reading today's real scenes showed Pixel Heights re-staging the same confrontation scene after scene, with the same stock lines ("don't play dumb", "I have proof"). Now:
+    - The writer sees what this episode has already aired and must add something new: a fact, a decision, or a reversal.
+    - The station finds phrases repeated across recent scenes and bans them. Catchphrases, story nouns and everyday speech are exempt.
+    - Because the small model ignores "never say X", sentences using a banned phrase are trimmed before air.
+    - Titles must be specific, not just the scene type.
 
 ---
 

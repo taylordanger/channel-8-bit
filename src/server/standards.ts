@@ -69,7 +69,7 @@ function capWords(line: string, max: number): string {
  */
 export function deterministicStandards(
   input: Script,
-  brief: Pick<WriterBrief, "cast" | "show" | "recentLines" | "source">,
+  brief: Pick<WriterBrief, "cast" | "show" | "recentLines" | "source" | "overused">,
   policy: StandardsPolicy = DEFAULT_POLICY,
 ): StandardsResult {
   const notes: StandardsNote[] = [];
@@ -88,6 +88,12 @@ export function deterministicStandards(
     const cleaned = capWords(cleanLine(b.line), MAX_WORDS);
     if (cleaned !== b.line) notes.push({ verdict: "fix", line: b.line, reason: "removed stage directions / trimmed length" });
     b.line = cleaned;
+    // Worn-out phrases: small models ignore "never say X", so trim the sentences that say it.
+    const fresh = dropOverused(b.line, brief.overused ?? []);
+    if (fresh !== b.line) {
+      notes.push({ verdict: fresh ? "fix" : "cut", line: b.line, reason: "overused phrase" });
+      b.line = fresh;
+    }
     if (!b.line) {
       notes.push({ verdict: "cut", line: raw.line, reason: "nothing speakable left" });
       continue;
@@ -198,4 +204,65 @@ export class LlmStandards {
     const out = { ...script, beats };
     return beats.length < MIN_BEATS ? { script: out, notes, rejected: "too many lines cut in review" } : { script: out, notes };
   }
+}
+
+/**
+ * Everyday words: a run made only of these is natural speech ("I don't know", "what's going on"),
+ * not a cliché worth banning.
+ */
+const FILLER = new Set([
+  "the", "a", "an", "to", "of", "and", "i", "you", "it", "is", "in", "that", "this", "for", "on", "me", "my", "your", "be",
+  "are", "was", "what", "with", "we", "so", "just", "not", "do", "at", "don't", "know", "think", "i'm", "i'll", "it's",
+  "going", "trying", "thought", "one", "who's", "you're", "what's", "have", "got", "get", "can", "if", "but", "about",
+  "all", "out", "up", "here", "there", "now", "right", "really", "oh", "well", "maybe", "want", "need", "let's", "he", "she",
+  "they", "him", "her", "his", "them", "our", "us", "how", "why", "when", "where", "who", "go", "come", "say", "said", "make",
+]);
+
+/** Remove the sentences of a line that use a banned phrase; "" when nothing is left. */
+export function dropOverused(line: string, phrases: string[]): string {
+  if (!phrases.length) return line;
+  const norm = (x: string) => x.toLowerCase().replace(/[^a-z' ]+/g, " ").replace(/\s+/g, " ").trim();
+  const sentences = line.match(/[^.!?]+[.!?]*\s*/g) ?? [line];
+  const kept = sentences.filter((s) => !phrases.some((p) => ` ${norm(s)} `.includes(` ${p} `)));
+  return kept.length === sentences.length ? line : kept.join("").trim();
+}
+
+/**
+ * Phrases the writers keep reaching for: 3- and 4-word runs that turn up in at least `minScenes`
+ * different recent scenes ("don't play dumb", "we'll see about that"). Fed back to the writers
+ * as banned, so the clichés rotate out on their own.
+ */
+export function overusedPhrases(scenes: string[][], minScenes = 3, max = 10, keep: string[] = []): string[] {
+  const norm = (x: string) => x.toLowerCase().replace(/[^a-z' ]+/g, " ").replace(/\s+/g, " ").trim();
+  // Catchphrases are supposed to repeat.
+  const kept = keep.map(norm);
+  const seen = new Map<string, number>();
+  for (const lines of scenes) {
+    const grams = new Set<string>();
+    for (const line of lines) {
+      const words = line.toLowerCase().replace(/[^a-z' ]+/g, " ").split(/\s+/).filter(Boolean);
+      for (const n of [4, 3])
+        for (let i = 0; i + n <= words.length; i++) {
+          const gram = words.slice(i, i + n);
+          if (gram.every((w) => FILLER.has(w))) continue;
+          // "the anonymous letters", "a laminated card": story nouns, not clichés.
+          if (["the", "a", "an"].includes(gram[0])) continue;
+          const g = gram.join(" ");
+          if (kept.some((k) => k.includes(g))) continue;
+          grams.add(g);
+        }
+    }
+    for (const g of grams) seen.set(g, (seen.get(g) ?? 0) + 1);
+  }
+  const hot = [...seen].filter(([, n]) => n >= minScenes).sort((a, b) => b[1] - a[1] || b[0].length - a[0].length);
+  const out: string[] = [];
+  for (const [g] of hot) {
+    // One slot per phrase: skip runs that share two words in a row with one already chosen
+    // ("wait what's going" vs "what's going on").
+    const pairs = (x: string) => x.split(" ").slice(1).map((w, i, a) => `${x.split(" ")[i]} ${w}`);
+    if (out.some((o) => pairs(o).some((p) => pairs(g).includes(p)))) continue;
+    out.push(g);
+    if (out.length >= max) break;
+  }
+  return out;
 }

@@ -16,6 +16,7 @@ import { CHARACTERS } from "./catalog/characters.js";
 import { SHOWS } from "./catalog/shows.js";
 import {
   deterministicStandards,
+  overusedPhrases,
   type LlmStandards,
   type StandardsNote,
   type StandardsPolicy,
@@ -342,6 +343,8 @@ export class Producer {
       relationships: this.d.memory.relationshipsAmong(ids),
       storyState: show.serialized ? this.d.memory.storyState(show.id) || (show.storySeed ?? "") : "",
       recentLines: this.d.timeline.recentLines(show.id, at, 6),
+      episodeSoFar: this.d.timeline.sceneSummaries(show.id, slot.startAt, at),
+      overused: overusedPhrases(this.d.timeline.recentScenes(show.id, at, 12), 3, 10, cast.flatMap((c) => c.catchphrases)),
       moods,
       offSet: off.filter((o) => !ids.includes(o.id)).map((o) => ({ id: o.id, reason: o.reason })),
       returning: (this.d.states?.returning(show.id) ?? []).filter((id) => ids.includes(id)),
@@ -402,7 +405,8 @@ export class Producer {
         this.d.ops?.production({ at, showId: brief.show.id, writer: writer.name, outcome, writeMs, voiceMs, detail });
       try {
         const { script: draft, writer: writerName } = await writer.write(brief);
-        const checked = await this.clear(draft, brief, writer.name !== "improv");
+        // The cliché trim is for the model writers; the improv troupe's act *is* its stock bits.
+        const checked = await this.clear(draft, writer.name === "improv" ? { ...brief, overused: [] } : brief, writer.name !== "improv");
         if (checked.rejected) {
           record("rejected", checked.rejected);
           lastError = `${writer.name}: ${checked.rejected}`;
