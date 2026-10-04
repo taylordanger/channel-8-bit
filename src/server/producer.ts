@@ -8,6 +8,7 @@ import type { PollBox } from "./polls.js";
 import type { MailBag } from "./mailbag.js";
 import type { OpsLog } from "./ops.js";
 import type { ChatRoom } from "./chat.js";
+import type { TrackLibrary } from "./tracks.js";
 import type { CharacterStates, MemoryBank } from "./memory.js";
 import { checkNames, checkNumbers, checkVerbatim, type SourceChecker } from "./factcheck.js";
 import { CHARACTERS } from "./catalog/characters.js";
@@ -71,6 +72,7 @@ export interface ProducerDeps {
   mailbag?: MailBag;
   ops?: OpsLog;
   chat?: ChatRoom;
+  tracks?: TrackLibrary;
   desk?: TopicDesk;
   tts: TTSEngine;
   /** Tried in order; the last one should never fail (the improv writer). */
@@ -303,6 +305,34 @@ export class Producer {
     const host = getCharacter(show.cast.find((id) => !off.has(id)) ?? show.cast[0]);
     const introText = artist.intro.replace("{song}", title);
     const intro = await this.d.tts.voice(introText, host);
+    // The band's own recorded tracks come first; otherwise they play a generated song.
+    const recorded = this.d.tracks?.forArtist(artist.id) ?? [];
+    const recentTracks = new Set(this.d.timeline.range(at - 3 * 3_600_000, at).filter((x) => x.track).map((x) => x.track!.title));
+    const freshTracks = recorded.filter((t) => !recentTracks.has(t.title));
+    const track = (freshTracks.length ? freshTracks : recorded)[Math.floor(r() * (freshTracks.length || recorded.length))];
+    if (track) {
+      const trackIntro = artist.intro.replace("{song}", track.title);
+      const voicedIntro = trackIntro === introText ? intro : await this.d.tts.voice(trackIntro, host);
+      const spec = this.d.tracks!.spec(track, artist.name, LEAD_IN_MS + voicedIntro.durationMs + 700);
+      return {
+        segment: {
+          id: crypto.randomUUID(),
+          showId: show.id,
+          showTitle: show.title,
+          title: `${artist.name}: "${track.title}"`,
+          set: "music_stage",
+          startAt: 0,
+          durationMs: spec.startMs + spec.durationMs + 2500,
+          cast: this.band(artist, host),
+          cues: [{ t: LEAD_IN_MS, dur: voicedIntro.durationMs, speaker: host.id, text: trackIntro, emotion: "happy", action: "gesture", target: "audience", audio: voicedIntro.audio, env: voicedIntro.env }],
+          kind: "live",
+          writer: "music",
+          track: spec,
+        },
+        summary: "",
+        notes: [],
+      };
+    }
     const bpm = Math.round(artist.bpm[0] + r() * (artist.bpm[1] - artist.bpm[0]));
     const roots: Record<string, number> = { synthpop: 45, rock: 40, punk: 43, ballad: 48 };
     const songMs = Math.min(targetSeconds * 1000, kind === "house" ? 45_000 : 100_000);
@@ -318,14 +348,7 @@ export class Producer {
       startMs: LEAD_IN_MS + intro.durationMs + 700,
     };
     const song = generateSong(spec);
-    const order = ["vocals", "guitar", "bass", "keys", "drums"];
-    const cast: CastMember[] = [
-      ...artist.members.map((m) => {
-        const c = getCharacter(m.id);
-        return { id: c.id, name: c.name, look: c.look, mark: order.indexOf(m.role), onSetAtStart: true, role: m.role };
-      }),
-      { id: host.id, name: host.name, look: host.look, mark: 5, onSetAtStart: true, role: "host" },
-    ];
+    const cast = this.band(artist, host);
     const segment: Segment = {
       id: crypto.randomUUID(),
       showId: show.id,
@@ -381,6 +404,18 @@ export class Producer {
       pending: polls.filter((p) => !p.closed).length,
       champion: step === steps[steps.length - 1] ? leader : undefined,
     };
+  }
+
+  /** The band in their stage positions, plus the host at the side. */
+  private band(artist: (typeof ARTISTS)[string], host: Character): CastMember[] {
+    const order = ["vocals", "guitar", "bass", "keys", "drums"];
+    return [
+      ...artist.members.map((m) => {
+        const c = getCharacter(m.id);
+        return { id: c.id, name: c.name, look: c.look, mark: order.indexOf(m.role), onSetAtStart: true, role: m.role };
+      }),
+      { id: host.id, name: host.name, look: host.look, mark: 5, onSetAtStart: true, role: "host" },
+    ];
   }
 
   /**

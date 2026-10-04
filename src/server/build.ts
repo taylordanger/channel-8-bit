@@ -15,6 +15,7 @@ import { PollBox } from "./polls.js";
 import { OpsLog } from "./ops.js";
 import { LocalModerator, MailBag } from "./mailbag.js";
 import { ChatRoom } from "./chat.js";
+import { TrackLibrary } from "./tracks.js";
 import { FactChecker, LocalFactChecker } from "./factcheck.js";
 import { OllamaClient, OllamaWriter } from "./writers/ollama.js";
 import { DEFAULT_POLICY, LlmStandards, type StandardsPolicy } from "./standards.js";
@@ -90,6 +91,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   const moderator = o.writers ? undefined : new LocalModerator(ollama);
   const mailbag = new MailBag(db, policy, moderator);
   const chat = new ChatRoom(db, policy, moderator);
+  const tracks = new TrackLibrary(path.join(config.dataDir, "music"), o.log);
   const writers =
     o.writers ??
     (config.writer === "claude"
@@ -123,6 +125,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     mailbag,
     ops,
     chat,
+    tracks,
     timeZone: config.timeZone,
     log: o.log,
   });
@@ -144,7 +147,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   });
   // Finish reading any links a restart interrupted.
   for (const t of desk.pending()) void desk.ingest(t.id);
-  return { ollama, mailbag, chat, ops, db, clock, timeline, memory, states, polls, desk, ledger, governor, tts, writers, producer, station };
+  return { ollama, mailbag, chat, tracks, ops, db, clock, timeline, memory, states, polls, desk, ledger, governor, tts, writers, producer, station };
 }
 
 export type Built = ReturnType<typeof buildStation>;

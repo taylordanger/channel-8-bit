@@ -182,3 +182,19 @@ export function songShape(style: MusicStyle, bpm: number, targetMs: number, voca
     { name: "outro", bars: outro, drums: style !== "ballad", lead: false },
   ];
 }
+
+/** A real recorded track (e.g. from Suno) performed by a band, with what the station heard in it. */
+export interface TrackSpec {
+  title: string;
+  artist: string;
+  url: string;
+  durationMs: number;
+  bpm: number;
+  beatOffsetMs: number;
+  /** When the drums come in (-1: never). */
+  drumsStartMs: number;
+  /** Singing loudness, one digit 0-9 per 50ms. */
+  vocalEnv: string;
+  /** Offset from segment start when the track begins. */
+  startMs: number;
+}

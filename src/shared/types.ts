@@ -1,4 +1,4 @@
-import type { SongSpec } from "./music.js";
+import type { SongSpec, TrackSpec } from "./music.js";
 
 // Types shared by the station (server) and the player (browser).
 // Everything a viewer needs to render a segment is inside the Segment itself,
@@ -119,6 +119,8 @@ export interface Segment {
   writer: string;
   /** Music segments: the song, regenerated identically in every viewer's browser. */
   song?: SongSpec;
+  /** Music segments: a real recorded track instead of a generated song. */
+  track?: TrackSpec;
   /** Game shows: who's playing and the score going into this segment. */
   game?: GameState;
   /** A viewer poll that opens with this segment. */

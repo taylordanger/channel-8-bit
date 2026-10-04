@@ -59,7 +59,7 @@
       <p class="hint">Messages viewers send from the main page. The local model screens them automatically; anything it couldn't check waits here for you. Approved mail gets read on air in The Late Byte, Rise &amp; Pixel and Couch Co-op.</p>
       <ul id="mail"></ul>
       <h2 class="sec">MUSICAL GUEST</h2>
-      <p class="hint">Put a band on right after the current scene. Whoever is hosting introduces them; every song is original, generated live.</p>
+      <p class="hint">Put a band on right after the current scene; whoever is hosting introduces them. Bands perform your own tracks if you add them to <b>data/music/&lt;band&gt;/</b> (add "Song.vocals.mp3" for exact lip-sync); otherwise they play an original song generated live.</p>
       <form id="music">
         <div class="row">
           <label>ACT <select id="mu-artist"><option value="">Surprise me</option></select></label>
@@ -192,7 +192,7 @@
       $("sp-end").onclick = async () => { await fetch("/api/override", { method: "DELETE" }); loadSpecial(); };
 
       fetch("/api/music").then((r) => r.json()).then(({ artists }) => {
-        for (const a of artists) $("mu-artist").append(new Option(`${a.name} (${a.style})`, a.id));
+        for (const a of artists) $("mu-artist").append(new Option(`${a.name} (${a.tracks ? a.tracks + " of your tracks" : a.style + ", generated"})`, a.id));
       });
       $("music").addEventListener("submit", async (e) => {
         e.preventDefault();

@@ -45,6 +45,10 @@ if (config.writer === "local") {
 }
 if (config.writer === "improv") log("The improv troupe is writing (WRITER=improv).");
 
+// Your own songs: data/music/<band>/<Song>.mp3 - scanned now and every few minutes.
+void built.tracks.scan();
+setInterval(() => void built.tracks.scan(), 5 * 60_000);
+
 // Load the voice model now so the first segment isn't waiting on it.
 if (built.tts instanceof KokoroTTS) void built.tts.ensure();
 

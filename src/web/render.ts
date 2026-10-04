@@ -67,6 +67,7 @@ interface MusicState {
 const songCache = new Map<string, Song>();
 
 function musicState(seg: Segment, local: number): MusicState | undefined {
+  if (seg.track) return trackState(seg, local);
   const spec = seg.song;
   if (!spec) return undefined;
   let song = songCache.get(seg.id);
@@ -102,6 +103,33 @@ function musicState(seg: Segment, local: number): MusicState | undefined {
     snare: ts >= 0 ? recent("snare") : 0,
     drumsIn: song.drumsStartMs >= 0 && ts >= song.drumsStartMs && ts < song.totalMs,
     lead: ts >= 0 && ts < song.totalMs ? lead : 0,
+  };
+}
+
+/** Music state for a real recorded track, from the station's analysis of it. */
+function trackState(seg: Segment, local: number): MusicState {
+  const tr = seg.track!;
+  const ts = local - tr.startMs;
+  const beatMs = 60_000 / tr.bpm;
+  const beat = (ts - tr.beatOffsetMs) / beatMs;
+  const beatIndex = Math.floor(beat);
+  const phase = beat - beatIndex;
+  const playing = ts >= 0 && ts < tr.durationMs;
+  const drumsIn = playing && tr.drumsStartMs >= 0 && ts >= tr.drumsStartMs;
+  const v = tr.vocalEnv[Math.floor(ts / ENVELOPE_STEP_MS)];
+  const voice = playing && v !== undefined ? Number(v) : 0;
+  return {
+    artist: tr.artist,
+    title: tr.title,
+    playing,
+    ts,
+    beatIndex,
+    beatPhase: phase,
+    barIndex: Math.floor(beatIndex / 4),
+    kick: drumsIn && phase < 0.18 ? 1 - phase / 0.18 : 0,
+    snare: drumsIn && beatIndex % 2 === 1 && phase < 0.18 ? 1 - phase / 0.18 : 0,
+    drumsIn,
+    lead: voice >= 2 ? voice / 9 : 0,
   };
 }
 
@@ -1046,7 +1074,7 @@ function hashStr(s: string): number {
 
 function shotFor(seg: Segment, local: number, marks: Mark[]): Shot {
   if (local < (seg.set === "family_couch" ? COUCH_GAG_MS + 400 : 2500)) return WIDE; // establishing shot / couch gag
-  if (seg.song) {
+  if (seg.song || seg.track) {
     const m = musicState(seg, local)!;
     const at = (role: string, zoom: number, lift = 0) => {
       const c = seg.cast.find((x) => x.role === role);

@@ -14,6 +14,10 @@ import { assertPublicUrl, URL_PATTERN } from "./sources.js";
 import { senderId } from "./chat.js";
 
 const TYPES: Record<string, string> = {
+  ".m4a": "audio/mp4",
+  ".ogg": "audio/ogg",
+  ".flac": "audio/flac",
+  ".aac": "audio/aac",
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".map": "application/json",
@@ -209,7 +213,7 @@ async function handleVote(req: http.IncomingMessage, res: http.ServerResponse, b
 }
 
 async function handleMusic(req: http.IncomingMessage, res: http.ServerResponse, b: Built) {
-  const artists = Object.values(ARTISTS).map((a) => ({ id: a.id, name: a.name, style: a.style }));
+  const artists = Object.values(ARTISTS).map((a) => ({ id: a.id, name: a.name, style: a.style, tracks: b.tracks.forArtist(a.id).length }));
   if (req.method === "GET") return json(res, { artists });
   if (!isLocal(req)) return json(res, { error: "programming changes are only accepted from this machine" }, 403);
   if (req.method !== "POST") return json(res, { error: "unsupported" }, 405);
@@ -375,6 +379,12 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
     if (ADMIN_PAGES.has(url.pathname) && !isLocal(req)) {
       res.writeHead(404).end("not found");
       return;
+    }
+    if (url.pathname.startsWith("/music/")) {
+      // Only audio files, never the analysis cache or anything else in the folder.
+      const rel = decodeURIComponent(url.pathname.slice(7));
+      if (!/\.(mp3|wav|m4a|ogg|flac|aac)$/i.test(rel) || rel.split("/").some((p) => p.startsWith("."))) return void res.writeHead(404).end("not found");
+      return serveFile(res, b.tracks.root, rel, "public, max-age=3600");
     }
     if (url.pathname.startsWith("/media/")) return serveFile(res, mediaDir, url.pathname.slice(7), "public, max-age=31536000, immutable");
     return serveFile(res, publicDir, url.pathname === "/" ? "index.html" : url.pathname.slice(1), "no-cache");

@@ -64,6 +64,7 @@ export class AudioDirector {
       if (seg.set === "sitcom_apartment" || seg.set === "diner") this.sting(seg.id, seg.startAt, stationNow, "slapbass");
       if (seg.set === "family_couch") this.sting(seg.id, seg.startAt, stationNow, "jingle");
       if (seg.song) this.playSong(seg, stationNow);
+      if (seg.track) this.playTrack(seg, stationNow);
       seg.cues.forEach((cue, i) => {
         const laughAt = seg.startAt + cue.t + cue.dur;
         if (cue.laugh && laughAt > stationNow - 300 && laughAt < stationNow + LOOKAHEAD_MS) this.crowd(`${seg.id}:${i}:lt`, laughAt, stationNow, "laugh");
@@ -130,6 +131,30 @@ export class AudioDirector {
     // Applause when the last note fades.
     const endAt = songStart + st.song.totalMs;
     if (endAt > now - 300 && endAt < now + 8000) this.crowd(`${seg.id}:end`, endAt, now, "applause");
+  }
+
+  /** A real recorded track: one clip, started (or joined mid-song) on the shared clock. */
+  private playTrack(seg: Segment, now: number) {
+    const tr = seg.track!;
+    const key = `${seg.id}:track`;
+    const start = seg.startAt + tr.startMs;
+    const endAt = start + tr.durationMs;
+    if (endAt > now - 300 && endAt < now + 8000) this.crowd(`${seg.id}:end`, endAt, now, "applause");
+    if (this.scheduled.has(key) || start > now + LOOKAHEAD_MS || endAt < now) return;
+    this.scheduled.set(key, null as unknown as AudioBufferSourceNode);
+    void this.load(tr.url).then((buf) => {
+      if (!buf) return;
+      const delay = (start - this.stationNowAtCtx()) / 1000;
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      const g = this.ctx.createGain();
+      g.gain.value = 0.8;
+      src.connect(g).connect(this.master);
+      if (delay >= 0) src.start(this.ctx.currentTime + delay);
+      else if (-delay < buf.duration) src.start(this.ctx.currentTime, -delay);
+      else return;
+      this.scheduled.set(key, src);
+    });
   }
 
   private noiseBuffer(): AudioBuffer {
