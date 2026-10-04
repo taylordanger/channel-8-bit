@@ -32,7 +32,9 @@ export class StationLink {
   }
 
   connect(): void {
-    const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
+    // The restream's capture page is a feed, not an audience member: it mustn't keep production going.
+    const feed = location.pathname.endsWith("/broadcast.html") || new URLSearchParams(location.search).has("broadcast");
+    const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws${feed ? "?feed=1" : ""}`);
     this.ws = ws;
     let pinger: number | undefined;
     ws.onopen = () => {

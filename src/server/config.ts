@@ -18,6 +18,8 @@ export interface StationConfig {
   models: { standard: string; premium: string };
   /** Hard daily ceiling on Claude spend (USD). Past it, the station airs reruns. */
   dailyBudgetUsd: number;
+  /** Hours when a restream alone (no website viewers) gets fresh writing; see Governor. */
+  feedFreshHours: Set<number>;
   /** How far ahead of "now" the station keeps written segments while people are watching. */
   leadTargetMs: number;
   /** Keep producing for this long after the last viewer leaves. */
@@ -48,6 +50,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): StationConfig 
       premium: env.MODEL_PREMIUM ?? "claude-sonnet-5-5",
     },
     dailyBudgetUsd: num(env.DAILY_BUDGET_USD, 3),
+    // Local writing is free, so a restream gets it around the clock; paid writing only when asked.
+    feedFreshHours: parseHours(env.FEED_FRESH_HOURS ?? (writer === "auto" && !hasClaude || writer === "local" ? "0-24" : "")),
     leadTargetMs: num(env.LEAD_TARGET_SEC, 150) * 1000,
     idleGraceMs: num(env.IDLE_GRACE_SEC, 120) * 1000,
     // "auto": Kokoro when it's installed (npm run voices:setup), else macOS speech.
@@ -64,4 +68,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): StationConfig 
     ollama: { url: env.OLLAMA_URL ?? "http://localhost:11434", model: env.OLLAMA_MODEL ?? "llama3.1:8b" },
     llmStandards: env.LLM_STANDARDS !== "0",
   };
+}
+
+/** "19-23,7" -> {19,20,21,22,7}. Ranges are start-inclusive, end-exclusive; "0-24" is all day. */
+export function parseHours(spec: string): Set<number> {
+  const out = new Set<number>();
+  for (const part of spec.split(",").map((p) => p.trim()).filter(Boolean)) {
+    const [a, b] = part.split("-").map(Number);
+    if (!Number.isInteger(a)) continue;
+    const end = Number.isInteger(b) ? b : a + 1;
+    for (let h = a; h < end && h < 24; h++) if (h >= 0) out.add(h);
+  }
+  return out;
 }

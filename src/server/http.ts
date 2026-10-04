@@ -433,14 +433,19 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
   const wss = new WebSocketServer({ server, path: "/ws" });
   const send = (ws: WebSocket, m: ServerMessage) => ws.readyState === ws.OPEN && ws.send(JSON.stringify(m));
   const broadcast = (m: ServerMessage) => sockets.forEach((ws) => send(ws, m));
+  // Restream capture pages: they get the broadcast but aren't an audience.
+  const feeds = new Set<WebSocket>();
   const updateViewers = () => {
-    b.governor.setViewers(sockets.size, b.clock.now());
-    broadcast({ type: "viewers", count: sockets.size });
+    const audience = sockets.size - feeds.size;
+    b.governor.setViewers(audience, b.clock.now());
+    b.governor.setFeeds(feeds.size);
+    broadcast({ type: "viewers", count: audience });
   };
 
   wss.on("connection", (ws, req) => {
     const sender = senderId(clientIp(req));
     sockets.add(ws);
+    if (new URL(req.url ?? "/", "http://x").searchParams.get("feed") === "1") feeds.add(ws);
     send(ws, { type: "hello", serverNow: b.clock.now(), network: config.networkName });
     updateViewers();
     ws.on("message", (raw) => {
@@ -461,6 +466,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
     });
     ws.on("close", () => {
       sockets.delete(ws);
+      feeds.delete(ws);
       updateViewers();
     });
   });

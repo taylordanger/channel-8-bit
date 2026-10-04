@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import type { Clock } from "./clock.js";
-import type { Ledger } from "./ledger.js";
+import { worstCaseUsd, type Ledger } from "./ledger.js";
 import { sourceBlock } from "./writers/prompt.js";
 import type { Source } from "./sources.js";
 import { cleanLine, MIN_BEATS, type StandardsNote, type StandardsResult } from "./standards.js";
@@ -91,11 +91,17 @@ export class FactChecker implements SourceChecker {
   }
 
   async check(script: Script, source: Source, showId: string): Promise<StandardsResult> {
+    const content = factCheckPrompt(script, source);
+    try {
+      this.opts.ledger.guard(this.opts.clock.now(), worstCaseUsd(this.opts.model, FACTCHECK_SYSTEM.length + content.length, 6000), `factcheck:${showId}`);
+    } catch {
+      return { script, notes: [], rejected: "daily budget reached before fact-check" };
+    }
     const response = await this.client.messages.parse({
       model: this.opts.model,
       max_tokens: 6000,
       system: FACTCHECK_SYSTEM,
-      messages: [{ role: "user", content: factCheckPrompt(script, source) }],
+      messages: [{ role: "user", content }],
       output_config: { format: zodOutputFormat(FactCheckSchema), effort: "medium" },
     });
     this.opts.ledger.record(this.opts.clock.now(), this.opts.model, `factcheck:${showId}`, response.usage);

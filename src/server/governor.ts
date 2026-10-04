@@ -14,11 +14,28 @@ export interface GovernorDecision {
  */
 export class Governor {
   private viewers = 0;
+  private feeds = 0;
   private lastViewerAt = -Infinity;
 
   constructor(
-    private opts: { leadTargetMs: number; idleGraceMs: number; dailyBudgetUsd: number; ledger: Ledger },
+    private opts: {
+      leadTargetMs: number;
+      idleGraceMs: number;
+      dailyBudgetUsd: number;
+      ledger: Ledger;
+      /**
+       * Hours (local, 0-23) when a restream with nobody on the website still gets fresh writing.
+       * We can't see the Twitch/YouTube audience, so outside these hours it airs reruns.
+       */
+      feedFreshHours?: Set<number>;
+      timeZone?: string;
+    },
   ) {}
+
+  /** Restream capture pages connected (they keep the channel airing, not writing). */
+  setFeeds(count: number): void {
+    this.feeds = count;
+  }
 
   setViewers(count: number, now: number): void {
     if (count > 0 || this.viewers > 0) this.lastViewerAt = now;
@@ -35,11 +52,21 @@ export class Governor {
 
   decide(now: number): GovernorDecision {
     const watching = this.viewers > 0 || now - this.lastViewerAt < this.opts.idleGraceMs;
-    if (!watching) return { leadTargetMs: 0, rerunsOnly: false, reason: "nobody watching" };
+    if (!watching && this.feeds === 0) return { leadTargetMs: 0, rerunsOnly: false, reason: "nobody watching" };
+    if (!watching && !this.freshFeedHour(now)) {
+      return { leadTargetMs: this.opts.leadTargetMs, rerunsOnly: true, reason: "restream only: reruns" };
+    }
     const spent = this.spentToday(now);
     if (spent >= this.opts.dailyBudgetUsd) {
       return { leadTargetMs: this.opts.leadTargetMs, rerunsOnly: true, reason: `daily budget spent ($${spent.toFixed(2)})` };
     }
-    return { leadTargetMs: this.opts.leadTargetMs, rerunsOnly: false, reason: "on air" };
+    return { leadTargetMs: this.opts.leadTargetMs, rerunsOnly: false, reason: watching ? "on air" : "restream premiere hours" };
+  }
+
+  private freshFeedHour(now: number): boolean {
+    const hours = this.opts.feedFreshHours;
+    if (!hours?.size) return false;
+    const h = Number(new Intl.DateTimeFormat("en-US", { timeZone: this.opts.timeZone, hour: "numeric", hourCycle: "h23" }).format(new Date(now)));
+    return hours.has(h);
   }
 }

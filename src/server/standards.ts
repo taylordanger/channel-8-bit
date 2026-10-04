@@ -3,7 +3,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { CHARACTERS } from "./catalog/characters.js";
 import type { Clock } from "./clock.js";
-import type { Ledger } from "./ledger.js";
+import { worstCaseUsd, type Ledger } from "./ledger.js";
 import type { Script, WriterBrief } from "./writers/script.js";
 
 export interface StandardsNote {
@@ -163,13 +163,20 @@ export class LlmStandards {
 
   async review(script: Script, showId: string, sourced = false): Promise<StandardsResult> {
     const numbered = script.beats.map((b, i) => `${i}. [${b.speaker}] ${b.line}`).join("\n");
+    const system = sourced
+        ? "You are the standards and practices editor for an entertainment TV network whose fictional cast is discussing a real article (a separate fact-checker verifies facts against it). Flag only lines that: are defamatory or harassing toward real people; contain slurs or sexual content; give medical, legal or financial advice; or mock real victims of tragedy. Discussing real people and events, opinions, and comedy are fine. Prefer rewrite over cut; rewrites must keep the speaker's voice."
+        : "You are the standards and practices editor for a fictional entertainment TV network. All characters are invented. Flag only lines that: name or make claims about real living people or real organizations' conduct; state real-world facts that could be false (statistics, prices, medical/legal/financial claims); contain slurs, sexual content, or harassment. Fictional absurdity, mild insults between characters, and comedy are fine. Prefer rewrite over cut when a small change fixes it; rewrites must keep the speaker's voice and fit the scene.";
+    const content = `Review these lines:\n${numbered}`;
+    try {
+      this.opts.ledger.guard(this.opts.clock.now(), worstCaseUsd(this.opts.model, system.length + content.length, 4000), `standards:${showId}`);
+    } catch {
+      return { script, notes: [], rejected: "daily budget reached before standards review" };
+    }
     const response = await this.client.messages.parse({
       model: this.opts.model,
       max_tokens: 4000,
-      system: sourced
-        ? "You are the standards and practices editor for an entertainment TV network whose fictional cast is discussing a real article (a separate fact-checker verifies facts against it). Flag only lines that: are defamatory or harassing toward real people; contain slurs or sexual content; give medical, legal or financial advice; or mock real victims of tragedy. Discussing real people and events, opinions, and comedy are fine. Prefer rewrite over cut; rewrites must keep the speaker's voice."
-        : "You are the standards and practices editor for a fictional entertainment TV network. All characters are invented. Flag only lines that: name or make claims about real living people or real organizations' conduct; state real-world facts that could be false (statistics, prices, medical/legal/financial claims); contain slurs, sexual content, or harassment. Fictional absurdity, mild insults between characters, and comedy are fine. Prefer rewrite over cut when a small change fixes it; rewrites must keep the speaker's voice and fit the scene.",
-      messages: [{ role: "user", content: `Review these lines:\n${numbered}` }],
+      system,
+      messages: [{ role: "user", content }],
       output_config: { format: zodOutputFormat(ReviewSchema), effort: "low" },
     });
     this.opts.ledger.record(this.opts.clock.now(), this.opts.model, `standards:${showId}`, response.usage);

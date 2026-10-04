@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Segment } from "../src/shared/types.js";
 import { openDb } from "../src/server/db.js";
 import { Governor } from "../src/server/governor.js";
-import { costUsd, Ledger } from "../src/server/ledger.js";
+import { BudgetExceededError, costUsd, Ledger, worstCaseUsd } from "../src/server/ledger.js";
+import { parseHours } from "../src/server/config.js";
 import { MemoryBank } from "../src/server/memory.js";
 import { Timeline } from "../src/server/timeline.js";
 
@@ -104,5 +105,41 @@ describe("ledger and governor", () => {
     ledger.record(0, "claude-sonnet-5-5", "test", { input_tokens: 0, output_tokens: 60_000 });
     expect(g.decide(0).rerunsOnly).toBe(true);
     expect(g.decide(86_400_000).rerunsOnly).toBe(false); // new day, new budget
+  });
+
+  it("bills cache writes at the TTL's rate (2x for the 1-hour cache we ask for)", () => {
+    // No TTL breakdown: assume the 1-hour rate.
+    expect(costUsd("claude-haiku-4-5", { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 1_000_000 })).toBeCloseTo(2);
+    const split = { ephemeral_5m_input_tokens: 1_000_000, ephemeral_1h_input_tokens: 1_000_000 };
+    expect(costUsd("claude-haiku-4-5", { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 2_000_000, cache_creation: split })).toBeCloseTo(3.25);
+    // Opus 5.5 reads its cache at $0.20/MTok.
+    expect(costUsd("claude-opus-5-5", { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 1_000_000 })).toBeCloseTo(0.2);
+  });
+
+  it("refuses a paid call whose worst case would cross the daily ceiling", () => {
+    const ledger = new Ledger(openDb(":memory:"), "UTC", 0.1);
+    const worst = worstCaseUsd("claude-sonnet-5-5", 7000, 4000); // 2000 tokens at 2x$2 + 4000 at $10 = $0.048
+    expect(worst).toBeCloseTo(0.048);
+    expect(() => ledger.guard(0, worst, "script")).not.toThrow();
+    ledger.record(0, "claude-sonnet-5-5", "test", { input_tokens: 0, output_tokens: 6000 }); // $0.06 spent
+    expect(() => ledger.guard(0, worst, "script")).toThrow(BudgetExceededError);
+    expect(() => ledger.guard(86_400_000, worst, "script")).not.toThrow(); // new day
+  });
+
+  it("a restream alone airs reruns, except in its fresh hours", () => {
+    const ledger = new Ledger(openDb(":memory:"), "UTC");
+    const g = new Governor({ leadTargetMs: 60_000, idleGraceMs: 0, dailyBudgetUsd: 1, ledger, feedFreshHours: parseHours("19-21"), timeZone: "UTC" });
+    expect(g.decide(0).leadTargetMs).toBe(0); // nobody, no feed
+    g.setFeeds(1);
+    expect(g.decide(0)).toMatchObject({ leadTargetMs: 60_000, rerunsOnly: true }); // midnight UTC
+    expect(g.decide(20 * 3_600_000)).toMatchObject({ leadTargetMs: 60_000, rerunsOnly: false }); // 8pm
+    g.setViewers(1, 0);
+    expect(g.decide(0).rerunsOnly).toBe(false); // a real viewer on the website
+  });
+
+  it("parses fresh-hour specs", () => {
+    expect([...parseHours("19-21,7")].sort((a, b) => a - b)).toEqual([7, 19, 20]);
+    expect(parseHours("0-24").size).toBe(24);
+    expect(parseHours("").size).toBe(0);
   });
 });
