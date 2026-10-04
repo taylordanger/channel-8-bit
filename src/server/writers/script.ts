@@ -88,6 +88,8 @@ export interface WriterBrief {
   returning?: string[];
   /** Pairs of characters on set who are in a full-blown feud. */
   feuds?: { a: string; b: string }[];
+  /** A moderated viewer message the cast answers in this segment (untrusted text). */
+  viewerMessage?: { id: number; handle: string; text: string };
   /** Game shows: the state of the current game. */
   game?: {
     episode: string;

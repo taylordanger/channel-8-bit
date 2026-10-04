@@ -104,6 +104,16 @@ describe("http + ws", () => {
     expect(active[0]).toMatchObject({ id: "poll-http", tally: { a: 1, b: 0 } });
   });
 
+  it("takes viewer mail from anyone but only shows the queue to this machine", async () => {
+    const res = await fetch(base + "/api/mail", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ handle: "Fan", text: "Hi Rex!", showId: "late_byte" }) });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ status: "received" });
+    const list = await (await fetch(base + "/api/mail")).json();
+    expect(list.messages[0]).toMatchObject({ handle: "Fan", text: "Hi Rex!" });
+    const empty = await fetch(base + "/api/mail", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: "" }) });
+    expect(empty.status).toBe(400);
+  });
+
   it("refuses path traversal out of the media and public dirs", async () => {
     expect((await fetch(base + "/media/..%2Fsecret.txt")).status).toBe(404);
     expect((await fetch(base + "/media/../secret.txt")).status).toBe(404);

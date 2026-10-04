@@ -9,6 +9,8 @@ export interface Show {
   set: SetId;
   /** Segment types that play on a different set (e.g. the diner scenes of a sitcom). */
   setFor?: Record<string, SetId>;
+  /** The segment type in which the cast reads and answers viewer mail. */
+  mailSegment?: string;
   /** Game shows: who can be drafted as a contestant (from across the network). */
   contestantPool?: string[];
   /** Game shows: the fixed order of segments in one game (repeats with new contestants). */
@@ -51,7 +53,8 @@ export const SHOWS: Record<string, Show> = {
     serialized: false,
     bible:
       "A late-night talk show taped in front of a live (pixel) audience. Rex hosts from the desk; Dee Dee and the Interference play from the band riser. Guests sit on the couch. Tone: affectionate roast, absurd bits, real chemistry. Rex and Dee Dee have a long-running will-they-won't-they-quit rivalry.",
-    segmentTypes: ["monologue", "desk bit", "guest interview", "musical performance", "audience bit", "band banter", "band break"],
+    segmentTypes: ["monologue", "desk bit", "guest interview", "musical performance", "audience bit", "band banter", "band break", "viewer mail"],
+    mailSegment: "viewer mail",
     musicFor: { "musical performance": "guest", "band break": "house" },
     topics: [
       "the studio's broken applause sign",
@@ -73,7 +76,8 @@ export const SHOWS: Record<string, Show> = {
     serialized: false,
     bible:
       "A chipper morning show on a pastel couch set with a fake window. Sunny drives, Greg grumbles, Pip gets sent on hopeless 'remote' segments. Recurring bits: Greg's Doom Forecast, Sunny's Morning Gratitude, Pip's Live-ish Report, a cooking demo that never finishes.",
-    segmentTypes: ["cold open banter", "weather fight", "remote report", "cooking demo", "lifestyle tip"],
+    segmentTypes: ["cold open banter", "weather fight", "remote report", "cooking demo", "lifestyle tip", "viewer call-ins"],
+    mailSegment: "viewer call-ins",
     topics: [
       "a new breakfast trend nobody asked for",
       "the station's parking lot mystery puddle",
@@ -117,7 +121,8 @@ export const SHOWS: Record<string, Show> = {
     serialized: false,
     bible:
       "Three people in a 90s wood-paneled basement talking about old video games like a podcast. Kev is the historian, Marisol the competitor, Tony the snack guy. Only invented or genre-level references (\"that one mascot platformer\", \"the cartridge with the gold label\") - never real brand claims stated as fact.",
-    segmentTypes: ["hot take", "top three list", "childhood memory", "would you rather", "snack review"],
+    segmentTypes: ["hot take", "top three list", "childhood memory", "would you rather", "snack review", "listener questions"],
+    mailSegment: "listener questions",
     topics: [
       "the hardest level of all time",
       "blowing on cartridges: myth or science",

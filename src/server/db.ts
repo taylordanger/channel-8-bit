@@ -78,6 +78,19 @@ CREATE TABLE IF NOT EXISTS character_state (
   owed_entrance   INTEGER NOT NULL DEFAULT 0   -- 1 = owed an entrance in their next scene
 );
 
+CREATE TABLE IF NOT EXISTS viewer_messages (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  handle     TEXT NOT NULL,
+  text       TEXT NOT NULL,
+  show_id    TEXT,                     -- NULL = any show that reads mail
+  created_at INTEGER NOT NULL,
+  status     TEXT NOT NULL,            -- pending | approved | rejected | aired
+  reason     TEXT NOT NULL DEFAULT '',
+  aired_at   INTEGER,
+  sender     TEXT NOT NULL DEFAULT ''  -- hashed IP, for rate limits only
+);
+CREATE INDEX IF NOT EXISTS viewer_messages_status ON viewer_messages(status, created_at);
+
 CREATE TABLE IF NOT EXISTS polls (
   id         TEXT PRIMARY KEY,
   segment_id TEXT NOT NULL,

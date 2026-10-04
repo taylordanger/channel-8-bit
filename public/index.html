@@ -58,6 +58,11 @@
       #guide li { display: flex; gap: 14px; }
       #guide .time { color: var(--muted); min-width: 80px; }
       #guide li.now { color: #ffe066; }
+      .writein form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .writein input, .writein select, .writein textarea, .writein button { font: inherit; font-size: 10px; color: var(--text); background: #0f0b1f; border: 2px solid #2a2140; border-radius: 4px; padding: 10px; }
+      .writein textarea { grid-column: 1 / -1; min-height: 60px; resize: vertical; }
+      .writein button { background: var(--accent); border-color: var(--accent); cursor: pointer; }
+      #wi-status { font-size: 9px; color: #ffe066; align-self: center; }
       .vote { border: 2px solid #ffd23f; }
       .vote h2 { color: #ffd23f; }
       .vote .options { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -78,6 +83,27 @@
       <h2>PROGRAM GUIDE <a href="/desk.html">ASSIGNMENT DESK →</a> <a href="/drama.html">DRAMA →</a> <a href="/lineup.html">CAST →</a></h2>
       <ol id="guide"></ol>
     </section>
+    <section class="below writein">
+      <h2>WRITE IN TO THE SHOW</h2>
+      <form id="writein">
+        <input id="wi-handle" maxlength="24" placeholder="your name or handle" />
+        <select id="wi-show"><option value="">Any show that reads mail</option></select>
+        <textarea id="wi-text" maxlength="240" placeholder="Ask the cast something, pitch a bit, settle an argument..." required></textarea>
+        <button type="submit">SEND</button>
+        <span id="wi-status"></span>
+      </form>
+    </section>
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      for (const [id, title] of [["late_byte", "The Late Byte"], ["rise_and_pixel", "Rise & Pixel"], ["couch_coop", "Couch Co-op"]]) $("wi-show").append(new Option(title, id));
+      $("writein").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const res = await fetch("/api/mail", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ handle: $("wi-handle").value, text: $("wi-text").value, showId: $("wi-show").value || null }) });
+        const d = await res.json();
+        $("wi-status").textContent = res.ok ? (d.status === "received" ? "Got it! Watch for it on air." : "Thanks - that one won't make it to air.") : d.error;
+        if (res.ok) $("wi-text").value = "";
+      });
+    </script>
     <script type="module" src="/app.js"></script>
   </body>
 </html>

@@ -5,6 +5,7 @@ import { slotAt, type ScheduledSlot } from "./catalog/schedule.js";
 import { getShow, type Show } from "./catalog/shows.js";
 import type { TopicDesk } from "./desk.js";
 import type { PollBox } from "./polls.js";
+import type { MailBag } from "./mailbag.js";
 import type { CharacterStates, MemoryBank } from "./memory.js";
 import { checkNames, checkNumbers, checkVerbatim, type SourceChecker } from "./factcheck.js";
 import { CHARACTERS } from "./catalog/characters.js";
@@ -62,6 +63,7 @@ export interface ProducerDeps {
   memory: MemoryBank;
   states?: CharacterStates;
   polls?: PollBox;
+  mailbag?: MailBag;
   desk?: TopicDesk;
   tts: TTSEngine;
   /** Tried in order; the last one should never fail (the improv writer). */
@@ -173,7 +175,10 @@ export class Producer {
     const r = rng(Math.floor(at / 1000));
     const pick = <T>(xs: T[]) => xs[Math.floor(r() * xs.length)];
     const game = show.gameSteps ? this.gameFor(show, slot, at) : undefined;
-    const segmentType = game ? game.step : pick(show.segmentTypes);
+    let segmentType = game ? game.step : pick(show.segmentTypes);
+    // Viewer mail only happens when there's approved mail to read.
+    const mail = segmentType === show.mailSegment ? this.d.mailbag?.nextFor(show.id) : undefined;
+    if (segmentType === show.mailSegment && !mail) segmentType = pick(show.segmentTypes.filter((t) => t !== show.mailSegment));
 
     // One guest per slot, so the whole night has a consistent booking.
     let guest: Character | undefined;
@@ -221,6 +226,7 @@ export class Producer {
       returning: (this.d.states?.returning(show.id) ?? []).filter((id) => ids.includes(id)),
       feuds: this.d.memory.feuds(ids).map(({ a, b }) => ({ a, b })),
       game,
+      viewerMessage: mail ? { id: mail.id, handle: mail.handle, text: mail.text } : undefined,
     };
   }
 
@@ -242,6 +248,7 @@ export class Producer {
         const segment = await this.assemble(brief.show, brief.cast, checked.script, writerName, brief.segmentType, brief.moods);
         if (brief.game) this.attachGame(segment, brief.show, brief.game);
         if (brief.deskTopicId) this.d.desk?.markUsed(brief.deskTopicId, at);
+        if (brief.viewerMessage) this.d.mailbag?.markAired(brief.viewerMessage.id, at);
         return {
           segment,
           summary: checked.script.summary,
@@ -270,7 +277,9 @@ export class Producer {
     const fresh = artist.songs.filter((t) => !recent.has(t));
     const title = (fresh.length ? fresh : artist.songs)[Math.floor(r() * (fresh.length || artist.songs.length))];
 
-    const host = getCharacter(show.cast[0]);
+    // Whoever is still on set introduces the act (the usual host may have stormed off).
+    const off = new Set((this.d.states?.offSet(show.id) ?? []).map((o) => o.id));
+    const host = getCharacter(show.cast.find((id) => !off.has(id)) ?? show.cast[0]);
     const introText = artist.intro.replace("{song}", title);
     const intro = await this.d.tts.voice(introText, host);
     const bpm = Math.round(artist.bpm[0] + r() * (artist.bpm[1] - artist.bpm[0]));

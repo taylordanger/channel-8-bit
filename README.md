@@ -96,7 +96,10 @@ records to a file instead. While streaming, the feed counts as a viewer, so the 
 4. ~~**Game show with viewer voting**~~ — done: *Hot Seat* (1pm, 9pm). Contestants are drafted from other shows;
    viewers vote on every round from the website (`/api/vote`, one vote each), verdicts feed the next round, the
    final counts double, and the champion's win and the losers' grudges go into memory, moods and relationships.
-   Set `PUBLIC_URL` to show a vote address on the stream. Next: a call-in show reading viewer messages.
+   Set `PUBLIC_URL` to show a vote address on the stream.
+5. ~~**Viewer mail**~~ — done: viewers write in from the main page; links/emails/phone numbers are stripped, senders
+   are rate-limited, the local model moderates (or it waits for review on the desk), and the cast answers approved
+   mail in "viewer mail" segments of The Late Byte, Rise & Pixel and Couch Co-op.
 5. ~~**Character agency**~~ — done: lasting moods (cross-show, fade after hours), walk-offs that keep a regular off
    the set for the next scenes and earn them an entrance, feuds the writers must escalate or resolve; `/drama.html`.
 6. **Ops dashboard** — spend, standards log, what each writer produced, plot state per show.

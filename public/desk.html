@@ -55,6 +55,9 @@
         <div id="error"></div>
       </form>
       <ul id="topics"></ul>
+      <h2 class="sec">VIEWER MAIL</h2>
+      <p class="hint">Messages viewers send from the main page. The local model screens them automatically; anything it couldn't check waits here for you. Approved mail gets read on air in The Late Byte, Rise &amp; Pixel and Couch Co-op.</p>
+      <ul id="mail"></ul>
       <h2 class="sec">MUSICAL GUEST</h2>
       <p class="hint">Put a band on right after the current scene. Whoever is hosting introduces them; every song is original, generated live.</p>
       <form id="music">
@@ -200,6 +203,39 @@
           ? `${data.title} goes on at ${new Date(data.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}.`
           : data.error ?? "Couldn't book the band.";
       });
+
+      async function loadMail() {
+        const { messages } = await (await fetch("/api/mail")).json();
+        const list = $("mail");
+        list.replaceChildren();
+        if (!messages.length) {
+          const li = document.createElement("li");
+          li.className = "empty";
+          li.textContent = "No viewer mail yet.";
+          list.append(li);
+        }
+        for (const m of messages.slice(0, 30)) {
+          const li = document.createElement("li");
+          if (m.status === "aired" || m.status === "rejected") li.className = "retired";
+          const body = document.createElement("div");
+          body.className = "text";
+          body.textContent = `${m.handle}: ${m.text}`;
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = `${m.status.toUpperCase()}${m.reason ? " · " + m.reason : ""}${m.showId ? " · for " + m.showId : ""}`;
+          body.append(meta);
+          const actions = document.createElement("div");
+          actions.className = "actions";
+          if (m.status !== "aired") {
+            if (m.status !== "approved") actions.append(button("APPROVE", async () => { await fetch(`/api/mail/${m.id}/approve`, { method: "POST" }); loadMail(); }));
+            if (m.status !== "rejected") actions.append(button("REJECT", async () => { await fetch(`/api/mail/${m.id}/reject`, { method: "POST" }); loadMail(); }));
+          }
+          li.append(body, actions);
+          list.append(li);
+        }
+      }
+      loadMail();
+      setInterval(loadMail, 8000);
 
       load().then(loadSpecial);
       setInterval(() => { load(); loadSpecial(); }, 4000);

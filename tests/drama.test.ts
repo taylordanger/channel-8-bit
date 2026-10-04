@@ -81,6 +81,18 @@ describe("writers see the drama", () => {
   });
 });
 
+describe("a host who stormed off", () => {
+  it("doesn't introduce the band - whoever's still on set does", async () => {
+    const db = openDb(":memory:");
+    const states = new CharacterStates(db);
+    const p = new Producer({ timeline: new Timeline(db), memory: new MemoryBank(db), states, tts: new SilentTTS(), writers: [new ImprovWriter(1)], timeZone: "UTC" });
+    const { getShow } = await import("../src/server/catalog/shows.js");
+    states.walkOff("rex", "late_byte", "I'm done!", 2);
+    const seg = (await p.music(Date.UTC(2026, 9, 3, 23), getShow("late_byte"), "house", 60)).segment;
+    expect(seg.cues[0].speaker).toBe("deedee");
+  });
+});
+
 describe("the station records walk-offs and moods", () => {
   it("a regular who storms off without coming back sits out, is furious, and it's remembered", async () => {
     const stormy: Writer = {

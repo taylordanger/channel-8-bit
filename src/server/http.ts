@@ -120,6 +120,33 @@ async function handleTopics(req: http.IncomingMessage, res: http.ServerResponse,
   return json(res, { error: "unsupported" }, 405);
 }
 
+/**
+ * Viewer mail: anyone can write in (the mailbag cleans, rate-limits and moderates it), but
+ * only this machine can see the queue or approve and reject messages.
+ */
+async function handleMail(req: http.IncomingMessage, res: http.ServerResponse, url: URL, b: Built) {
+  const [, , , idPart, action] = url.pathname.split("/");
+  if (req.method === "POST" && !idPart) {
+    let body: { handle?: unknown; text?: unknown; showId?: unknown };
+    try {
+      body = (await readJson(req, 2048)) as typeof body;
+    } catch (e) {
+      return json(res, { error: (e as Error).message }, 400);
+    }
+    const showId = typeof body.showId === "string" && SHOWS[body.showId]?.mailSegment ? body.showId : null;
+    const out = await b.mailbag.submit(String(body.handle ?? ""), String(body.text ?? ""), showId, req.socket.remoteAddress ?? "?", b.clock.now());
+    if (typeof out === "string") return json(res, { error: out }, out.includes("try again") ? 429 : 400);
+    // Senders only learn whether it's in the queue, not the moderator's reasoning.
+    return json(res, { status: out.status === "rejected" ? "not accepted" : "received" }, 201);
+  }
+  if (!isLocal(req)) return json(res, { error: "the mailbag is only visible from this machine" }, 403);
+  if (req.method === "GET") return json(res, { messages: b.mailbag.list(), shows: Object.values(SHOWS).filter((sh) => sh.mailSegment).map((sh) => ({ id: sh.id, title: sh.title })) });
+  const id = Number(idPart);
+  if (req.method === "POST" && Number.isInteger(id) && (action === "approve" || action === "reject"))
+    return json(res, { ok: b.mailbag.review(id, action === "approve") });
+  return json(res, { error: "unsupported" }, 405);
+}
+
 /** Simple per-IP throttle so one viewer can't flood the vote endpoint. */
 const voteHits = new Map<string, number[]>();
 
@@ -191,6 +218,10 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://x");
     const now = b.clock.now();
+    if (url.pathname === "/api/mail" || url.pathname.startsWith("/api/mail/")) {
+      void handleMail(req, res, url, b);
+      return;
+    }
     if (url.pathname === "/api/vote") {
       void handleVote(req, res, b, broadcast);
       return;

@@ -12,6 +12,7 @@ import { CharacterStates, MemoryBank } from "./memory.js";
 import { Producer } from "./producer.js";
 import { TopicDesk } from "./desk.js";
 import { PollBox } from "./polls.js";
+import { LocalModerator, MailBag } from "./mailbag.js";
 import { FactChecker, LocalFactChecker } from "./factcheck.js";
 import { OllamaClient, OllamaWriter } from "./writers/ollama.js";
 import { DEFAULT_POLICY, LlmStandards, type StandardsPolicy } from "./standards.js";
@@ -81,6 +82,9 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
 
   const improv = new ImprovWriter();
   const ollama = new OllamaClient(config.ollama.url, config.ollama.model);
+  const policy = loadPolicy(config.dataDir);
+  // The local model screens viewer mail (if it's down, mail waits for review on the desk).
+  const mailbag = new MailBag(db, policy, o.writers ? undefined : new LocalModerator(ollama));
   const writers =
     o.writers ??
     (config.writer === "claude"
@@ -110,7 +114,8 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     writers,
     llmStandards,
     factChecker,
-    policy: loadPolicy(config.dataDir),
+    policy,
+    mailbag,
     timeZone: config.timeZone,
     log: o.log,
   });
@@ -131,7 +136,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   });
   // Finish reading any links a restart interrupted.
   for (const t of desk.pending()) void desk.ingest(t.id);
-  return { ollama, db, clock, timeline, memory, states, polls, desk, ledger, governor, tts, writers, producer, station };
+  return { ollama, mailbag, db, clock, timeline, memory, states, polls, desk, ledger, governor, tts, writers, producer, station };
 }
 
 export type Built = ReturnType<typeof buildStation>;
