@@ -90,7 +90,9 @@ records to a file instead. While streaming, the feed counts as a viewer, so the 
 
 1. ~~**Restream**~~ — done (see above).
 2. **Better voices** — Kokoro running locally behind the `TTSEngine` interface; phoneme-level visemes.
-3. **Music** — invented bands performing real tracks: vocal-stem mouth mapping, beat-synced instruments.
+3. ~~**Music**~~ — done: invented bands (Glimmer, The Rusty Spurs, The Sewer Rats, house band The Interference)
+   perform original chiptune songs generated from a seed, identically in every viewer's browser; the band animates to
+   the beat and the drummer waits for the drums to come in. Desk: "play a song now". Next: your own tracks (e.g. Suno).
 4. **Show formats** — game show with live audience voting, cooking show, call-in show reading viewer chat.
 5. **Character agency** — moods that persist across shows, walk-offs that carry into the next segment,
    guests who hold grudges against hosts.

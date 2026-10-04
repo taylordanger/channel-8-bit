@@ -55,6 +55,15 @@
         <div id="error"></div>
       </form>
       <ul id="topics"></ul>
+      <h2 class="sec">MUSICAL GUEST</h2>
+      <p class="hint">Put a band on right after the current scene. Whoever is hosting introduces them; every song is original, generated live.</p>
+      <form id="music">
+        <div class="row">
+          <label>ACT <select id="mu-artist"><option value="">Surprise me</option></select></label>
+          <button type="submit">PLAY A SONG NOW</button>
+        </div>
+        <div id="mu-status" class="meta"></div>
+      </form>
       <h2 class="sec">SPECIAL PROGRAMMING</h2>
       <p class="hint">Break into the schedule: put any show on air. With "cut in" checked it starts right after the scene that's playing now, skipping anything already queued; unchecked, queued scenes play first. The regular schedule resumes when it ends.</p>
       <form id="special">
@@ -178,6 +187,19 @@
         loadSpecial();
       });
       $("sp-end").onclick = async () => { await fetch("/api/override", { method: "DELETE" }); loadSpecial(); };
+
+      fetch("/api/music").then((r) => r.json()).then(({ artists }) => {
+        for (const a of artists) $("mu-artist").append(new Option(`${a.name} (${a.style})`, a.id));
+      });
+      $("music").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        $("mu-status").textContent = "Setting up the stage…";
+        const res = await fetch("/api/music", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ artist: $("mu-artist").value || null }) });
+        const data = await res.json();
+        $("mu-status").textContent = res.ok
+          ? `${data.title} goes on at ${new Date(data.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}.`
+          : data.error ?? "Couldn't book the band.";
+      });
 
       load().then(loadSpecial);
       setInterval(() => { load(); loadSpecial(); }, 4000);

@@ -7,6 +7,7 @@ import type { Built } from "./build.js";
 import { CHARACTERS } from "./catalog/characters.js";
 import { guideWith, programAt } from "./catalog/schedule.js";
 import { SHOWS } from "./catalog/shows.js";
+import { ARTISTS } from "./catalog/music.js";
 import type { StationConfig } from "./config.js";
 import type { Topic } from "./desk.js";
 import { assertPublicUrl, URL_PATTERN } from "./sources.js";
@@ -119,6 +120,22 @@ async function handleTopics(req: http.IncomingMessage, res: http.ServerResponse,
   return json(res, { error: "unsupported" }, 405);
 }
 
+async function handleMusic(req: http.IncomingMessage, res: http.ServerResponse, b: Built) {
+  const artists = Object.values(ARTISTS).map((a) => ({ id: a.id, name: a.name, style: a.style }));
+  if (req.method === "GET") return json(res, { artists });
+  if (!isLocal(req)) return json(res, { error: "programming changes are only accepted from this machine" }, 403);
+  if (req.method !== "POST") return json(res, { error: "unsupported" }, 405);
+  let body: { artist?: unknown };
+  try {
+    body = (await readJson(req)) as typeof body;
+  } catch (e) {
+    return json(res, { error: (e as Error).message }, 400);
+  }
+  const artist = typeof body.artist === "string" && body.artist in ARTISTS ? body.artist : undefined;
+  const seg = await b.station.playMusic(artist);
+  return json(res, { title: seg.title, startAt: seg.startAt, durationMs: seg.durationMs }, 201);
+}
+
 async function handleOverride(req: http.IncomingMessage, res: http.ServerResponse, b: Built) {
   if (req.method === "GET") return json(res, { override: b.station.override() });
   if (!isLocal(req)) return json(res, { error: "programming changes are only accepted from this machine" }, 403);
@@ -147,6 +164,10 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://x");
     const now = b.clock.now();
+    if (url.pathname === "/api/music") {
+      void handleMusic(req, res, b);
+      return;
+    }
     if (url.pathname === "/api/override") {
       void handleOverride(req, res, b);
       return;
@@ -164,11 +185,15 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
         return json(res, b.timeline.range(from, to));
       }
       case "/api/cast":
+        // Everyone: each show's cast and guests, then the musicians who only appear on stage.
         return json(
           res,
-          Object.values(SHOWS).flatMap((show) =>
-            [...show.cast, ...(show.guestPool ?? [])].map((id) => ({ id, name: CHARACTERS[id].name, show: show.title, look: CHARACTERS[id].look })),
-          ),
+          Object.values(CHARACTERS).map((c) => ({
+            id: c.id,
+            name: c.name,
+            show: Object.values(SHOWS).find((sh) => sh.cast.includes(c.id) || sh.guestPool?.includes(c.id))?.title ?? "Musicians",
+            look: c.look,
+          })),
         );
       case "/api/guide":
         return json(res, guideWith(now, 24, config.timeZone, b.station.override()));

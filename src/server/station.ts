@@ -169,6 +169,22 @@ export class Station {
     return { showId, startAt, endAt };
   }
 
+  /**
+   * Put a musical act on right after the current scene (the desk's "play a song now").
+   * The show on air hosts it; what was queued after the current scene is dropped.
+   */
+  async playMusic(artistId?: string): Promise<Segment> {
+    const now = this.d.clock.now();
+    const current = this.d.timeline.at(now);
+    const dropped = this.d.timeline.removeFrom(current ? current.startAt + current.durationMs : now);
+    if (dropped.length) this.d.onRetract?.(dropped);
+    const at = this.nextStart();
+    const slot = programAt(at, this.d.timeZone, this.override());
+    const produced = await this.d.producer.music(at, getShow(slot.showId), "guest", 100, artistId);
+    this.commit(produced);
+    return produced.segment;
+  }
+
   /** Return to the regular schedule after whatever is already written. */
   endOverride(): void {
     this.d.db.prepare("UPDATE overrides SET end_at = ? WHERE end_at > ?").run(this.nextStart(), this.d.clock.now());

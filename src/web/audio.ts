@@ -1,4 +1,7 @@
 import type { Segment } from "../shared/types.js";
+import { generateSong, type MusicStyle, type NoteEvent, type Song } from "../shared/music.js";
+
+const midiHz = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
 
 const LOOKAHEAD_MS = 8000;
 
@@ -60,6 +63,7 @@ export class AudioDirector {
       // Scene stings: slap bass into sitcom scenes, a jingle for the cartoon.
       if (seg.set === "sitcom_apartment" || seg.set === "diner") this.sting(seg.id, seg.startAt, stationNow, "slapbass");
       if (seg.set === "family_couch") this.sting(seg.id, seg.startAt, stationNow, "jingle");
+      if (seg.song) this.playSong(seg, stationNow);
       seg.cues.forEach((cue, i) => {
         const laughAt = seg.startAt + cue.t + cue.dur;
         if (cue.laugh && laughAt > stationNow - 300 && laughAt < stationNow + LOOKAHEAD_MS) this.crowd(`${seg.id}:${i}:lt`, laughAt, stationNow, "laugh");
@@ -97,6 +101,125 @@ export class AudioDirector {
   }
 
   private stung = new Set<string>();
+  private songs = new Map<string, { song: Song; next: number }>();
+  private noise?: AudioBuffer;
+  private musicBus?: GainNode;
+
+  /** Schedule the next stretch of a segment's song (a rolling window keeps node counts low). */
+  private playSong(seg: Segment, now: number) {
+    const spec = seg.song!;
+    let st = this.songs.get(seg.id);
+    if (!st) {
+      st = { song: generateSong(spec), next: 0 };
+      this.songs.set(seg.id, st);
+      if (this.songs.size > 6) this.songs.delete(this.songs.keys().next().value!);
+    }
+    const songStart = seg.startAt + spec.startMs;
+    if (!this.musicBus) {
+      this.musicBus = this.ctx.createGain();
+      this.musicBus.gain.value = 0.5;
+      this.musicBus.connect(this.master);
+    }
+    const ev = st.song.events;
+    while (st.next < ev.length && songStart + ev[st.next].t < now + 1500) {
+      const e = ev[st.next++];
+      const delay = (songStart + e.t - now) / 1000;
+      if (delay < -0.05) continue; // joined mid-song: skip what already played
+      this.note(e, this.ctx.currentTime + Math.max(0, delay), spec.style);
+    }
+    // Applause when the last note fades.
+    const endAt = songStart + st.song.totalMs;
+    if (endAt > now - 300 && endAt < now + 8000) this.crowd(`${seg.id}:end`, endAt, now, "applause");
+  }
+
+  private noiseBuffer(): AudioBuffer {
+    if (!this.noise) {
+      this.noise = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate);
+      const d = this.noise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    return this.noise;
+  }
+
+  /** One synthesized note: drums from noise and sweeps, a formant-filtered "voice" for the lead. */
+  private note(e: NoteEvent, when: number, style: MusicStyle) {
+    const ctx = this.ctx;
+    const out = this.musicBus!;
+    const env = (g: GainNode, peak: number, attack: number, release: number) => {
+      g.gain.setValueAtTime(0.0001, when);
+      g.gain.linearRampToValueAtTime(peak, when + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + release);
+    };
+    const dur = e.dur / 1000;
+    if (e.inst === "kick") {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.frequency.setValueAtTime(150, when);
+      o.frequency.exponentialRampToValueAtTime(42, when + 0.12);
+      env(g, style === "ballad" ? 0.5 : 0.9, 0.003, 0.2);
+      o.connect(g).connect(out);
+      o.start(when);
+      o.stop(when + 0.25);
+    } else if (e.inst === "snare" || e.inst === "hat") {
+      const src = ctx.createBufferSource();
+      src.buffer = this.noiseBuffer();
+      const f = ctx.createBiquadFilter();
+      f.type = e.inst === "snare" ? "bandpass" : "highpass";
+      f.frequency.value = e.inst === "snare" ? 1800 : 7500;
+      const g = ctx.createGain();
+      env(g, e.inst === "snare" ? (style === "ballad" ? 0.25 : 0.5) : 0.14, 0.002, e.inst === "snare" ? 0.16 : 0.045);
+      src.connect(f).connect(g).connect(out);
+      src.start(when, Math.random() * 0.5);
+      src.stop(when + 0.2);
+    } else {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      const f = ctx.createBiquadFilter();
+      o.frequency.value = midiHz(e.pitch);
+      let last: AudioNode = o;
+      if (e.inst === "bass") {
+        o.type = style === "ballad" ? "triangle" : style === "synthpop" ? "square" : "sawtooth";
+        f.type = "lowpass";
+        f.frequency.value = 700;
+        env(g, 0.28, 0.005, dur + 0.05);
+      } else if (e.inst === "chord") {
+        o.type = style === "synthpop" ? "square" : style === "ballad" ? "sine" : "sawtooth";
+        f.type = "lowpass";
+        f.frequency.value = style === "ballad" ? 1800 : 2600;
+        if (style === "rock" || style === "punk") {
+          const drive = ctx.createWaveShaper();
+          const curve = new Float32Array(256);
+          for (let i = 0; i < 256; i++) curve[i] = Math.tanh(((i / 255) * 2 - 1) * 4);
+          drive.curve = curve;
+          o.connect(drive);
+          last = drive;
+        }
+        env(g, style === "ballad" ? 0.05 : style === "synthpop" ? 0.05 : 0.07, style === "ballad" ? 0.3 : 0.005, dur + 0.05);
+      } else {
+        // The singer: a sawtooth through "ah" formants, with vibrato - robotic, but it sings.
+        o.type = "sawtooth";
+        const lfo = ctx.createOscillator();
+        const depth = ctx.createGain();
+        lfo.frequency.value = 5.5;
+        depth.gain.value = midiHz(e.pitch) * 0.012;
+        lfo.connect(depth).connect(o.frequency);
+        lfo.start(when);
+        lfo.stop(when + dur + 0.2);
+        const f2 = ctx.createBiquadFilter();
+        f.type = "bandpass";
+        f.frequency.value = 800;
+        f.Q.value = 4;
+        f2.type = "bandpass";
+        f2.frequency.value = 1200;
+        f2.Q.value = 5;
+        o.connect(f2).connect(g);
+        env(g, 0.5, 0.03, dur + 0.12);
+      }
+      last.connect(f).connect(g).connect(out);
+      o.start(when);
+      o.stop(when + dur + 0.25);
+    }
+  }
 
   /** Synthesized transition music, scheduled at a segment's start. */
   private sting(key: string, start: number, now: number, kind: "slapbass" | "jingle") {

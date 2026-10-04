@@ -19,6 +19,8 @@ import {
 import type { Timeline } from "./timeline.js";
 import type { TTSEngine } from "./tts.js";
 import { rng } from "./writers/improv.js";
+import { ARTISTS } from "./catalog/music.js";
+import { generateSong, songShape, type SongSpec } from "../shared/music.js";
 import type { Script, Writer, WriterBrief } from "./writers/script.js";
 
 /** Names from the network's own fictional world, which the name check must never flag. */
@@ -198,6 +200,8 @@ export class Producer {
 
   private async live(at: number, slot: ScheduledSlot, targetSeconds: number, writers: Writer[]): Promise<Produced> {
     const brief = this.brief(at, slot, targetSeconds);
+    const music = brief.show.musicFor?.[brief.segmentType];
+    if (music) return this.music(at, brief.show, music, targetSeconds);
     let lastError = "";
 
     for (const writer of writers) {
@@ -224,6 +228,65 @@ export class Producer {
       }
     }
     throw new Error(`every writer failed (${lastError})`);
+  }
+
+  /**
+   * A music performance: the host introduces the act, then the band plays an original song
+   * generated from a seed. No writer involved, so it's instant and free.
+   */
+  async music(at: number, show: Show, kind: "guest" | "house", targetSeconds: number, artistId?: string): Promise<Produced> {
+    const r = rng(Math.floor(at / 1000) ^ 0x5eed);
+    const guests = Object.values(ARTISTS).filter((a) => a.id !== "interference");
+    const artist = (artistId && ARTISTS[artistId]) || (kind === "house" ? ARTISTS.interference : guests[Math.floor(r() * guests.length)]);
+    // Prefer a song that hasn't aired in the last few hours.
+    const recent = new Set(this.d.timeline.range(at - 6 * 3_600_000, at).filter((s) => s.song).map((s) => s.song!.title));
+    const fresh = artist.songs.filter((t) => !recent.has(t));
+    const title = (fresh.length ? fresh : artist.songs)[Math.floor(r() * (fresh.length || artist.songs.length))];
+
+    const host = getCharacter(show.cast[0]);
+    const introText = artist.intro.replace("{song}", title);
+    const intro = await this.d.tts.voice(introText, host);
+    const bpm = Math.round(artist.bpm[0] + r() * (artist.bpm[1] - artist.bpm[0]));
+    const roots: Record<string, number> = { synthpop: 45, rock: 40, punk: 43, ballad: 48 };
+    const songMs = Math.min(targetSeconds * 1000, kind === "house" ? 45_000 : 100_000);
+    const vocals = artist.members.some((m) => m.role === "vocals");
+    const spec: SongSpec = {
+      title,
+      artist: artist.name,
+      style: artist.style,
+      seed: Math.floor(r() * 2 ** 31),
+      bpm,
+      root: roots[artist.style],
+      sections: songShape(artist.style, bpm, songMs, vocals),
+      startMs: LEAD_IN_MS + intro.durationMs + 700,
+    };
+    const song = generateSong(spec);
+    const order = ["vocals", "guitar", "bass", "keys", "drums"];
+    const cast: CastMember[] = [
+      ...artist.members.map((m) => {
+        const c = getCharacter(m.id);
+        return { id: c.id, name: c.name, look: c.look, mark: order.indexOf(m.role), onSetAtStart: true, role: m.role };
+      }),
+      { id: host.id, name: host.name, look: host.look, mark: 5, onSetAtStart: true, role: "host" },
+    ];
+    const segment: Segment = {
+      id: crypto.randomUUID(),
+      showId: show.id,
+      showTitle: show.title,
+      title: `${artist.name}: "${title}"`,
+      set: "music_stage",
+      startAt: 0,
+      durationMs: spec.startMs + song.totalMs + 2500,
+      cast,
+      cues: [
+        // The player adds the crowd's applause when the song ends.
+        { t: LEAD_IN_MS, dur: intro.durationMs, speaker: host.id, text: introText, emotion: "happy", action: "gesture", target: "audience", audio: intro.audio, env: intro.env },
+      ],
+      kind: "live",
+      writer: "music",
+      song: spec,
+    };
+    return { segment, summary: "", notes: [] };
   }
 
   /**

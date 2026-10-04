@@ -1,3 +1,5 @@
+import type { SongSpec } from "./music.js";
+
 // Types shared by the station (server) and the player (browser).
 // Everything a viewer needs to render a segment is inside the Segment itself,
 // so the player never needs the server's catalog.
@@ -57,6 +59,7 @@ export type SetId =
   | "diner"
   | "comedy_club"
   | "family_couch"
+  | "music_stage"
   | "bumper";
 
 export interface CastMember {
@@ -67,6 +70,8 @@ export interface CastMember {
   mark: number;
   /** Whether the character is on set when the segment starts. */
   onSetAtStart: boolean;
+  /** Music segments: what they play ("vocals", "guitar", "bass", "keys", "drums", "host"). */
+  role?: string;
 }
 
 export interface Cue {
@@ -105,6 +110,8 @@ export interface Segment {
   kind: "live" | "rerun" | "bumper";
   /** Which writer produced it, for transparency in the status panel. */
   writer: string;
+  /** Music segments: the song, regenerated identically in every viewer's browser. */
+  song?: SongSpec;
 }
 
 export interface GuideEntry {

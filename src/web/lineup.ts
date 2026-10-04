@@ -2,6 +2,7 @@ import { EMOTIONS, type Look } from "../shared/types.js";
 import { drawSprite } from "./sprite.js";
 import { Renderer } from "./render.js";
 import type { Segment } from "../shared/types.js";
+import { songShape } from "../shared/music.js";
 
 /** "Mr. Grimsworth" -> GRIMSWORTH, "Hank Pixelson" -> HANK. */
 const label = (name: string) => {
@@ -18,7 +19,10 @@ interface CastCard {
 }
 
 // ?ids=rex,deedee shows just those characters, larger.
-const only = new URLSearchParams(location.search).get("ids")?.split(",");
+// ids may carry a band role for the music stage: ?ids=buck:vocals,tammy:guitar
+const idSpecs = new URLSearchParams(location.search).get("ids")?.split(",");
+const only = idSpecs?.map((x) => x.split(":")[0]);
+const roleOf = (id: string) => idSpecs?.find((x) => x.startsWith(id + ":"))?.split(":")[1];
 const all = (await (await fetch("/api/cast")).json()) as CastCard[];
 const cast = only ? all.filter((c) => only.includes(c.id)) : all;
 const PER_ROW = Math.min(8, cast.length);
@@ -45,7 +49,11 @@ if (previewSet) {
     set: previewSet as Segment["set"],
     startAt: 0,
     durationMs: 60_000,
-    cast: cast.map((c, i) => ({ id: c.id, name: c.name, look: c.look, mark: i, onSetAtStart: true })),
+    cast: cast.map((c, i) => {
+      const role = roleOf(c.id);
+      const mark = role ? ["vocals", "guitar", "bass", "keys", "drums", "host"].indexOf(role) : i;
+      return { id: c.id, name: c.name, look: c.look, mark, onSetAtStart: true, role };
+    }),
     cues: Array.from({ length: 24 }, (_, i) => ({
       t: 1000 + i * 2400,
       dur: 2000,
@@ -60,6 +68,21 @@ if (previewSet) {
     })),
     kind: "live",
     writer: "preview",
+    ...(previewSet === "music_stage"
+      ? {
+          cues: [],
+          song: {
+            title: "Demo Song",
+            artist: new URLSearchParams(location.search).get("artist") ?? "The Band",
+            style: (new URLSearchParams(location.search).get("style") ?? "rock") as "rock",
+            seed: 7,
+            bpm: 120,
+            root: 40,
+            sections: songShape("rock", 120, 55_000, true),
+            startMs: 1000,
+          },
+        }
+      : {}),
   };
   const loop = () => {
     canvas.width = canvas.clientWidth * devicePixelRatio;

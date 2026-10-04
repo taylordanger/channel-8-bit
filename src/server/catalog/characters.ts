@@ -603,6 +603,104 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         outfit: "vest", build: "slim", eyes: "dot", nose: "small", facial: "mustache", accessories: ["glasses"], height: 44,
       },
     }),
+
+    // --- Musicians (bands on The Late Byte) -----------------------------------
+    c({
+      id: "sticks",
+      name: "Sticks McGee",
+      bible: "The Interference's drummer. Never speaks; communicates entirely in rimshots. Wears his sunglasses indoors at night.",
+      catchphrases: ["ba-dum-tss", "...", "one two three four"],
+      bits: ["Ba-dum-tss.", "One, two, three, four!"],
+      voice: { say: "Ralph", rate: 180, kokoro: "am_onyx", speed: 1.0 },
+      look: {
+        skin: "#c68642", hair: "#1a1a1a", hairStyle: "afro", shirt: "#ff3355", pants: "#1c1c2e", accent: "#ffffff",
+        outfit: "tank", build: "broad", eyes: "dot", nose: "small", facial: "beard", accessories: ["shades"], height: 42,
+      },
+    }),
+    c({
+      id: "lou",
+      name: "Low-End Lou",
+      bible: "Session bassist who plays with every band on the network and has never been seen without his fedora. Extremely calm.",
+      catchphrases: ["that's the pocket", "easy now", "feel it"],
+      bits: ["That's the pocket.", "Easy now. Feel it."],
+      voice: { say: "Albert", rate: 165, kokoro: "am_adam", speed: 0.9 },
+      look: {
+        skin: "#8d5524", hair: "#2a2a2a", hairStyle: "short", shirt: "#2e4a7a", pants: "#1a1a1a", accent: "#c9a227",
+        outfit: "suit", build: "slim", eyes: "sleepy", nose: "big", facial: "mustache", accessories: ["hat"], height: 45,
+      },
+    }),
+    c({
+      id: "buck",
+      name: "Buck Calloway",
+      bible: "Lead singer of The Rusty Spurs. Sings every song like his dog just left him, even the happy ones. Owns eleven belt buckles.",
+      catchphrases: ["yeehaw", "this one's for my truck", "thank you kindly"],
+      bits: ["This one's for my truck.", "Thank you kindly, insomniacs!"],
+      voice: { say: "Rocko (English (US))", rate: 165, kokoro: "am_michael", speed: 0.95 },
+      look: {
+        skin: "#e0ac69", hair: "#6a4a2a", hairStyle: "long", shirt: "#c0392b", pants: "#2a3a5a", accent: "#e8c34a",
+        outfit: "vest", build: "average", eyes: "dot", nose: "big", facial: "beard", accessories: ["hat"], height: 46,
+      },
+    }),
+    c({
+      id: "tammy",
+      name: "Tammy Lee Tucker",
+      bible: "The Rusty Spurs' guitarist. Shreds like a hurricane and then apologizes for being loud.",
+      catchphrases: ["sorry, y'all", "here comes the solo", "bless your heart"],
+      bits: ["Sorry, y'all. Here comes the solo."],
+      voice: { say: "Sandy (English (US))", rate: 185, kokoro: "af_bella", speed: 1.05 },
+      look: {
+        skin: "#f1c27d", hair: "#e8b84a", hairStyle: "huge", shirt: "#4a8ac0", pants: "#2a2a3a", accent: "#ffffff",
+        outfit: "stripes", build: "slim", eyes: "lashes", nose: "small", facial: "freckles", accessories: ["earrings"], height: 41,
+      },
+    }),
+    c({
+      id: "earl",
+      name: "Earl",
+      bible: "The Rusty Spurs' drummer, who is ninety-one years old and plays like he's twenty.",
+      catchphrases: ["back in my day", "one more time", "I'm fine"],
+      bits: ["I'm fine. Count it in."],
+      voice: { say: "Grandpa (English (US))", rate: 150, kokoro: "bm_fable", speed: 0.85 },
+      look: {
+        skin: "#e8c8a8", hair: "#e8e8e8", hairStyle: "fringe", shirt: "#7a5a3a", pants: "#3a3a2a", accent: "#c0392b",
+        outfit: "plain", build: "slim", eyes: "sleepy", nose: "long", facial: "mustache", accessories: ["glasses"], height: 40,
+      },
+    }),
+    c({
+      id: "spit",
+      name: "Spit Valentine",
+      bible: "Lead screamer of The Sewer Rats. Furious about everything, polite to his grandmother, writes songs about software terms of service.",
+      catchphrases: ["this one's about the system", "unsubscribe!", "thanks, mom"],
+      bits: ["This one's about the system!", "Thanks, Mom! She drove us here."],
+      voice: { say: "Junior", rate: 210, kokoro: "am_puck", speed: 1.2 },
+      look: {
+        skin: "#f2e0d0", hair: "#3ae84a", hairStyle: "mohawk", shirt: "#1a1a1a", pants: "#4a1a1a", accent: "#e83a3a",
+        outfit: "tank", build: "slim", eyes: "wide", nose: "small", facial: "none", accessories: ["earrings"], height: 41,
+      },
+    }),
+    c({
+      id: "rash",
+      name: "Rash",
+      bible: "The Sewer Rats' guitarist. Knows three chords and is proud of all of them.",
+      catchphrases: ["three chords", "louder", "again"],
+      bits: ["Three chords and the truth. Mostly the chords."],
+      voice: { say: "Fred", rate: 190, kokoro: "am_echo", speed: 1.1 },
+      look: {
+        skin: "#c68642", hair: "#e83a9a", hairStyle: "spiky", shirt: "#3a3a3a", pants: "#1a1a2a", accent: "#ffffff",
+        outfit: "hoodie", build: "slim", eyes: "beady", nose: "small", facial: "stubble", accessories: [], height: 43,
+      },
+    }),
+    c({
+      id: "dex",
+      name: "Dex",
+      bible: "The Sewer Rats' drummer. Has broken eleven drumsticks this year and one drum stool.",
+      catchphrases: ["one two three four", "faster", "my stick broke"],
+      bits: ["My stick broke. Again."],
+      voice: { say: "Ralph", rate: 200, kokoro: "am_liam", speed: 1.1 },
+      look: {
+        skin: "#ffdbac", hair: "#1a1a1a", hairStyle: "short", shirt: "#e8682a", pants: "#2a2a2a", accent: "#1a1a1a",
+        outfit: "tank", build: "round", eyes: "dot", nose: "big", facial: "none", accessories: ["headband"], height: 40,
+      },
+    }),
   ].map((ch) => [ch.id, ch]),
 );
 

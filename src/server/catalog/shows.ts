@@ -9,6 +9,8 @@ export interface Show {
   set: SetId;
   /** Segment types that play on a different set (e.g. the diner scenes of a sitcom). */
   setFor?: Record<string, SetId>;
+  /** Segment types that are music performances: a rotating guest artist, or the house band. */
+  musicFor?: Record<string, "guest" | "house">;
   /** Segment types performed by one cast member alone (e.g. a stand-up cold open). */
   soloFor?: Record<string, string>;
   /** Studio audience laughs on punchlines (lines the writers mark with laugh: true). */
@@ -45,7 +47,8 @@ export const SHOWS: Record<string, Show> = {
     serialized: false,
     bible:
       "A late-night talk show taped in front of a live (pixel) audience. Rex hosts from the desk; Dee Dee and the Interference play from the band riser. Guests sit on the couch. Tone: affectionate roast, absurd bits, real chemistry. Rex and Dee Dee have a long-running will-they-won't-they-quit rivalry.",
-    segmentTypes: ["monologue", "desk bit", "guest interview", "audience bit", "band banter"],
+    segmentTypes: ["monologue", "desk bit", "guest interview", "musical performance", "audience bit", "band banter", "band break"],
+    musicFor: { "musical performance": "guest", "band break": "house" },
     topics: [
       "the studio's broken applause sign",
       "Rex's new self-help audiobook",

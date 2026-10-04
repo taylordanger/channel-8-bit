@@ -1,5 +1,6 @@
 import { ENVELOPE_STEP_MS, type CastMember, type Cue, type GuideEntry, type Segment, type SetId } from "../shared/types.js";
 import { drawSprite, shade } from "./sprite.js";
+import { generateSong, type Song } from "../shared/music.js";
 
 export const W = 320;
 export const H = 180;
@@ -39,6 +40,113 @@ interface SetDef {
 interface SceneEvents {
   /** 0..1 strength of crowd reaction right now. */
   crowd: number;
+  /** Music segments: where the song is right now (drives lights, crowd and the band). */
+  music?: MusicState;
+}
+
+interface MusicState {
+  artist: string;
+  title: string;
+  playing: boolean;
+  /** ms into the song (negative before it starts). */
+  ts: number;
+  beatIndex: number;
+  /** 0..1 through the current beat. */
+  beatPhase: number;
+  barIndex: number;
+  /** 0..1, how recently a kick / snare hit (1 = just now). */
+  kick: number;
+  snare: number;
+  drumsIn: boolean;
+  /** The singer has a note right now (and how high it is, 0..1). */
+  lead: number;
+}
+
+const songCache = new Map<string, Song>();
+
+function musicState(seg: Segment, local: number): MusicState | undefined {
+  const spec = seg.song;
+  if (!spec) return undefined;
+  let song = songCache.get(seg.id);
+  if (!song) {
+    song = generateSong(spec);
+    songCache.set(seg.id, song);
+    if (songCache.size > 6) songCache.delete(songCache.keys().next().value!);
+  }
+  const ts = local - spec.startMs;
+  const beat = ts / song.beatMs;
+  const recent = (inst: string) => {
+    let best = 0;
+    for (const e of song!.events) {
+      if (e.t > ts) break;
+      if (e.inst === inst && ts - e.t < 180) best = Math.max(best, 1 - (ts - e.t) / 180);
+    }
+    return best;
+  };
+  let lead = 0;
+  for (const e of song.events) {
+    if (e.t > ts) break;
+    if (e.inst === "lead" && ts < e.t + e.dur) lead = Math.min(1, Math.max(0.2, (e.pitch - spec.root - 12) / 24));
+  }
+  return {
+    artist: spec.artist,
+    title: spec.title,
+    playing: ts >= 0 && ts < song.totalMs,
+    ts,
+    beatIndex: Math.floor(beat),
+    beatPhase: beat - Math.floor(beat),
+    barIndex: Math.floor(beat / 4),
+    kick: ts >= 0 ? recent("kick") : 0,
+    snare: ts >= 0 ? recent("snare") : 0,
+    drumsIn: song.drumsStartMs >= 0 && ts >= song.drumsStartMs && ts < song.totalMs,
+    lead: ts >= 0 && ts < song.totalMs ? lead : 0,
+  };
+}
+
+/** Instruments are drawn after the player, so they sit in front of the body. */
+function drawInstrument(g: Ctx, role: string, x: number, feet: number, look: { accent: string; shirt: string }, m: MusicState, h: number) {
+  const chest = feet - h * 0.42;
+  if (role === "guitar" || role === "bass") {
+    const strum = m.playing && m.beatPhase < 0.2 ? 1 : 0;
+    const neck = role === "bass" ? 20 : 15;
+    const body = role === "bass" ? "#2c2c54" : look.accent === "#ffffff" ? "#c0392b" : look.accent;
+    g.strokeStyle = "#5a3a1a";
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(x - 2, chest + 4);
+    g.lineTo(x + neck, chest - 8);
+    g.stroke();
+    px(g, "#222", x + neck - 1, chest - 10, 3, 3);
+    px(g, body, x - 7, chest + 1 + strum, 9, 8);
+    px(g, shade(body.startsWith("#") ? body : "#c0392b", 0.15), x - 6, chest + 2 + strum, 3, 2);
+    px(g, "#111", x - 4, chest + 4 + strum, 2, 2);
+  } else if (role === "keys") {
+    px(g, "#f2f2f2", x - 11, chest + 2, 22, 5);
+    for (let k = 0; k < 7; k++) px(g, "#222", x - 9 + k * 3, chest + 3, 1, 2);
+    px(g, "#ff3355", x + 9, chest, 4, 3);
+  } else if (role === "drums") {
+    const hit = m.kick;
+    // bass drum with the band's logo, toms, cymbals that flash on the snare
+    g.fillStyle = "#e8e8e8";
+    g.beginPath();
+    g.ellipse(x, feet - 6, 10, 9 + hit * 0.8, 0, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = "#555";
+    g.lineWidth = 1;
+    g.stroke();
+    px(g, "#ff3355", x - 4, feet - 8, 8, 4);
+    px(g, "#c0392b", x - 18, feet - 13, 9, 6);
+    px(g, "#c0392b", x + 9, feet - 13, 9, 6);
+    const flash = m.snare > 0.5 ? "#fff6b0" : "#d4af37";
+    px(g, "#555", x - 22, feet - 26, 1, 18);
+    px(g, flash, x - 28, feet - 27, 12, 2);
+    px(g, "#555", x + 21, feet - 24, 1, 16);
+    px(g, m.kick > 0.5 ? "#fff6b0" : "#d4af37", x + 15, feet - 25, 12, 2);
+  } else if (role === "vocals") {
+    px(g, "#333", x + 9, feet - h * 0.55, 1, h * 0.55);
+    px(g, "#666", x + 7, feet - h * 0.58, 4, 4);
+    px(g, "#333", x + 5, feet - 1, 9, 1);
+  }
 }
 
 function skyline(g: Ctx, x0: number, y0: number, w: number, h: number, t: number, sky: string) {
@@ -62,6 +170,67 @@ function skyline(g: Ctx, x0: number, y0: number, w: number, h: number, t: number
 }
 
 const SETS: Record<Exclude<SetId, "bumper">, SetDef> = {
+  music_stage: {
+    marks: [
+      { x: 146, y: 152, seated: false, face: 1 }, // vocals, front and center
+      { x: 96, y: 148, seated: false, face: 1 }, // guitar
+      { x: 238, y: 148, seated: false, face: -1 }, // bass
+      { x: 50, y: 146, seated: false, face: 1 }, // keys
+      { x: 194, y: 116, seated: false, face: -1 }, // drums, on the riser behind the singer's shoulder
+      { x: 296, y: 150, seated: false, face: -1 }, // the host, stage right
+    ],
+    back: (g, t, ev) => {
+      const m = ev.music;
+      px(g, "#0d0716", 0, 0, W, H);
+      // backdrop with the act's name
+      px(g, "#1d1030", 30, 22, 260, 78);
+      g.fillStyle = m?.playing && m.beatIndex % 2 === 0 ? "#ff4fd8" : "#a03ac0";
+      g.font = "bold 14px monospace";
+      g.textAlign = "center";
+      g.fillText((m?.artist ?? "").toUpperCase(), W / 2, 60);
+      g.textAlign = "left";
+      // lighting truss: cans change color on the bar and pulse with the kick
+      px(g, "#444", 0, 6, W, 3);
+      const palette = ["#ff3355", "#3a86ff", "#ffe066", "#2ec4b6", "#8338ec"];
+      for (let i = 0; i < 9; i++) {
+        const x = 16 + i * 36;
+        const color = palette[((m?.barIndex ?? 0) + i) % palette.length];
+        px(g, "#222", x - 3, 9, 7, 5);
+        if (m?.playing) {
+          g.fillStyle = color + (m.kick > 0.4 ? "55" : "22");
+          g.beginPath();
+          g.moveTo(x - 2, 14);
+          g.lineTo(x + 2, 14);
+          g.lineTo(x + 26 - (i % 3) * 20, 150);
+          g.lineTo(x - 26 + (i % 3) * 14, 150);
+          g.fill();
+        }
+      }
+      // amp stacks and the drum riser
+      for (const ax of [6, 280]) {
+        px(g, "#1a1a1a", ax, 96, 34, 52);
+        px(g, "#2a2a2a", ax + 3, 100, 28, 20);
+        px(g, "#2a2a2a", ax + 3, 124, 28, 20);
+      }
+      px(g, "#2a1a3a", 156, 108, 80, 12);
+      px(g, "#3a2a4a", 156, 108, 80, 2);
+      // stage floor
+      px(g, "#1a1222", 0, 148, W, 32);
+      px(g, "#2a1a32", 0, 148, W, 2);
+      void t;
+    },
+    front: (g, t, ev) => {
+      const m = ev.music;
+      const bob = m?.playing && m.drumsIn ? (m.beatPhase < 0.3 ? 3 : 0) : ev.crowd > 0.1 ? Math.round(Math.abs(Math.sin(t / 90)) * 3) : 0;
+      for (let i = 0; i < 22; i++) {
+        const b = (i % 2 === 0 ? bob : Math.max(0, bob - 1));
+        const x = i * 15 - 4;
+        px(g, "#07040c", x, 164 - b, 12, 16);
+        px(g, "#07040c", x + 2, 157 - b, 8, 8);
+        if (m?.playing && m.drumsIn && i % 5 === 2) px(g, "#07040c", x + 9, 146 - b, 3, 12); // fists up
+      }
+    },
+  },
   sitcom_apartment: {
     marks: [
       { x: 104, y: 146, seated: false, face: 1 },
@@ -534,7 +703,8 @@ export class Renderer {
       const d = local - start;
       return d >= 0 && d < 2200 ? Math.max(acc, 1 - d / 2200) : acc;
     }, 0);
-    const ev: SceneEvents = { crowd };
+    const music = musicState(seg, local);
+    const ev: SceneEvents = { crowd, music };
     set.back(g, now, ev);
 
     // Draw back-to-front so seated people on the couch overlap naturally.
@@ -581,17 +751,30 @@ export class Renderer {
         dx += [0, 2, 0, -2][step];
         dy -= step % 2;
       }
+      // The band plays the song: everyone bobs on the beat, the singer's mouth follows the
+      // melody, and the drummer waits for the drums to come in before playing.
+      let bandMouth = -1;
+      let bandArm = false;
+      const role = st.member.role;
+      if (music && role && role !== "host") {
+        const grooving = music.playing && (role !== "drums" || music.drumsIn);
+        if (grooving) dy -= music.beatPhase < 0.25 ? 1 : 0;
+        if (role === "vocals") bandMouth = music.lead > 0 ? Math.round(4 + music.lead * 5) : 0;
+        if (role === "drums") bandArm = music.drumsIn && music.snare > 0.3;
+        if (role === "vocals" && music.playing && music.barIndex % 8 === 7) bandArm = true;
+      }
       drawSprite(g, st.member.look, mark.x + dx, mark.y + (seated ? 8 : 0) + dy, {
-        mouth,
+        mouth: bandMouth >= 0 ? bandMouth : mouth,
         // Listeners keep the expression from their own last line for a few seconds.
         emotion: speaking?.emotion ?? (own && local - own.t < own.dur + 4000 ? own.emotion : "neutral"),
         blink: (now + seed) % 4200 < 130,
         breathe: Math.floor((now + seed) / 900) % 2,
-        armUp: action === "gesture" || (action === "dance" && Math.floor(now / 360) % 2 === 0),
+        armUp: bandArm || action === "gesture" || (action === "dance" && Math.floor(now / 360) % 2 === 0),
         clap: action === "applause",
         facing: face,
         t: now,
       });
+      if (music && role && role !== "host") drawInstrument(g, role, mark.x + dx, mark.y + dy, st.member.look, music, st.member.look.height);
     }
     set.front?.(g, now, ev);
     this.camera = shotFor(seg, local, set.marks);
@@ -671,6 +854,20 @@ export class Renderer {
       o.fillText(clip(upNext ? `${f.next!.showTitle}: ${f.next!.title}` : seg.title, 40), ox + 18 * s, oy + 131 * s);
     }
 
+    // Now playing.
+    const m = musicState(seg, local);
+    if (m?.playing && m.ts > 3000) {
+      const label = `♪ ${m.artist} - "${m.title}"`;
+      o.font = font(4);
+      const w = (label.length * 4.2 + 10) * s;
+      o.fillStyle = "#000000cc";
+      o.fillRect(ox + 8 * s, oy + (H - 22) * s, w, 13 * s);
+      o.fillStyle = "#ff4fd8";
+      o.fillRect(ox + 8 * s, oy + (H - 22) * s, 2 * s, 13 * s);
+      o.fillStyle = "#fff";
+      o.fillText(label, ox + 13 * s, oy + (H - 18) * s);
+    }
+
     // Closed captions.
     const cue = seg.cues.find((c) => local >= c.t && local < c.t + c.dur + 250);
     if (cue) {
@@ -728,6 +925,20 @@ function hashStr(s: string): number {
 
 function shotFor(seg: Segment, local: number, marks: Mark[]): Shot {
   if (local < (seg.set === "family_couch" ? COUCH_GAG_MS + 400 : 2500)) return WIDE; // establishing shot / couch gag
+  if (seg.song) {
+    const m = musicState(seg, local)!;
+    const at = (role: string, zoom: number, lift = 0) => {
+      const c = seg.cast.find((x) => x.role === role);
+      if (!c) return WIDE;
+      const mk = marks[c.mark % marks.length];
+      return { x: mk.x, y: mk.y - c.look.height * 0.6 - lift, zoom };
+    };
+    if (!m.playing) return m.ts < 0 ? at("host", 1.8, 8) : WIDE;
+    // Cut every four bars: wide, the singer, the drummer when the drums arrive, a guitar shot.
+    const shots = [WIDE, at("vocals", 1.9, 6), at("drums", 1.7, 4), at("guitar", 1.7, 4), at("vocals", 1.4, -6)];
+    if (!m.drumsIn) return m.barIndex % 2 ? at("vocals", 1.5) : WIDE;
+    return shots[Math.floor(m.barIndex / 4) % shots.length] ?? WIDE;
+  }
   if (seg.set === "comedy_club" && seg.cast.length === 1) {
     // Stand-up: alternate a medium shot and a tighter one, never cut to an empty room.
     const m = seg.cast[0];
