@@ -122,12 +122,13 @@ npm run shadow -- 24           # simulate a whole day in seconds and check for p
 26. **A curated encore archive:** in the control room's scene list, ☆ STAR puts a scene into rotation more often, and RETIRE keeps a dud off the air for good. Scenes viewers tapped "that was funny" on also come back sooner. Nothing loops, because the freshness window still applies.
 27. **Commercials are reused:** each product keeps up to 3 finished ads and rotates them, so a break doesn't wait on the local AI. If a listing is re-read with new facts, fresh ads get written.
 28. **The nightly flagship is promoted:** a banner on the broadcast page ("TONIGHT 9:00 PM: Hot Seat… then the loser has to face Rex") shows the start in each viewer's own time. Station breaks in the hours before it say "Tonight 9 PM PDT: Hot Seat - the loser faces Rex".
+29. **The local writer writes a compact format:** I measured it first. On this Mac the model writes only about 6–8 tokens per second, and most of what it wrote was JSON labels, not dialogue (863 tokens for about 160 tokens of speech). Lines are now short tuples, the bookkeeping is trimmed, and the story notes are rewritten only at an episode's setup and payoff. Result: about 30–40% more airtime per second of model time, with roughly half the output per scene.
 
 ---
 
 ## ⚠️ Known issues / things to watch
 
-- **Fresh writing is a small share of airtime.** The local model needs about 2 minutes per ~1-minute scene, so encores fill the gaps (no dead air, just repeats). Claude or a faster Mac fixes this.
+- **Fresh writing is a small share of airtime.** On this Mac the local model writes about 6–8 tokens per second (it's slower when Chrome and other apps are busy and memory is swapping), so even with the compact format a scene takes longer to write than to air. Encores fill the gaps: no dead air, just repeats. Closing heavy apps helps a little; Claude or a Mac with more memory helps a lot.
 - **The public address changes every time the tunnel restarts.** The station follows it automatically, but people need the new link. A domain fixes this.
 - **The quick tunnel has no uptime guarantee.** Fine for testing with friends.
 - **Amazon often blocks reading product pages.** Add a name and facts yourself when adding products.

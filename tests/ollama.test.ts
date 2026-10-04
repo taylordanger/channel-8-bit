@@ -1,19 +1,31 @@
 import { describe, expect, it } from "vitest";
 import { checkNames, LocalFactChecker, namesIn } from "../src/server/factcheck.js";
-import { normalizeSpeakers, OllamaClient, OllamaWriter, type Fetcher } from "../src/server/writers/ollama.js";
+import { compactSchema, expandCompact, OllamaClient, OllamaWriter, prepareCompact, type CompactScript, type Fetcher } from "../src/server/writers/ollama.js";
 import { loadConfig } from "../src/server/config.js";
 import { beat, script, soapBrief } from "./helpers.js";
 
-const goodScript = script([
-  beat("Victoria", "How quaint."),
-  beat("Dante Sterling", "I'm not like you, Mother."),
-  beat("lola", "Darling, please."),
-  beat("Marcus", "I don't remember."),
-  beat("victoria", "We'll see about that."),
-  beat("dante", "Leave her out of this."),
-  beat("lola", "Funny you should ask."),
-  beat("marcus", "Something isn't right here."),
-]);
+/** What the local model replies with: the compact format, names where ids belong and all. */
+const goodScript = {
+  title: "The Will",
+  summary: "Victoria confronts the family about the will.",
+  lines: [
+    ["Victoria", "smug", "none", "How quaint."],
+    ["Dante Sterling", "angry", "none", "I'm not like you, Mother."],
+    ["lola", "nervous", "none", "Darling, please."],
+    ["Marcus", "sad", "none", "I don't remember."],
+    ["victoria", "smug", "none", "We'll see about that."],
+    ["dante", "angry", "walk_off", "Leave her out of this."],
+    ["lola", "smug", "none", "Funny you should ask."],
+    ["marcus", "surprised", "none", "Something isn't right here."],
+    ["victoria", "angry", "none", "Nothing has been right since the yacht."],
+    ["lola", "smug", "none", "And whose fault was the yacht?"],
+  ],
+  remember: "Dante stormed out over the will.",
+  feelings: [["Dante", "victoria", -40]],
+  moods: [["dante", "furious", "accused of forging the will"]],
+  storyState: "The will is missing and Dante is the prime suspect.",
+};
+
 
 /** Fake Ollama server: records requests, replies with the queued bodies. */
 function fakeOllama(...replies: unknown[]) {
@@ -41,15 +53,22 @@ describe("local writer (Ollama)", () => {
     const w = new OllamaWriter(new OllamaClient("http://ollama", "llama3.1:8b", fetcher), "Test");
     const out = await w.write(soapBrief({ targetSeconds: 150 }));
     expect(out.writer).toBe("ollama:llama3.1:8b");
-    expect(out.script.beats.map((b) => b.speaker)).toEqual(["victoria", "dante", "lola", "marcus", "victoria", "dante", "lola", "marcus"]);
+    expect(out.script.beats.map((b) => b.speaker)).toEqual(["victoria", "dante", "lola", "marcus", "victoria", "dante", "lola", "marcus", "victoria", "lola"]);
     const req = calls[0].body as { format: { type: string }; think: boolean; messages: { content: string }[] };
     expect(req.format.type).toBe("object");
     expect(req.think).toBe(false);
     expect(req.messages[1].content).toContain("about 60 seconds");
     // The grammar only lets the cast speak and forces a real number of lines.
-    const beats = (req.format as unknown as { properties: { beats: { minItems: number; items: { properties: { speaker: { enum: string[] } } } } } }).properties.beats;
-    expect(beats.minItems).toBeGreaterThanOrEqual(6);
-    expect(beats.items.properties.speaker.enum).toEqual(["victoria", "dante", "lola", "marcus"]);
+    const lines = (req.format as unknown as { properties: { lines: { minItems: number; items: { prefixItems: { enum?: string[] }[] } } } }).properties.lines;
+    expect(lines.minItems).toBeGreaterThanOrEqual(6);
+    expect(lines.items.prefixItems[0].enum).toEqual(["victoria", "dante", "lola", "marcus"]);
+    // Expanded back to a full script.
+    expect(out.script.beats[1]).toMatchObject({ speaker: "dante", line: "I'm not like you, Mother.", emotion: "angry", target: "victoria", laugh: false });
+    expect(out.script.beats[5].action).toBe("walk_off");
+    expect(out.script.relationshipChanges).toEqual([{ from: "dante", to: "victoria", delta: -25, reason: "Victoria confronts the family about the will." }]);
+    expect(out.script.moodChanges[0]).toMatchObject({ character: "dante", mood: "furious" });
+    expect(out.script.memories[0]).toMatchObject({ text: "Dante stormed out over the will." });
+    expect(out.script.storyState).toMatch(/prime suspect/);
   });
 
   it("retries once on malformed output, then gives up so the improv troupe can cover", async () => {
@@ -100,13 +119,23 @@ describe("local writer (Ollama)", () => {
     expect(laughs.beats.map((b) => b.laugh)).toEqual([true, false, true, false, true, false, true, false]);
   });
 
-  it("normalizes targets and memory ids too", () => {
-    const s = normalizeSpeakers(
-      script([{ ...beat("Lola", "x"), target: "Victoria Sterling" }], { memories: [{ about: ["Dante"], text: "y", importance: 0.5 }] }),
-      ["victoria", "dante", "lola"],
-    );
-    expect(s.beats[0]).toMatchObject({ speaker: "lola", target: "victoria" });
-    expect(s.memories[0].about).toEqual(["dante"]);
+  it("is much shorter than the full format, with laughs only for laugh-track shows", () => {
+    const soap = compactSchema(["a", "b"], 6, 10, { laughTrack: false, serialized: true });
+    const sitcom = compactSchema(["a", "b"], 6, 10, { laughTrack: true, serialized: false });
+    expect(soap.safeParse({ ...goodScript, lines: Array(6).fill(["a", "happy", "none", "hi"]), feelings: [], moods: [] }).success).toBe(true);
+    const laughLines = Array(6).fill(["a", "happy", "none", "hi", true]);
+    expect(sitcom.safeParse({ ...goodScript, lines: laughLines, feelings: [], moods: [], storyState: undefined }).success).toBe(true);
+    expect("storyState" in sitcom.shape).toBe(false);
+    const full = expandCompact({ title: "t", summary: "s", lines: laughLines, remember: "", feelings: [], moods: [] } as CompactScript);
+    expect(full.beats[0]).toMatchObject({ laugh: true, target: "audience" }); // nobody else spoke
+    expect(full.memories).toEqual([]);
+  });
+
+  it("maps names to ids in lines, feelings and moods before validating", () => {
+    const fixed = prepareCompact({ lines: [["Lola", "happy", "none", "x"]], feelings: [["Dante", "Victoria Sterling", 5]], moods: [["Marcus", "anxious", "r"]] }, ["victoria", "dante", "lola", "marcus"]) as CompactScript;
+    expect(fixed.lines[0][0]).toBe("lola");
+    expect(fixed.feelings[0].slice(0, 2)).toEqual(["dante", "victoria"]);
+    expect(fixed.moods[0][0]).toBe("marcus");
   });
 });
 
