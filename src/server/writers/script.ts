@@ -4,6 +4,7 @@ import type { Character } from "../catalog/characters.js";
 import type { Show } from "../catalog/shows.js";
 import type { Memory, Relationship } from "../memory.js";
 import type { Source } from "../sources.js";
+import type { EpisodePhase, EpisodePlan } from "../episodes.js";
 
 /**
  * What every writer must hand back. Kept free of min/max constraints so it maps
@@ -72,6 +73,10 @@ export interface WriterBrief {
   /** Characters on set for this segment (regulars plus any guest). */
   cast: Character[];
   guest?: Character;
+  /** Why this guest is here, when it isn't a routine booking. */
+  guestNote?: string;
+  /** The episode this scene belongs to, and which part of it this scene must play. */
+  episode?: { plan: EpisodePlan; phase: EpisodePhase };
   targetSeconds: number;
   localTime: string;
   previously: string[];

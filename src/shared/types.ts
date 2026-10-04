@@ -186,7 +186,11 @@ export type ServerMessage =
   | { type: "chat-error"; error: string }
   | { type: "viewers"; count: number };
 
-export type ClientMessage = { type: "ping"; c: number } | { type: "chat"; handle: string; text: string };
+export type ClientMessage =
+  | { type: "ping"; c: number }
+  | { type: "chat"; handle: string; text: string }
+  | { type: "hello"; viewer: string; ref?: string | null }
+  | { type: "tunein" };
 
 export interface ChatMessage {
   id: number;

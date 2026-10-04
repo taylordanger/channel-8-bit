@@ -18,6 +18,58 @@ CREATE TABLE IF NOT EXISTS segments (
 CREATE INDEX IF NOT EXISTS segments_start ON segments(start_at);
 CREATE INDEX IF NOT EXISTS segments_show ON segments(show_id, start_at);
 
+CREATE TABLE IF NOT EXISTS episode_plans (
+  show_id    TEXT NOT NULL,
+  slot_start INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  writer     TEXT NOT NULL,
+  plan       TEXT NOT NULL,          -- JSON EpisodePlan
+  PRIMARY KEY (show_id, slot_start)
+);
+
+CREATE TABLE IF NOT EXISTS game_results (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  show_id  TEXT NOT NULL,
+  episode  TEXT NOT NULL DEFAULT '',
+  at       INTEGER NOT NULL,
+  champion TEXT NOT NULL,
+  scores   TEXT NOT NULL           -- JSON {characterId: points}
+);
+CREATE INDEX IF NOT EXISTS game_results_at ON game_results(show_id, at);
+
+CREATE TABLE IF NOT EXISTS clips (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  segment_id  TEXT NOT NULL,
+  show_id     TEXT NOT NULL,
+  title       TEXT NOT NULL,
+  created_at  INTEGER NOT NULL,
+  status      TEXT NOT NULL,          -- queued | rendering | ready | failed
+  file        TEXT,
+  error       TEXT,
+  duration_ms INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS funny (
+  segment_id TEXT NOT NULL,
+  viewer     TEXT NOT NULL,
+  at         INTEGER NOT NULL,
+  PRIMARY KEY (segment_id, viewer)
+);
+CREATE INDEX IF NOT EXISTS funny_at ON funny(at);
+
+CREATE TABLE IF NOT EXISTS viewer_sessions (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  viewer      TEXT,                   -- the browser's random voting id; never an IP
+  started_at  INTEGER NOT NULL,
+  tuned_at    INTEGER,                -- pressed play
+  ended_at    INTEGER,
+  left_during TEXT,                   -- show on air when they left
+  ref         TEXT,                   -- e.g. clip-12 when they came from a clip link
+  local       INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS viewer_sessions_started ON viewer_sessions(started_at);
+CREATE INDEX IF NOT EXISTS viewer_sessions_viewer ON viewer_sessions(viewer, started_at);
+
 CREATE TABLE IF NOT EXISTS memories (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at INTEGER NOT NULL,
@@ -142,6 +194,7 @@ CREATE TABLE IF NOT EXISTS viewer_messages (
   status     TEXT NOT NULL,            -- pending | approved | rejected | aired
   reason     TEXT NOT NULL DEFAULT '',
   aired_at   INTEGER,
+  aired_show TEXT,
   sender     TEXT NOT NULL DEFAULT ''  -- hashed IP, for rate limits only
 );
 CREATE INDEX IF NOT EXISTS viewer_messages_status ON viewer_messages(status, created_at);
@@ -208,4 +261,5 @@ function migrate(db: DB) {
   for (const [name, type] of add) if (!topics.has(name)) db.exec(`ALTER TABLE topics ADD COLUMN ${name} ${type}`);
   const cs = cols("character_state");
   if (!cs.has("off_at")) db.exec("ALTER TABLE character_state ADD COLUMN off_at INTEGER NOT NULL DEFAULT 0");
+  if (!cols("viewer_messages").has("aired_show")) db.exec("ALTER TABLE viewer_messages ADD COLUMN aired_show TEXT");
 }

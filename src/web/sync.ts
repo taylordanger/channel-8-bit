@@ -39,6 +39,18 @@ export class StationLink {
     let pinger: number | undefined;
     ws.onopen = () => {
       this.connected = true;
+      // Who's watching, for the control room's audience stats: the browser's random voting id.
+      if (!feed) {
+        let viewer = "";
+        try {
+          viewer = localStorage.getItem("voter") ?? "";
+          if (!viewer) localStorage.setItem("voter", (viewer = crypto.randomUUID()));
+        } catch {
+          /* private window: stats just won't recognize a return visit */
+        }
+        if (viewer) this.send({ type: "hello", viewer, ref: new URLSearchParams(location.search).get("ref") });
+        if (this.tunedIn) this.send({ type: "tunein" });
+      }
       let burst = 0;
       const ping = () => this.send({ type: "ping", c: Date.now() });
       // A quick burst for a good first estimate, then a slow trickle to track drift.
@@ -67,6 +79,13 @@ export class StationLink {
       clearInterval(pinger);
       setTimeout(() => this.connect(), 2000);
     };
+  }
+
+  private tunedIn = false;
+  /** The viewer pressed play (sent again after a reconnect). */
+  tuneIn() {
+    this.tunedIn = true;
+    this.send({ type: "tunein" });
   }
 
   sendChat(handle: string, text: string) {

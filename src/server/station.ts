@@ -10,6 +10,7 @@ import { SEED_RELATIONSHIPS, type CharacterStates, type MemoryBank } from "./mem
 import { CHARACTERS } from "./catalog/characters.js";
 import type { Produced, Producer } from "./producer.js";
 import type { Timeline } from "./timeline.js";
+import type { GameResults } from "./episodes.js";
 
 /** Lead time added when a segment is committed into a gap, so viewers can fetch audio first. */
 export const COMMIT_DELAY_MS = 1500;
@@ -30,6 +31,7 @@ export interface StationDeps {
   ops?: OpsLog;
   producer: Producer;
   governor: Governor;
+  results?: GameResults;
   timeZone: string;
   onSegment?: (s: Segment) => void;
   /** Segments pulled from the timeline before airing (a special cut in). */
@@ -104,6 +106,7 @@ export class Station {
     const last = [...losers].sort((a, b) => (g.scores[a] ?? 0) - (g.scores[b] ?? 0))[0];
     if (last) this.d.states?.setMood(last, "embarrassed", `came last on ${show.title}`, now);
     for (const l of losers) this.d.memory.adjust(l, g.champion, -8, `lost ${show.title} to them`, now);
+    this.d.results?.record(show.id, now, g.champion, g.scores, g.episode);
   }
 
   /** Close polls past their deadline and announce the results. */

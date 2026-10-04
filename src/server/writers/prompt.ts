@@ -59,11 +59,17 @@ export function userPrompt(b: WriterBrief): string {
   const lines = Math.max(6, Math.round(b.targetSeconds / 7));
   const sections = [
     `ASSIGNMENT: Write a "${b.segmentType}" segment, about ${b.targetSeconds} seconds of air time (roughly ${lines} lines). It is ${b.localTime} at the station.`,
-    `ON SET: ${b.cast.map((c) => `${c.id} (${c.name})`).join(", ")}.${b.guest ? ` Tonight's guest is ${b.guest.name} (${b.guest.id}).` : ""}`,
+    `ON SET: ${b.cast.map((c) => `${c.id} (${c.name})`).join(", ")}.${b.guest ? ` Tonight's guest is ${b.guest.name} (${b.guest.id}).${b.guestNote ? ` ${b.guestNote}` : ""}` : ""}`,
     b.deskTopicId
       ? `TOPIC FROM THE ASSIGNMENT DESK (the producers asked for this - build the segment around it, in character, for this show's format): ${b.topic}`
       : `TOPIC SEED (use it, twist it, or abandon it for a better bit): ${b.topic}`,
   ];
+  // A guest from another show isn't in the bible above: introduce them here.
+  if (b.guest && !b.show.cast.includes(b.guest.id) && !(b.show.guestPool ?? []).includes(b.guest.id)) {
+    const g = b.guest;
+    sections.push(`GUEST BIBLE: ${g.id} - ${g.name}: ${g.bible} | ${g.catchphrases.map((p) => `"${p}"`).join(", ")}`);
+  }
+  if (b.episode) sections.push(episodeBlock(b.episode, name, b.show.serialized));
   if (b.source) sections.push(sourceBlock(b.source));
   if (b.storyState) sections.push(`STORY SO FAR:\n${b.storyState}`);
   if (b.previously.length) sections.push(`PREVIOUSLY:\n${b.previously.map((s) => `- ${s}`).join("\n")}`);
@@ -134,6 +140,29 @@ export function userPrompt(b: WriterBrief): string {
   }
   if (b.recentLines.length) sections.push(`RECENTLY AIRED (do not repeat):\n${b.recentLines.slice(-40).map((l) => `- ${l}`).join("\n")}`);
   return sections.join("\n\n");
+}
+
+/** Tonight's arc, and this scene's job in it. Later beats stay hidden so scenes can't jump ahead. */
+export function episodeBlock(e: NonNullable<WriterBrief["episode"]>, name: (id: string) => string, serialized: boolean): string {
+  const { plan, phase } = e;
+  const lines = [
+    `EPISODE PLAN (this scene is part ${phase.index + 1} of ${phase.of}): ${plan.logline}`,
+    plan.wants.length ? `WANTS: ${plan.wants.map((w) => `${name(w.character)} wants ${w.want}`).join("; ")}.` : "",
+  ];
+  if (phase.label === "setup") lines.push(`THIS SCENE'S JOB - set up the conflict: ${phase.job} Plant it; don't resolve it.`);
+  else if (phase.label === "escalation")
+    lines.push(`THIS SCENE'S JOB - escalate: ${phase.job} The conflict so far: ${plan.conflict} Make it worse or weirder; don't resolve the episode yet.`);
+  else
+    lines.push(
+      `THIS SCENE'S JOB - the payoff: ${phase.job} Land it.${plan.openThread ? ` Leave this open for next time: ${plan.openThread}` : ""}${serialized && plan.reveal ? ` The secret that comes out: ${plan.reveal}` : ""}`,
+    );
+  if (serialized && plan.secrets.length) {
+    lines.push(
+      `SECRETS (characters only act on what they know): ${plan.secrets.map((s) => `${name(s.holder)} hides ${s.secret} (known by: ${s.knownBy.map(name).join(", ") || "nobody"})`).join("; ")}.`,
+    );
+  }
+  lines.push("Segments of this show still follow their usual format; the arc runs through them.");
+  return lines.filter(Boolean).join("\n");
 }
 
 /** The article, fenced so it reads as data. Marker-like text inside the page is neutralized. */

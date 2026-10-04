@@ -767,6 +767,8 @@ export interface Frame {
   guide: GuideEntry[];
   network: string;
   viewers: number;
+  /** Rendering a clip: no LIVE badge or viewer count (it isn't live, and the count is meaningless). */
+  clip?: boolean;
   tunedIn: boolean;
 }
 
@@ -979,7 +981,7 @@ export class Renderer {
     o.fillStyle = "#fff";
     o.font = font(4.5);
     o.fillText(f.network.toUpperCase(), ox + 7 * s, oy + 8 * s);
-    const tag = !seg ? "OFF AIR" : seg.ad ? "AD" : seg.kind === "rerun" ? "ENCORE" : seg.kind === "bumper" ? "" : "LIVE";
+    const tag = f.clip ? "" : !seg ? "OFF AIR" : seg.ad ? "AD" : seg.kind === "rerun" ? "ENCORE" : seg.kind === "bumper" ? "" : "LIVE";
     if (tag) {
       o.fillStyle = seg?.kind === "live" ? "#ff3355" : "#3a86ff";
       o.fillRect(ox + 104 * s, oy + 4 * s, 34 * s, 12 * s);
@@ -989,7 +991,7 @@ export class Renderer {
     o.textAlign = "right";
     o.fillStyle = "#ffffffcc";
     o.font = font(3.5);
-    o.fillText(`${f.viewers} watching`, ox + (W - 5) * s, oy + 7 * s);
+    if (!f.clip) o.fillText(`${f.viewers} watching`, ox + (W - 5) * s, oy + 7 * s);
     o.textAlign = "left";
 
     if (!seg || seg.set === "bumper") return;

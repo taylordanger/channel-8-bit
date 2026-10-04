@@ -68,6 +68,8 @@
         <div class="card"><h2>SPEND</h2><table id="spend"></table><div class="legend" id="spend-week" style="margin-top:12px"></div></div>
         <div class="card"><h2>RECENT WRITER PROBLEMS</h2><ul class="list" id="errors"></ul></div>
         <div class="card"><h2>LIVE CHAT MODERATION</h2><ul class="list" id="chatlog"></ul></div>
+        <div class="card"><h2>AUDIENCE, LAST 24 HOURS</h2><div class="legend" id="aud"></div><table id="aud-leave" style="margin-top:12px"></table><div class="legend" id="aud-clips" style="margin-top:12px"></div></div>
+        <div class="card"><h2>CLIPS</h2><div class="legend"><span style="--c:var(--gold)">Pick a scene; it renders in real time with captions. 😂 = viewers who tapped "that was funny".</span></div><ul class="list" id="clips" style="margin-top:12px"></ul><h2 style="margin-top:16px">RECENT SCENES</h2><ul class="list" id="candidates"></ul></div>
         <div class="card"><h2>COMMERCIALS, LAST 24 HOURS</h2><div class="legend" id="ads-note"></div><table id="ads" style="margin-top:10px"></table></div>
       </section>
     </main>
@@ -151,6 +153,16 @@
           d.spendToday.map((x) => [x.model, x.input.toLocaleString(), x.output.toLocaleString(), usd(x.usd)]));
         $("spend-week").replaceChildren(...(d.spendWeek.length ? d.spendWeek.map((x) => { const s = el("span"); s.append(document.createTextNode(x.day.slice(5) + " "), el("b", null, usd(x.usd))); return s; }) : [el("span", null, "No paid model usage this week - the local model is free.")]));
 
+        const a = d.audience;
+        const stat = (label, value) => { const s = el("span"); s.style.setProperty("--c", "var(--s1)"); s.append(document.createTextNode(label + " "), el("b", null, String(value))); return s; };
+        $("aud").replaceChildren(
+          stat("VISITS", a.visits), stat("VIEWERS", a.viewers),
+          stat("PRESSED PLAY", a.visits ? `${a.startedPlayback} (${Math.round((a.startedPlayback / a.visits) * 100)}%)` : 0),
+          stat("MEDIAN WATCH", `${a.medianWatchMin} min`), stat("CAME BACK", a.returning),
+          stat("VOTES/VIEWER", a.votesPerViewer), stat("MAIL/VIEWER", a.mailPerViewer), stat("😂/VIEWER", a.funnyPerViewer),
+        );
+        table($("aud-leave"), [["LEFT DURING"], ["SESSIONS", 1], ["LEFT IN <1 MIN", 1], ["MEDIAN MIN", 1]], a.leftDuring.map((x) => [x.show, x.sessions, x.quickLeaves, x.medianMin]));
+        $("aud-clips").replaceChildren(el("span", null, a.clipReferrals.length ? "From clip links: " + a.clipReferrals.map((c) => `clip ${c.clipId} → ${c.visits}`).join(", ") : "No visits from clip links yet. Your own visits from this Mac aren't counted."));
         $("ads-note").replaceChildren(el("span", null, d.ads.everyMin ? `A break every ${d.ads.everyMin} min · ${d.ads.tagged ? "affiliate tag set" : "NO AFFILIATE TAG - set AMAZON_TAG in .env"}` : "Commercials are off (AD_EVERY_MIN=0)"));
         table($("ads"), [["PRODUCT"], ["AIRED (ALL TIME)", 1], ["CLICKS (24H)", 1]], d.ads.stats.map((x) => [x.title || `#${x.id}`, x.airs, x.clicks]));
         $("errors").replaceChildren(...(d.errors.length ? d.errors.map((e) => { const li = el("li"); li.append(el("span", "pill bad", e.outcome), el("b", null, e.writer), document.createTextNode(` · ${e.detail.slice(0, 120)} · ${e.show_id}, ${time(e.at)}`)); return li; }) : [el("li", null, "No problems in the log.")]));
@@ -169,8 +181,32 @@
           return li;
         }) : [el("li", null, "No chat yet.")]));
       }
+      async function loadClips() {
+        const d = await (await fetch("/api/clips")).json();
+        const dur = (ms) => `${Math.floor(ms / 60000)}:${String(Math.round((ms % 60000) / 1000)).padStart(2, "0")}`;
+        $("clips").replaceChildren(...(d.clips.length ? d.clips.slice(0, 10).map((c) => {
+          const li = el("li");
+          li.append(el("span", `pill ${c.status === "failed" ? "bad" : ""}`, c.status.toUpperCase()), el("b", null, c.title), document.createTextNode(` · ${dur(c.durationMs)}`));
+          if (c.status === "ready") {
+            const a = el("a", null, " DOWNLOAD"); a.href = `/clips/${c.file}`; a.download = c.file; li.append(a);
+            if (d.publicUrl) li.append(document.createTextNode(` · link for the post: ${d.publicUrl.replace(/\/$/, "")}/?ref=clip-${c.id}`));
+          }
+          if (c.error) li.append(document.createTextNode(` · ${c.error}`));
+          return li;
+        }) : [el("li", null, "No clips yet.")]));
+        $("candidates").replaceChildren(...d.candidates.slice(0, 15).map((s) => {
+          const li = el("li");
+          li.append(el("b", null, `${s.funny ? "😂" + s.funny + " " : ""}${s.title}`), document.createTextNode(` · ${s.show}${s.kind === "rerun" ? " (encore)" : ""} · ${time(s.startAt)} · ${dur(s.durationMs)}`));
+          const btn = el("button", null, "CLIP IT");
+          btn.onclick = async () => { btn.disabled = true; const r = await fetch("/api/clips", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ segmentId: s.id }) }); if (!r.ok) btn.textContent = (await r.json()).error; loadClips(); };
+          li.append(btn);
+          return li;
+        }));
+      }
       load();
       loadChat();
+      loadClips();
+      setInterval(loadClips, 10000);
       setInterval(load, 15000);
       setInterval(loadChat, 5000);
     </script>

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { CHARACTERS } from "../catalog/characters.js";
 import { systemPrompt, userPrompt } from "./prompt.js";
 import { ACTIONS, EMOTIONS } from "../../shared/types.js";
+import { PlanSchema, planPrompt, type EpisodePlan, type PlanRequest } from "../episodes.js";
 import { ScriptSchema, type Script, type Writer, type WriterBrief, type WriterResult } from "./script.js";
 
 export type Fetcher = (url: string, init: RequestInit) => Promise<Response>;
@@ -192,5 +193,17 @@ export class OllamaWriter implements Writer {
       }
     }
     throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  }
+
+  /** The episode arc. Small output, so it's quick even on the local model. */
+  async plan(req: PlanRequest): Promise<EpisodePlan> {
+    if (this.now() < this.coolingUntil) throw new Error("local model is cooling down after a timeout");
+    const { system, user } = planPrompt(req);
+    try {
+      return await this.client.chat(system, user, PlanSchema, { temperature: 0.8 });
+    } catch (e) {
+      if ((e as Error).name === "TimeoutError" || /ECONNREFUSED|fetch failed/.test(String((e as Error).message))) this.coolingUntil = this.now() + this.cooldownMs;
+      throw e;
+    }
   }
 }

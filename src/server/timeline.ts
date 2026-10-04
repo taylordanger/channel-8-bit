@@ -42,6 +42,11 @@ export class Timeline {
     return rows.map((r) => JSON.parse(r.body) as Segment);
   }
 
+  byId(id: string): Segment | undefined {
+    const row = this.db.prepare("SELECT body FROM segments WHERE id = ?").get(id) as { body: string } | undefined;
+    return row ? (JSON.parse(row.body) as Segment) : undefined;
+  }
+
   at(t: number): Segment | undefined {
     return this.range(t, t + 1)[0];
   }

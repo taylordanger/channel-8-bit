@@ -13,6 +13,8 @@ import type { Topic } from "./desk.js";
 import { assertPublicUrl, URL_PATTERN } from "./sources.js";
 import { senderId } from "./chat.js";
 import { affiliateLink } from "./products.js";
+import { phaseAt } from "./episodes.js";
+import { impactFeed, mailStatus } from "./impact.js";
 
 const TYPES: Record<string, string> = {
   ".m4a": "audio/mp4",
@@ -26,6 +28,7 @@ const TYPES: Record<string, string> = {
   ".mp3": "audio/mpeg",
   ".wav": "audio/wav",
   ".png": "image/png",
+  ".mp4": "video/mp4",
 };
 
 /** Serve a file from root, refusing anything that escapes it. */
@@ -188,7 +191,7 @@ async function handleProducts(req: http.IncomingMessage, res: http.ServerRespons
   return json(res, { error: "unsupported" }, 405);
 }
 
-async function handleMail(req: http.IncomingMessage, res: http.ServerResponse, url: URL, b: Built) {
+async function handleMail(req: http.IncomingMessage, res: http.ServerResponse, url: URL, b: Built, tz: string) {
   const [, , , idPart, action] = url.pathname.split("/");
   if (req.method === "POST" && !idPart) {
     let body: { handle?: unknown; text?: unknown; showId?: unknown };
@@ -201,7 +204,15 @@ async function handleMail(req: http.IncomingMessage, res: http.ServerResponse, u
     const out = await b.mailbag.submit(String(body.handle ?? ""), String(body.text ?? ""), showId, clientIp(req), b.clock.now());
     if (typeof out === "string") return json(res, { error: out }, out.includes("try again") ? 429 : 400);
     // Senders only learn whether it's in the queue, not the moderator's reasoning.
-    return json(res, { status: out.status === "rejected" ? "not accepted" : "received" }, 201);
+    return json(res, { status: out.status === "rejected" ? "not accepted" : "received", id: out.id }, 201);
+  }
+  // "Where's my letter?" - only ever answers about the asker's own messages.
+  if (req.method === "GET" && idPart === "mine") {
+    const ids = (url.searchParams.get("ids") ?? "").split(",").map(Number);
+    const now = b.clock.now();
+    return json(res, {
+      messages: b.mailbag.mine(ids, clientIp(req)).map((m) => ({ id: m.id, text: m.text.slice(0, 60), status: mailStatus(m, b.mailbag, now, tz, b.station.override()) })),
+    });
   }
   if (!isLocal(req)) return json(res, { error: "the mailbag is only visible from this machine" }, 403);
   if (req.method === "GET") return json(res, { messages: b.mailbag.list(), shows: Object.values(SHOWS).filter((sh) => sh.mailSegment).map((sh) => ({ id: sh.id, title: sh.title })) });
@@ -209,6 +220,27 @@ async function handleMail(req: http.IncomingMessage, res: http.ServerResponse, u
   if (req.method === "POST" && Number.isInteger(id) && (action === "approve" || action === "reject"))
     return json(res, { ok: b.mailbag.review(id, action === "approve") });
   return json(res, { error: "unsupported" }, 405);
+}
+
+/** "That was funny": a viewer taps it during a scene that's on air (or just ended). */
+const funnyHits = new Map<string, number[]>();
+async function handleFunny(req: http.IncomingMessage, res: http.ServerResponse, b: Built) {
+  const ip = clientIp(req);
+  const now = b.clock.now();
+  const hits = (funnyHits.get(ip) ?? []).filter((t) => now - t < 60_000);
+  if (hits.length >= 20) return json(res, { error: "slow down" }, 429);
+  funnyHits.set(ip, [...hits, now]);
+  let body: { segmentId?: unknown; voter?: unknown };
+  try {
+    body = (await readJson(req, 512)) as typeof body;
+  } catch (e) {
+    return json(res, { error: (e as Error).message }, 400);
+  }
+  const seg = typeof body.segmentId === "string" ? b.timeline.byId(body.segmentId) : undefined;
+  if (!seg || seg.startAt > now || seg.startAt + seg.durationMs < now - 30_000) return json(res, { error: "that scene isn't on" }, 400);
+  if (typeof body.voter !== "string" || !/^[\w-]{8,64}$/.test(body.voter)) return json(res, { error: "bad viewer id" }, 400);
+  b.funny.tap(seg.id, body.voter, now);
+  return json(res, { ok: true });
 }
 
 /** Simple per-IP throttle so one viewer can't flood the vote endpoint. */
@@ -283,7 +315,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
     const url = new URL(req.url ?? "/", "http://x");
     const now = b.clock.now();
     if (url.pathname === "/api/mail" || url.pathname.startsWith("/api/mail/")) {
-      void handleMail(req, res, url, b);
+      void handleMail(req, res, url, b, config.timeZone);
       return;
     }
     // Commercial click-through: count it, then send the viewer to the store with the
@@ -300,6 +332,43 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
       return;
     }
     if (url.pathname === "/api/chat") return json(res, b.chat.recent());
+    if (url.pathname === "/api/impact") return json(res, impactFeed(b.db, b.mailbag, now));
+    // One aired segment, for clip rendering. Never anything that hasn't aired yet.
+    if (url.pathname.startsWith("/api/segment/")) {
+      const seg = b.timeline.byId(decodeURIComponent(url.pathname.slice(13)));
+      if (!seg || seg.startAt > now) return json(res, { error: "not found" }, 404);
+      return json(res, seg);
+    }
+    if (url.pathname === "/api/funny" && req.method === "POST") {
+      void handleFunny(req, res, b);
+      return;
+    }
+    if (url.pathname === "/api/clips") {
+      if (!isLocal(req)) return json(res, { error: "the clip desk is only available from this machine" }, 403);
+      if (req.method === "POST") {
+        void readJson(req, 512)
+          .then((body) => {
+            const out = b.clips.request(String((body as { segmentId?: unknown }).segmentId ?? ""), b.clock.now());
+            return typeof out === "string" ? json(res, { error: out }, 400) : json(res, out, 201);
+          })
+          .catch((e: Error) => json(res, { error: e.message }, 400));
+        return;
+      }
+      // Clip candidates: recent scenes, the ones viewers found funniest first.
+      const funny = b.funny.counts(now - 6 * 3_600_000);
+      const candidates = b.timeline
+        .range(now - 6 * 3_600_000, now)
+        .filter((s) => s.startAt + s.durationMs <= now && s.kind !== "bumper" && !s.ad)
+        .map((s) => ({ id: s.id, title: s.title, show: s.showTitle, startAt: s.startAt, durationMs: s.durationMs, kind: s.kind, funny: funny.get(s.id) ?? 0 }))
+        .sort((x, y) => y.funny - x.funny || y.startAt - x.startAt)
+        .slice(0, 40);
+      return json(res, { clips: b.clips.list(), candidates, publicUrl: config.publicUrl });
+    }
+    if (url.pathname.startsWith("/clips/")) {
+      const rel = decodeURIComponent(url.pathname.slice(7));
+      if (!/^[\w-]+\.mp4$/.test(rel)) return void res.writeHead(404).end("not found");
+      return serveFile(res, b.clips.dir, rel, "public, max-age=86400");
+    }
     if (url.pathname.startsWith("/api/chat/")) {
       if (!isLocal(req)) return json(res, { error: "chat moderation is only available from this machine" }, 403);
       const [, , , idPart, action] = url.pathname.split("/");
@@ -355,6 +424,16 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
         // Who feels what about whom, right now - for the Drama page.
         const states = new Map(b.states.all(now).map((x) => [x.id, x]));
         const name = (id: string) => CHARACTERS[id]?.name ?? id;
+        // Tonight's arc for the show on the air (logline and wants only: no spoilers).
+        const onAir = programAt(now, config.timeZone, b.station.override());
+        const stored = b.episodes.get(onAir.showId, onAir.startAt);
+        const episode = stored && {
+          showId: onAir.showId,
+          logline: stored.plan.logline,
+          wants: stored.plan.wants.map((w) => ({ name: name(w.character), want: w.want })),
+          part: phaseAt(stored.plan, onAir, now).index + 1,
+          of: phaseAt(stored.plan, onAir, now).of,
+        };
         return json(res, {
           shows: Object.values(SHOWS).map((show) => {
             const ids = show.cast;
@@ -362,6 +441,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
             return {
               id: show.id,
               title: show.title,
+              episode: episode && episode.showId === show.id ? episode : undefined,
               cast: ids.map((id) => {
                 const st = states.get(id);
                 return {
@@ -388,6 +468,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
           now,
           network: config.networkName,
           viewers: b.governor.viewerCount,
+          audience: b.audience.report(now),
           leadMs: Math.max(0, b.timeline.tailEnd() - now),
           decision: b.governor.decide(now),
           spentTodayUsd: b.governor.spentToday(now),
@@ -445,7 +526,9 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
   wss.on("connection", (ws, req) => {
     const sender = senderId(clientIp(req));
     sockets.add(ws);
-    if (new URL(req.url ?? "/", "http://x").searchParams.get("feed") === "1") feeds.add(ws);
+    const isFeed = new URL(req.url ?? "/", "http://x").searchParams.get("feed") === "1";
+    if (isFeed) feeds.add(ws);
+    const session = isFeed ? undefined : b.audience.open(b.clock.now(), isLocal(req));
     send(ws, { type: "hello", serverNow: b.clock.now(), network: config.networkName });
     updateViewers();
     ws.on("message", (raw) => {
@@ -456,6 +539,8 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
         return;
       }
       if (msg.type === "ping" && typeof msg.c === "number") send(ws, { type: "pong", c: msg.c, s: b.clock.now() });
+      if (session && msg.type === "hello" && typeof msg.viewer === "string") b.audience.identify(session, msg.viewer, typeof msg.ref === "string" ? msg.ref : null);
+      if (session && msg.type === "tunein") b.audience.tunedIn(session, b.clock.now());
       if (msg.type === "chat" && typeof msg.text === "string") {
         const out = b.chat.post(String(msg.handle ?? ""), msg.text, sender, b.clock.now());
         if (out.kind === "error") return send(ws, { type: "chat-error", error: out.error });
@@ -467,6 +552,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
     ws.on("close", () => {
       sockets.delete(ws);
       feeds.delete(ws);
+      if (session) b.audience.close(session, b.clock.now(), programAt(b.clock.now(), config.timeZone, b.station.override()).showId);
       updateViewers();
     });
   });

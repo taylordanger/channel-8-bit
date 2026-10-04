@@ -28,6 +28,7 @@ import { rng } from "./writers/improv.js";
 import { ARTISTS } from "./catalog/music.js";
 import { generateSong, songShape, type SongSpec } from "../shared/music.js";
 import type { Script, Writer, WriterBrief } from "./writers/script.js";
+import { phaseAt, type EpisodeBook, type GameResults } from "./episodes.js";
 
 /** Names from the network's own fictional world, which the name check must never flag. */
 const FICTIONAL_NAMES = [
@@ -92,6 +93,10 @@ export interface ProducerDeps {
   /** Minutes of airtime between commercial breaks (0 = none). */
   adEveryMin?: number;
   desk?: TopicDesk;
+  /** Episode plans: each airing gets an arc its scenes follow. */
+  episodes?: EpisodeBook;
+  /** Finished games, for booking losers onto other shows. */
+  results?: GameResults;
   tts: TTSEngine;
   /** Tried in order; the last one should never fail (the improv writer). */
   writers: Writer[];
@@ -267,10 +272,8 @@ export class Producer {
     }
 
     // One guest per slot, so the whole night has a consistent booking.
-    let guest: Character | undefined;
-    if (show.guestPool?.length && /guest/.test(segmentType)) {
-      guest = getCharacter(show.guestPool[Math.floor(slot.startAt / 3_600_000) % show.guestPool.length]);
-    }
+    const booking = this.guestFor(show, slot);
+    const guest = booking && /guest/.test(segmentType) ? getCharacter(booking.id) : undefined;
     const solo = show.soloFor?.[segmentType];
     let cast = solo
       ? [getCharacter(solo)]
@@ -295,6 +298,7 @@ export class Producer {
       source: desk?.fetchStatus === "ok" ? (desk.source ?? undefined) : undefined,
       cast,
       guest,
+      guestNote: guest ? booking?.note : undefined,
       targetSeconds: Math.max(20, targetSeconds),
       localTime: new Intl.DateTimeFormat("en-US", {
         timeZone: this.d.timeZone,
@@ -318,10 +322,34 @@ export class Producer {
     };
   }
 
+  /**
+   * Who's booked on this airing. A show that books game-show losers gets the last-place
+   * finisher of a game that ended just before it ("the loser has to face Rex").
+   */
+  guestFor(show: Show, slot: ScheduledSlot): { id: string; note?: string } | undefined {
+    if (show.bookLosersFrom && this.d.results) {
+      const r = this.d.results.latest(show.bookLosersFrom, slot.startAt - 90 * 60_000, slot.startAt + 10 * 60_000);
+      if (r) {
+        const name = (id: string) => CHARACTERS[id]?.name ?? id;
+        const game = getShow(show.bookLosersFrom).title;
+        return {
+          id: r.loser,
+          note: `${name(r.loser)} came last on ${game} earlier tonight (${name(r.champion)} won the Golden Pixel), and the loser has to come on this show and face the host about it.`,
+        };
+      }
+    }
+    if (!show.guestPool?.length) return undefined;
+    return { id: show.guestPool[Math.floor(slot.startAt / 3_600_000) % show.guestPool.length] };
+  }
+
   private async live(at: number, slot: ScheduledSlot, targetSeconds: number, writers: Writer[]): Promise<Produced> {
     const brief = this.brief(at, slot, targetSeconds);
     const music = brief.show.musicFor?.[brief.segmentType];
     if (music) return this.music(at, brief.show, music, targetSeconds);
+    if (this.d.episodes && !brief.ad) {
+      const plan = await this.d.episodes.ensure(brief.show, slot, writers, brief.localTime, this.guestFor(brief.show, slot)?.id);
+      brief.episode = { plan, phase: phaseAt(plan, slot, at) };
+    }
     return this.fromBrief(brief, writers, at);
   }
 
@@ -347,7 +375,7 @@ export class Producer {
         record("ok", "", Date.now() - t0 - writeMs, writeMs);
         if (brief.game) this.attachGame(segment, brief.show, brief.game);
         if (brief.deskTopicId) this.d.desk?.markUsed(brief.deskTopicId, at);
-        if (brief.viewerMessage) this.d.mailbag?.markAired(brief.viewerMessage.id, at);
+        if (brief.viewerMessage) this.d.mailbag?.markAired(brief.viewerMessage.id, at, brief.show.id);
         return {
           segment,
           summary: checked.script.summary,

@@ -15,6 +15,7 @@ export interface ViewerMessage {
   status: MessageStatus;
   reason: string;
   airedAt: number | null;
+  airedShow: string | null;
 }
 
 interface Row {
@@ -26,6 +27,7 @@ interface Row {
   status: MessageStatus;
   reason: string;
   aired_at: number | null;
+  aired_show: string | null;
 }
 
 const toMsg = (r: Row): ViewerMessage => ({
@@ -37,7 +39,10 @@ const toMsg = (r: Row): ViewerMessage => ({
   status: r.status,
   reason: r.reason,
   airedAt: r.aired_at,
+  airedShow: r.aired_show,
 });
+
+const senderOf = (ip: string) => crypto.createHash("sha256").update(ip).digest("hex").slice(0, 16);
 
 export const MAX_MESSAGE_CHARS = 240;
 const RATE_LIMIT = 3;
@@ -107,7 +112,7 @@ export class MailBag {
     const text = cleanMessage(textRaw);
     const handle = cleanHandle(handleRaw) || "Anonymous";
     if (text.length < 3) return "that message is empty";
-    const sender = crypto.createHash("sha256").update(ip).digest("hex").slice(0, 16);
+    const sender = senderOf(ip);
     const recent = (this.db.prepare("SELECT COUNT(*) AS n FROM viewer_messages WHERE sender = ? AND created_at > ?").get(sender, now - RATE_WINDOW_MS) as { n: number }).n;
     if (recent >= RATE_LIMIT) return "you've sent a few already - try again in a little while";
 
@@ -146,8 +151,33 @@ export class MailBag {
     return r ? toMsg(r) : undefined;
   }
 
-  markAired(id: number, at: number): void {
-    this.db.prepare("UPDATE viewer_messages SET status = 'aired', aired_at = ? WHERE id = ?").run(at, id);
+  markAired(id: number, at: number, showId?: string): void {
+    this.db.prepare("UPDATE viewer_messages SET status = 'aired', aired_at = ?, aired_show = ? WHERE id = ?").run(at, showId ?? null, id);
+  }
+
+  /** The sender's own messages among `ids` (others' ids are ignored), for "where's my letter?". */
+  mine(ids: number[], ip: string): ViewerMessage[] {
+    const clean = ids.filter((n) => Number.isInteger(n)).slice(0, 20);
+    if (!clean.length) return [];
+    const rows = this.db
+      .prepare(`SELECT * FROM viewer_messages WHERE sender = ? AND id IN (${clean.map(() => "?").join(",")}) ORDER BY created_at DESC`)
+      .all(senderOf(ip), ...clean) as Row[];
+    return rows.map(toMsg);
+  }
+
+  /** How many approved messages will be read before this one (same order as nextFor). */
+  aheadOf(m: ViewerMessage): number {
+    const row = m.showId
+      ? (this.db.prepare("SELECT COUNT(*) AS n FROM viewer_messages WHERE status = 'approved' AND show_id = ? AND created_at < ?").get(m.showId, m.createdAt) as { n: number })
+      : (this.db
+          .prepare("SELECT COUNT(*) AS n FROM viewer_messages WHERE status = 'approved' AND (show_id IS NOT NULL OR created_at < ?)")
+          .get(m.createdAt) as { n: number });
+    return row.n;
+  }
+
+  /** Recently answered messages, for the "your votes did this" feed. */
+  aired(since: number): ViewerMessage[] {
+    return (this.db.prepare("SELECT * FROM viewer_messages WHERE status = 'aired' AND aired_at >= ? ORDER BY aired_at DESC LIMIT 20").all(since) as Row[]).map(toMsg);
   }
 
   review(id: number, approve: boolean): boolean {

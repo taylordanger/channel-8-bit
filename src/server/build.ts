@@ -8,6 +8,9 @@ import type { StationConfig } from "./config.js";
 import { openDb } from "./db.js";
 import { Governor } from "./governor.js";
 import { Ledger } from "./ledger.js";
+import { EpisodeBook, GameResults } from "./episodes.js";
+import { AudienceLog } from "./audience.js";
+import { ClipDesk, FunnyMeter, processRenderer, type ClipRenderer } from "./clips.js";
 import { CharacterStates, MemoryBank } from "./memory.js";
 import { Producer } from "./producer.js";
 import { TopicDesk } from "./desk.js";
@@ -39,6 +42,8 @@ export interface BuildOptions {
   log?: (msg: string) => void;
   /** Override how assignment-desk links are read (tests). */
   sourceReader?: (url: string) => Promise<Source>;
+  /** Renders clips (tests pass a fake; the default spawns Chrome + ffmpeg). */
+  clipRenderer?: ClipRenderer;
 }
 
 /** Extra blocklist patterns from data/standards.json: { "blocklist": ["regex", ...] }. */
@@ -66,6 +71,11 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   const polls = new PollBox(db);
   const ops = new OpsLog(db);
   const desk = new TopicDesk(db, o.sourceReader);
+  const episodes = new EpisodeBook(db, memory, states, o.log);
+  const results = new GameResults(db);
+  const clips = new ClipDesk(db, path.join(config.dataDir, "clips"), o.clipRenderer ?? processRenderer(process.cwd(), config.port), o.log);
+  const funny = new FunnyMeter(db);
+  const audience = new AudienceLog(db);
   const ledger = new Ledger(db, config.timeZone, config.dailyBudgetUsd);
   const governor = new Governor({ ...config, ledger });
   const media = path.join(config.dataDir, "media");
@@ -119,6 +129,8 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     states,
     polls,
     desk,
+    episodes,
+    results,
     tts,
     writers,
     llmStandards,
@@ -143,6 +155,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     ops,
     producer,
     governor,
+    results,
     timeZone: config.timeZone,
     onSegment: o.onSegment,
     onRetract: o.onRetract,
@@ -151,7 +164,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   });
   // Finish reading any links a restart interrupted.
   for (const t of desk.pending()) void desk.ingest(t.id);
-  return { ollama, mailbag, chat, tracks, products, ops, db, clock, timeline, memory, states, polls, desk, ledger, governor, tts, writers, producer, station };
+  return { audience, clips, funny, episodes, results, ollama, mailbag, chat, tracks, products, ops, db, clock, timeline, memory, states, polls, desk, ledger, governor, tts, writers, producer, station };
 }
 
 export type Built = ReturnType<typeof buildStation>;

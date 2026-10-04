@@ -3,6 +3,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { Clock } from "../clock.js";
 import { worstCaseUsd, type Ledger } from "../ledger.js";
 import { systemPrompt, userPrompt } from "./prompt.js";
+import { PlanSchema, planPrompt, type EpisodePlan, type PlanRequest } from "../episodes.js";
 import { ScriptSchema, type Writer, type WriterBrief, type WriterResult } from "./script.js";
 
 /** Haiku 4.5 rejects `effort`; newer models accept it. */
@@ -54,5 +55,26 @@ export class ClaudeWriter implements Writer {
     if (response.stop_reason === "max_tokens") throw new Error(`${model} ran out of tokens writing ${brief.show.id}`);
     if (!response.parsed_output) throw new Error(`${model} returned an unparseable script`);
     return { script: response.parsed_output, writer: model };
+  }
+
+  /** One short structured call per airing: the arc its scenes follow. Always the cheaper model. */
+  async plan(req: PlanRequest): Promise<EpisodePlan> {
+    const model = this.opts.models.standard;
+    const { system, user } = planPrompt(req);
+    this.opts.ledger.guard(this.opts.clock.now(), worstCaseUsd(model, system.length + user.length, 2000), `plan:${req.show.id}`);
+    const response = await this.client.messages.parse({
+      model,
+      max_tokens: 2000,
+      system,
+      messages: [{ role: "user", content: user }],
+      output_config: {
+        format: zodOutputFormat(PlanSchema),
+        ...(supportsEffort(model) ? { effort: "low" as const } : {}),
+      },
+    });
+    this.opts.ledger.record(this.opts.clock.now(), model, `plan:${req.show.id}`, response.usage);
+    if (response.stop_reason === "refusal") throw new WriterRefusedError(`${model} declined to plan ${req.show.id}`);
+    if (!response.parsed_output) throw new Error(`${model} returned an unparseable plan`);
+    return response.parsed_output;
   }
 }

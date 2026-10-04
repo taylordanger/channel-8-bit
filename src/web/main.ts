@@ -10,6 +10,11 @@ import { ChatPanel } from "./chat.js";
 const params = new URLSearchParams(location.search);
 const broadcast = params.has("broadcast") || location.pathname.endsWith("/broadcast.html");
 const ingestUrl = params.get("ingest");
+// Clip mode (?clip=<segment id>): replay one archived scene from its start, record it, stop.
+const clipId = params.get("clip");
+let clipNow: (() => number) | undefined;
+let clipNetwork = "";
+const stationNow = () => (clipNow ? clipNow() : link.now());
 
 const segments = new Map<string, Segment>();
 const polls = new Map<string, PollResult>();
@@ -36,7 +41,7 @@ const link = new StationLink({
     audio?.retract(ids);
   },
 });
-link.connect();
+if (!clipId) link.connect();
 const chatRoot = document.getElementById("chat");
 if (chatRoot && !broadcast) chat = new ChatPanel(chatRoot, (h, t) => link.sendChat(h, t));
 
@@ -59,6 +64,7 @@ window.addEventListener("resize", resize);
 resize();
 
 async function refreshTimeline() {
+  if (clipId) return;
   const now = link.now();
   try {
     const res = await fetch(`/api/timeline?from=${now - 30_000}&to=${now + 600_000}`);
@@ -97,6 +103,7 @@ function renderGuide() {
 }
 
 async function refreshPolls() {
+  if (clipId) return;
   try {
     const open = (await (await fetch("/api/polls")).json()) as { id: string; tally: Record<string, number> }[];
     for (const p of open) polls.set(p.id, { ...(polls.get(p.id) ?? { closed: false }), pollId: p.id, tally: p.tally });
@@ -200,17 +207,53 @@ if (broadcast) {
   document.body.classList.add("broadcast");
   audio = new AudioDirector();
   void audio.ctx.resume();
-  if (ingestUrl) startIngest(canvas, audio.tap(), ingestUrl);
+  if (clipId && ingestUrl) void startClip(clipId, audio, ingestUrl);
+  else if (ingestUrl) startIngest(canvas, audio.tap(), ingestUrl);
 } else {
   overlay?.addEventListener("click", async () => {
     audio = new AudioDirector();
     await audio.ctx.resume();
     overlay.remove();
+    link.tuneIn();
   });
 }
 
+// "That was funny": one tap per scene. The control room uses these to pick clips.
+const funnyBtn = document.getElementById("funny") as HTMLButtonElement | null;
+const laughed = new Set<string>();
+const sceneNow = () => [...segments.values()].find((s) => stationNow() >= s.startAt && stationNow() < s.startAt + s.durationMs && s.kind !== "bumper" && !s.ad);
+if (funnyBtn) {
+  setInterval(() => {
+    const s = sceneNow();
+    funnyBtn.disabled = !s || laughed.has(s.id);
+  }, 1000);
+  funnyBtn.addEventListener("click", async () => {
+    const s = sceneNow();
+    if (!s) return;
+    laughed.add(s.id);
+    funnyBtn.disabled = true;
+    const res = await fetch("/api/funny", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ segmentId: s.id, voter }) }).catch(() => undefined);
+    const note = document.getElementById("funny-note");
+    if (note) note.textContent = res?.ok ? "Noted - the best moments get clipped." : "";
+  });
+}
+
+/** Play one segment on a private clock starting shortly from now, recording exactly its length. */
+async function startClip(id: string, director: AudioDirector, url: string) {
+  const seg = (await (await fetch(`/api/segment/${encodeURIComponent(id)}`)).json()) as Segment;
+  clipNetwork = ((await (await fetch("/api/now")).json()) as { network?: string }).network ?? "";
+  const lead = 2500; // time to fetch the voices before the first frame we keep
+  const t0 = performance.now() + lead;
+  clipNow = () => seg.startAt + (performance.now() - t0);
+  segments.set(seg.id, { ...seg, poll: undefined });
+  window.setTimeout(() => {
+    const rec = startIngest(canvas, director.tap(), url, { reconnect: false });
+    window.setTimeout(() => rec.stop(), seg.durationMs + 600);
+  }, lead - 150);
+}
+
 function frame() {
-  const now = link.now();
+  const now = stationNow();
   const sorted = [...segments.values()].sort((a, b) => a.startAt - b.startAt);
   const current = sorted.find((s) => now >= s.startAt && now < s.startAt + s.durationMs);
   const next = sorted.find((s) => s.startAt >= (current ? current.startAt + current.durationMs - 1 : now) && s.kind !== "bumper");
@@ -221,8 +264,9 @@ function frame() {
     segment: current,
     next,
     guide,
-    network: link.network || "…",
+    network: clipNetwork || link.network || "…",
     viewers: link.viewers,
+    clip: Boolean(clipId),
     tunedIn: Boolean(audio),
   });
   audio?.update(sorted, now);

@@ -108,7 +108,7 @@ describe("http + ws", () => {
   it("takes viewer mail from anyone but only shows the queue to this machine", async () => {
     const res = await fetch(base + "/api/mail", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ handle: "Fan", text: "Hi Rex!", showId: "late_byte" }) });
     expect(res.status).toBe(201);
-    expect(await res.json()).toEqual({ status: "received" });
+    expect(await res.json()).toEqual({ status: "received", id: expect.any(Number) });
     const list = await (await fetch(base + "/api/mail")).json();
     expect(list.messages[0]).toMatchObject({ handle: "Fan", text: "Hi Rex!" });
     const empty = await fetch(base + "/api/mail", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: "" }) });

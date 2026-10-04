@@ -31,6 +31,9 @@
       .mem li { font-size: 8px; line-height: 2; color: var(--muted); list-style: none; border-left: 2px solid var(--line); padding-left: 10px; margin-bottom: 6px; }
       .mem li b { color: var(--text); font-weight: normal; }
       ul { padding: 0; margin: 0; }
+      .ep { border: 1px solid var(--warm); border-radius: 6px; padding: 10px; margin-bottom: 12px; font-size: 8px; line-height: 2; }
+      .ep .live { color: var(--hot); }
+      .ep .want { color: var(--muted); }
     </style>
   </head>
   <body>
@@ -51,6 +54,12 @@
         shows.replaceChildren(...d.shows.map((s) => {
           const card = el("div", "card");
           card.append(el("h2", null, s.title.toUpperCase()));
+          if (s.episode) {
+            const ep = el("div", "ep");
+            ep.append(el("div", "live", `ON NOW · PART ${s.episode.part} OF ${s.episode.of}`), el("div", null, s.episode.logline));
+            for (const w of s.episode.wants) ep.append(el("div", "want", `${w.name} wants ${w.want}`));
+            card.append(ep);
+          }
           const cast = el("div", "cast");
           for (const c of s.cast) {
             const w = el("div", `who ${c.mood}`);

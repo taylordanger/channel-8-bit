@@ -76,6 +76,16 @@
       .writein textarea { grid-column: 1 / -1; min-height: 60px; resize: vertical; }
       .writein button { background: var(--accent); border-color: var(--accent); cursor: pointer; }
       #wi-status { font-size: 9px; color: #ffe066; align-self: center; }
+      .mine { list-style: none; padding: 0; margin: 12px 0 0; }
+      .mine li { font-size: 9px; line-height: 1.9; color: var(--muted, #8a82b0); }
+      .mine li b { color: var(--text); font-weight: normal; }
+      .funny-row { max-width: 1400px; margin: 10px auto 0; display: flex; align-items: center; gap: 12px; padding: 0 16px; }
+      #funny { font: inherit; font-size: 10px; padding: 10px 14px; background: #15102a; color: var(--text); border: 2px solid #ffd23f; border-radius: 4px; cursor: pointer; }
+      #funny:disabled { opacity: 0.5; cursor: default; }
+      #funny-note { font-size: 9px; color: #8a82b0; }
+      .impact ul { list-style: none; padding: 0; margin: 0; }
+      .impact li { font-size: 10px; line-height: 1.9; border-left: 3px solid #ffd23f; padding-left: 10px; margin-bottom: 8px; }
+      .impact li span { color: #8a82b0; font-size: 8px; margin-left: 6px; }
       .shop { border: 2px solid #ff3fa4; display: flex; flex-direction: column; gap: 8px; }
       .shop a { color: #ffe066; font-size: 12px; text-decoration: none; }
       .shop small { color: var(--muted); font-size: 8px; }
@@ -106,8 +116,13 @@
         </form>
       </aside>
     </div>
+    <div class="funny-row"><button id="funny" type="button">😂 THAT WAS FUNNY</button><span id="funny-note"></span></div>
     <section class="below vote" id="vote" hidden></section>
     <section class="below shop" id="shop" hidden></section>
+    <section class="below impact" id="impact" hidden>
+      <h2>YOUR VOTES DID THIS</h2>
+      <ul id="impact-list"></ul>
+    </section>
     <section class="below">
       <h2>PROGRAM GUIDE <a href="/ops.html">CONTROL ROOM →</a> <a href="/desk.html">ASSIGNMENT DESK →</a> <a href="/drama.html">DRAMA →</a> <a href="/lineup.html">CAST →</a></h2>
       <ol id="guide"></ol>
@@ -121,6 +136,7 @@
         <button type="submit">SEND</button>
         <span id="wi-status"></span>
       </form>
+      <ul class="mine" id="wi-mine"></ul>
     </section>
     <p id="disclosure" class="disclosure" hidden>As an Amazon Associate, Channel 8-Bit earns from qualifying purchases. Commercials link to products; the characters' opinions are jokes.</p>
     <script type="module">
@@ -132,7 +148,44 @@
         const d = await res.json();
         $("wi-status").textContent = res.ok ? (d.status === "received" ? "Got it! Watch for it on air." : "Thanks - that one won't make it to air.") : d.error;
         if (res.ok) $("wi-text").value = "";
+        if (res.ok && d.id) {
+          saveMine([d.id, ...loadMine()].slice(0, 10));
+          refreshMine();
+        }
       });
+
+      // Your letters: remembered in this browser, so you can see where each one is in line.
+      const loadMine = () => { try { return JSON.parse(localStorage.getItem("c8b-mail") || "[]"); } catch { return []; } };
+      const saveMine = (ids) => { try { localStorage.setItem("c8b-mail", JSON.stringify(ids)); } catch {} };
+      async function refreshMine() {
+        const ids = loadMine();
+        if (!ids.length) return;
+        const d = await (await fetch(`/api/mail/mine?ids=${ids.join(",")}`)).json();
+        $("wi-mine").replaceChildren(...d.messages.map((m) => {
+          const li = document.createElement("li");
+          const b = document.createElement("b");
+          b.textContent = `"${m.text}${m.text.length >= 60 ? "…" : ""}" `;
+          li.append(b, document.createTextNode(m.status));
+          return li;
+        }));
+      }
+
+      // What the audience changed recently.
+      async function refreshImpact() {
+        const items = await (await fetch("/api/impact")).json();
+        $("impact").hidden = !items.length;
+        const ago = (t) => { const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`; };
+        $("impact-list").replaceChildren(...items.map((i) => {
+          const li = document.createElement("li");
+          const when = document.createElement("span");
+          when.textContent = ago(i.at);
+          li.append(document.createTextNode(i.text), when);
+          return li;
+        }));
+      }
+      refreshMine();
+      refreshImpact();
+      setInterval(() => { refreshMine(); refreshImpact(); }, 30000);
     </script>
     <script type="module" src="/app.js"></script>
   </body>

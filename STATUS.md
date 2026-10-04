@@ -80,7 +80,7 @@ Commercials (Vance Dazzle infomercials) air about every 10 minutes once there ar
 npm run onair                  # everything: Ollama + station + public tunnel + keep-awake (Ctrl+C stops it all)
 RESTREAM=1 npm run onair       # ...and stream to Twitch/YouTube (needs STREAM_URL in .env)
 npm start                      # just the station, local only
-npm run check                  # all 130 tests
+npm run check                  # all the tests
 npm run shadow -- 24           # simulate a whole day in seconds and check for problems
 ```
 
@@ -110,6 +110,15 @@ npm run shadow -- 24           # simulate a whole day in seconds and check for p
 17. **Going public:** a security fix first (admin locked to this Mac, tunnel, rebinding and cross-site protection), then the Cloudflare quick tunnel.
 18. **Commercials:** Amazon affiliate infomercials, no prices, with disclosures and click tracking.
 19. **`npm run onair`:** one command for everything; the public address updates itself.
+
+**Day two** (after an outside review of the project):
+
+20. **Spending fixes:** the 1-hour prompt cache is counted at its real price, and the daily budget is a hard ceiling checked before every paid call. The Twitch restream no longer counts as a viewer; with nobody on the website it airs reruns, except during `FEED_FRESH_HOURS`.
+21. **Episode plans:** before a show's first scene, the writer plans the airing: what each character wants, a conflict, three escalations, a payoff, and a thread left open for next time. Pixel Heights also tracks secrets (who's hiding what, who knows). Scenes only see their own part of the plan. The Drama board shows the episode on now.
+22. **Hot Seat losers face Rex:** whoever comes last on the 9pm Hot Seat is booked as The Late Byte's guest at 10pm.
+23. **"Your votes did this":** a panel on the broadcast page listing recent verdicts, champions, bookings and answered mail. People who write in can see their place in line and when their letter can air.
+24. **Clips:** in the control room, pick a scene → "CLIP IT" → an MP4 with captions, rendered in real time. Viewers have a "😂 THAT WAS FUNNY" button, and the funniest scenes rise to the top of the list. Each clip gets a `?ref=clip-N` link to post with it.
+25. **Audience stats** in the control room: visits, who pressed play, median watch time, returning viewers, which shows people leave during, votes/mail/laughs per viewer, and visits from clip links. Your own Mac isn't counted, and no IP addresses are stored.
 
 ---
 

@@ -27,6 +27,8 @@ export interface Show {
   cast: string[];
   /** Rotating guests; one is booked per guest segment. */
   guestPool?: string[];
+  /** A game show whose last-place finisher gets booked as this show's next guest. */
+  bookLosersFrom?: string;
   /** Whether the show carries an ongoing plot that the writers must advance. */
   serialized: boolean;
   bible: string;
@@ -50,6 +52,7 @@ export const SHOWS: Record<string, Show> = {
     tier: "premium",
     cast: ["rex", "deedee"],
     guestPool: ["brick", "oolong", "glimmer", "fumble"],
+    bookLosersFrom: "hot_seat",
     serialized: false,
     bible:
       "A late-night talk show taped in front of a live (pixel) audience. Rex hosts from the desk; Dee Dee and the Interference play from the band riser. Guests sit on the couch. Tone: affectionate roast, absurd bits, real chemistry. Rex and Dee Dee have a long-running will-they-won't-they-quit rivalry.",
