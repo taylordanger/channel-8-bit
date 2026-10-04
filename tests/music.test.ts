@@ -100,3 +100,21 @@ describe("play a song now", () => {
     expect(retracted.length).toBeGreaterThan(0);
   });
 });
+
+describe("music spacing", () => {
+  it("never schedules a performance right after one", async () => {
+    const db = openDb(":memory:");
+    const timeline = new Timeline(db);
+    const p = new Producer({ timeline, memory: new MemoryBank(db), tts: new SilentTTS(), writers: [new ImprovWriter(1)], timeZone: "UTC" });
+    const { slotAt } = await import("../src/server/catalog/schedule.js");
+    const t = Date.UTC(2026, 9, 3, 23, 0);
+    const perf = (await p.music(t, getShow("late_byte"), "house", 60)).segment;
+    perf.startAt = t;
+    timeline.append(perf, "");
+    const slot = slotAt(t, "UTC");
+    for (let i = 0; i < 80; i++) {
+      const type = p.brief(t + perf.durationMs + i * 1000, slot, 60).segmentType;
+      expect(getShow("late_byte").musicFor![type]).toBeUndefined();
+    }
+  });
+});
