@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { WebSocket } from "ws";
+import { request as httpRequest } from "node:http";
 import { buildStation, type Built } from "../src/server/build.js";
 import { ManualClock } from "../src/server/clock.js";
 import { loadConfig } from "../src/server/config.js";
@@ -112,6 +113,28 @@ describe("http + ws", () => {
     expect(list.messages[0]).toMatchObject({ handle: "Fan", text: "Hi Rex!" });
     const empty = await fetch(base + "/api/mail", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: "" }) });
     expect(empty.status).toBe(400);
+  });
+
+  it("treats tunneled, rebinding and cross-site requests as outsiders", async () => {
+    const override = (headers: Record<string, string>) =>
+      fetch(base + "/api/override", { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify({ showId: "nada", minutes: 5 }) });
+    expect((await override({ "cf-connecting-ip": "203.0.113.9" })).status).toBe(403); // through a tunnel
+    expect((await override({ "x-forwarded-for": "203.0.113.9" })).status).toBe(403);
+    // DNS rebinding: fetch won't fake a Host header, so use a raw request.
+    const rebinding = await new Promise<number>((resolve, reject) => {
+      const u = new URL(base + "/api/override");
+      const req = httpRequest({ host: u.hostname, port: u.port, path: u.pathname, method: "POST", headers: { host: "evil.example:8088", "content-type": "application/json" } }, (r) => resolve(r.statusCode ?? 0));
+      req.on("error", reject);
+      req.end(JSON.stringify({ showId: "nada", minutes: 5 }));
+    });
+    expect(rebinding).toBe(403);
+    expect((await override({ origin: "https://evil.example" })).status).toBe(403); // cross-site
+    expect((await fetch(base + "/api/ops", { headers: { "cf-connecting-ip": "203.0.113.9" } })).status).toBe(403);
+    expect((await fetch(base + "/desk.html", { headers: { "cf-connecting-ip": "203.0.113.9" } })).status).toBe(404);
+    expect((await fetch(base + "/api/chat/log", { headers: { "cf-connecting-ip": "203.0.113.9" } })).status).toBe(403);
+    // ...while this machine still has full access.
+    expect((await override({ origin: base.replace("127.0.0.1", "localhost") })).status).toBe(201);
+    await fetch(base + "/api/override", { method: "DELETE" });
   });
 
   it("refuses path traversal out of the media and public dirs", async () => {

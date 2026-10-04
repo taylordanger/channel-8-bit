@@ -86,6 +86,18 @@ separate process (a streaming failure never touches the station), reconnects if 
 the feed if it stalls, and never prints the stream key. `npm run restream -- --out test.mp4 --seconds 30`
 records to a file instead. While streaming, the feed counts as a viewer, so the station writes around the clock.
 
+## Going public (website)
+
+A free Cloudflare quick tunnel gives the station a public address (random, changes on restart):
+
+    brew install cloudflared
+    cloudflared tunnel --url http://localhost:8088
+
+Put the address in `.env` as `PUBLIC_URL` so polls and the stream show it. Visitors can watch, chat, vote and
+write in; admin pages (desk, control room) and admin APIs only answer requests made on this machine - anything
+arriving through a tunnel or proxy is treated as an outside visitor. For a permanent address, use a named tunnel
+with a free Cloudflare account and your own domain.
+
 ## Roadmap
 
 1. ~~**Restream**~~ — done (see above).

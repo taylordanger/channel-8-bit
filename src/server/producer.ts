@@ -7,6 +7,7 @@ import type { TopicDesk } from "./desk.js";
 import type { PollBox } from "./polls.js";
 import type { MailBag } from "./mailbag.js";
 import type { OpsLog } from "./ops.js";
+import type { ChatRoom } from "./chat.js";
 import type { CharacterStates, MemoryBank } from "./memory.js";
 import { checkNames, checkNumbers, checkVerbatim, type SourceChecker } from "./factcheck.js";
 import { CHARACTERS } from "./catalog/characters.js";
@@ -39,6 +40,9 @@ const FICTIONAL_NAMES = [
  */
 const ENCORE_FRESH_MS = 20 * 60_000;
 
+/** Formats whose casts talk to the audience (and so may read the live chat). */
+const FOURTH_WALL = new Set(["late_night", "morning", "hangout", "gameshow"]);
+
 /** Shortest slot remainder worth writing a real segment for; anything less becomes a bumper. */
 export const MIN_SEGMENT_MS = 30_000;
 export const MAX_SEGMENT_SEC = 150;
@@ -66,6 +70,7 @@ export interface ProducerDeps {
   polls?: PollBox;
   mailbag?: MailBag;
   ops?: OpsLog;
+  chat?: ChatRoom;
   desk?: TopicDesk;
   tts: TTSEngine;
   /** Tried in order; the last one should never fail (the improv writer). */
@@ -229,6 +234,8 @@ export class Producer {
       feuds: this.d.memory.feuds(ids).map(({ a, b }) => ({ a, b })),
       game,
       viewerMessage: mail ? { id: mail.id, handle: mail.handle, text: mail.text } : undefined,
+      // Shows that talk to the audience can glance at the live chat; scripted fiction never does.
+      chat: FOURTH_WALL.has(show.format) && !solo ? (this.d.chat?.digest(at) ?? []).map((m) => ({ handle: m.handle, text: m.text })) : undefined,
     };
   }
 

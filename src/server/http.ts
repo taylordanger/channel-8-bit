@@ -40,8 +40,41 @@ const json = (res: http.ServerResponse, body: unknown, status = 200) => {
 };
 
 /** The assignment desk changes what airs, so only this machine may edit it. */
-const isLocal = (req: http.IncomingMessage) =>
-  ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress ?? "");
+const LOOPBACK = ["127.0.0.1", "::1", "::ffff:127.0.0.1"];
+/** Headers a tunnel or reverse proxy adds; their presence means the request came from outside. */
+const PROXY_HEADERS = ["cf-connecting-ip", "x-forwarded-for", "forwarded", "x-real-ip", "true-client-ip", "fly-client-ip"];
+const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i;
+
+/**
+ * Admin access: only someone sitting at this machine. A tunnel delivers every visitor from
+ * loopback, so a proxy header means "outside". The Host must be a local name (blocks DNS
+ * rebinding), and a browser's Origin, if sent, must be a local page (blocks cross-site forms).
+ */
+export function isLocal(req: http.IncomingMessage): boolean {
+  if (!LOOPBACK.includes(req.socket.remoteAddress ?? "")) return false;
+  if (PROXY_HEADERS.some((h) => req.headers[h] !== undefined)) return false;
+  if (!LOCAL_HOST.test(req.headers.host ?? "")) return false;
+  const origin = req.headers.origin;
+  if (origin !== undefined) {
+    try {
+      if (!LOCAL_HOST.test(new URL(origin).host)) return false;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** The visitor's real address: from the tunnel's header when it's the one delivering the request. */
+export function clientIp(req: http.IncomingMessage): string {
+  const remote = req.socket.remoteAddress ?? "?";
+  if (!LOOPBACK.includes(remote)) return remote;
+  const forwarded = (req.headers["cf-connecting-ip"] ?? req.headers["x-real-ip"] ?? req.headers["x-forwarded-for"]) as string | undefined;
+  return forwarded ? forwarded.split(",")[0].trim() : remote;
+}
+
+/** Admin pages are served to this machine only. */
+const ADMIN_PAGES = new Set(["/desk.html", "/ops.html"]);
 
 function readJson(req: http.IncomingMessage, limit = 4096): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -135,7 +168,7 @@ async function handleMail(req: http.IncomingMessage, res: http.ServerResponse, u
       return json(res, { error: (e as Error).message }, 400);
     }
     const showId = typeof body.showId === "string" && SHOWS[body.showId]?.mailSegment ? body.showId : null;
-    const out = await b.mailbag.submit(String(body.handle ?? ""), String(body.text ?? ""), showId, req.socket.remoteAddress ?? "?", b.clock.now());
+    const out = await b.mailbag.submit(String(body.handle ?? ""), String(body.text ?? ""), showId, clientIp(req), b.clock.now());
     if (typeof out === "string") return json(res, { error: out }, out.includes("try again") ? 429 : 400);
     // Senders only learn whether it's in the queue, not the moderator's reasoning.
     return json(res, { status: out.status === "rejected" ? "not accepted" : "received" }, 201);
@@ -154,7 +187,7 @@ const voteHits = new Map<string, number[]>();
 /** Viewers vote from anywhere - that's the point - but once per poll, and not too fast. */
 async function handleVote(req: http.IncomingMessage, res: http.ServerResponse, b: Built, broadcast: (m: ServerMessage) => void) {
   if (req.method !== "POST") return json(res, { error: "unsupported" }, 405);
-  const ip = req.socket.remoteAddress ?? "?";
+  const ip = clientIp(req);
   const now = b.clock.now();
   const hits = (voteHits.get(ip) ?? []).filter((t) => now - t < 60_000);
   if (hits.length >= 30) return json(res, { error: "slow down" }, 429);
@@ -339,6 +372,10 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
         });
       }
     }
+    if (ADMIN_PAGES.has(url.pathname) && !isLocal(req)) {
+      res.writeHead(404).end("not found");
+      return;
+    }
     if (url.pathname.startsWith("/media/")) return serveFile(res, mediaDir, url.pathname.slice(7), "public, max-age=31536000, immutable");
     return serveFile(res, publicDir, url.pathname === "/" ? "index.html" : url.pathname.slice(1), "no-cache");
   });
@@ -352,7 +389,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
   };
 
   wss.on("connection", (ws, req) => {
-    const sender = senderId(req.socket.remoteAddress ?? "?");
+    const sender = senderId(clientIp(req));
     sockets.add(ws);
     send(ws, { type: "hello", serverNow: b.clock.now(), network: config.networkName });
     updateViewers();

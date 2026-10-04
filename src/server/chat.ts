@@ -79,6 +79,18 @@ export class ChatRoom {
     return Boolean(row && row.until > now);
   }
 
+  /**
+   * What the cast may glance at: recent messages that are old enough to have been reviewed
+   * by the moderator (and survived), newest last.
+   */
+  digest(now: number, limit = 6): ChatMessage[] {
+    return (
+      this.db
+        .prepare("SELECT id, at, handle, text FROM chat_messages WHERE deleted = 0 AND at <= ? AND at > ? ORDER BY id DESC LIMIT ?")
+        .all(now - 15_000, now - 15 * 60_000, limit) as ChatMessage[]
+    ).reverse();
+  }
+
   recent(limit = 50): ChatMessage[] {
     return (this.db.prepare("SELECT id, at, handle, text FROM chat_messages WHERE deleted = 0 ORDER BY id DESC LIMIT ?").all(limit) as ChatMessage[]).reverse();
   }

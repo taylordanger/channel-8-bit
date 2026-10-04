@@ -122,6 +122,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     policy,
     mailbag,
     ops,
+    chat,
     timeZone: config.timeZone,
     log: o.log,
   });
