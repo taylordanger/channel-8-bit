@@ -56,7 +56,8 @@ CREATE TABLE IF NOT EXISTS clips (
   status      TEXT NOT NULL,          -- queued | rendering | ready | failed
   file        TEXT,
   error       TEXT,
-  duration_ms INTEGER NOT NULL
+  duration_ms INTEGER NOT NULL,
+  vertical_file TEXT
 );
 
 CREATE TABLE IF NOT EXISTS funny (
@@ -278,6 +279,7 @@ function migrate(db: DB) {
   for (const [name, type] of add) if (!topics.has(name)) db.exec(`ALTER TABLE topics ADD COLUMN ${name} ${type}`);
   const cs = cols("character_state");
   if (!cs.has("off_at")) db.exec("ALTER TABLE character_state ADD COLUMN off_at INTEGER NOT NULL DEFAULT 0");
+  if (!cols("clips").has("vertical_file")) db.exec("ALTER TABLE clips ADD COLUMN vertical_file TEXT");
   if (!cols("products").has("facts_at")) db.exec("ALTER TABLE products ADD COLUMN facts_at INTEGER NOT NULL DEFAULT 0");
   if (!cols("viewer_messages").has("aired_show")) db.exec("ALTER TABLE viewer_messages ADD COLUMN aired_show TEXT");
 }

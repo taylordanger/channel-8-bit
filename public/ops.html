@@ -188,7 +188,8 @@
           const li = el("li");
           li.append(el("span", `pill ${c.status === "failed" ? "bad" : ""}`, c.status.toUpperCase()), el("b", null, c.title), document.createTextNode(` · ${dur(c.durationMs)}`));
           if (c.status === "ready") {
-            const a = el("a", null, " DOWNLOAD"); a.href = `/clips/${c.file}`; a.download = c.file; li.append(a);
+            const a = el("a", null, " DOWNLOAD 16:9"); a.href = `/clips/${c.file}`; a.download = c.file; li.append(a);
+            if (c.verticalFile) { const v = el("a", null, " · VERTICAL 9:16"); v.href = `/clips/${c.verticalFile}`; v.download = c.verticalFile; v.title = "For TikTok, YouTube Shorts and Instagram Reels"; li.append(v); }
             if (d.publicUrl) li.append(document.createTextNode(` · link for the post: ${d.publicUrl.replace(/\/$/, "")}/?ref=clip-${c.id}`));
           }
           if (c.error) li.append(document.createTextNode(` · ${c.error}`));

@@ -130,6 +130,7 @@ npm run shadow -- 24           # simulate a whole day in seconds and check for p
 33. **A new show, Ask Dr. Dot (12–1 PM):** a call-in advice show. Dr. Delphine Dot (a doctorate in "Advanced Feelings" from an online university that is now a car wash) gives confident, specific, useless advice. Murray, the call screener, eats lunch on air. Characters from the other shows call in about problems from their own storylines, and viewer letters get the same treatment. It has a radio-booth set. Much Ado About Nada keeps 8 PM and the overnight encores.
 34. **Kinder handling of serious letters:** a letter describing a real crisis (self-harm, abuse, danger, a medical emergency) never airs, and the sender sees a kind message pointing to real help (988 in the US; 911 or the local emergency number if someone is in danger). Tested on the real model: 6 of 6 sample letters were handled correctly.
 35. **`npm run reload`:** restarts only the station with new code while `npm run onair` keeps running. The tunnel and the public address stay the same, viewers reconnect by themselves, and open pages refresh when the player code changed.
+36. **Vertical clips for TikTok / Shorts / Reels:** every clip now also comes as a 1080×1920 version: the whole scene, captions included, over a blurred copy of itself. In the control room, each ready clip has DOWNLOAD 16:9 and VERTICAL 9:16. The vertical copy takes about 20 seconds after the clip finishes.
 
 ---
 

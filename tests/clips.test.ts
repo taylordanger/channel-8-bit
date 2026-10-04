@@ -22,6 +22,7 @@ describe("clip desk", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clips-"));
     const rendered: string[] = [];
     let running = 0;
+    const verticals: string[] = [];
     const desk = new ClipDesk(db, dir, async (id, out) => {
       running++;
       expect(running).toBe(1); // one at a time
@@ -31,7 +32,7 @@ describe("clip desk", () => {
       if (id === "b") return "chrome missing";
       fs.writeFileSync(out, "mp4");
       return null;
-    });
+    }, undefined, async (_in, out) => (verticals.push(path.basename(out)), null));
     expect(desk.request("future", 150_000)).toBe("that segment hasn't aired");
     expect(desk.request("brk", 150_000)).toBe("nothing to clip in a station break");
     const a = desk.request("a", 150_000);
@@ -42,7 +43,8 @@ describe("clip desk", () => {
     expect(rendered).toEqual(["a", "b"]);
     const ca = desk.list().find((c) => c.segmentId === "a")!;
     const cb = desk.list().find((c) => c.segmentId === "b")!;
-    expect(ca).toMatchObject({ segmentId: "a", status: "ready", file: "1-late_byte.mp4" });
+    expect(ca).toMatchObject({ segmentId: "a", status: "ready", file: "1-late_byte.mp4", verticalFile: "1-late_byte-vertical.mp4" });
+    expect(verticals).toEqual(["1-late_byte-vertical.mp4"]); // only for clips that rendered
     expect(cb).toMatchObject({ segmentId: "b", status: "failed", error: "chrome missing" });
     expect(desk.request("a", 150_000)).toMatchObject({ id: ca.id }); // no duplicate render
   });
