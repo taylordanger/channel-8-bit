@@ -1,6 +1,6 @@
 # Channel 8-Bit: where things stand
 
-*Last updated: Sunday Oct 4, 2026 (end of day one). Everything below is pushed to GitHub:
+*Last updated: Sunday Oct 4, 2026, late afternoon (day two). Everything below is pushed to GitHub:
 https://github.com/taylordanger/channel-8-bit*
 
 ---
@@ -11,11 +11,14 @@ https://github.com/taylordanger/channel-8-bit*
    ```bash
    cd ~/ai_network && npm run onair
    ```
-   The public address appears in that terminal (search for `trycloudflare.com`). It's **new every restart**.
-2. **Check how the night went:** http://localhost:8088/ops.html (the control room): dead air, how much of the airtime was
-   fresh writing, writer failures, chat and mail moderation.
-3. **Before you start, check:** **Low Power Mode is off** (System Settings → Battery) and the Mac is plugged in. The local AI
-   writer is 3–4× slower in Low Power Mode.
+   The public address appears in that terminal (search for `trycloudflare.com`). It's new each time you start `onair`.
+   After code changes, use `npm run reload` instead: it restarts just the station and **keeps the same address**.
+2. **Check how the day went:** http://localhost:8088/ops.html (the control room): airtime mix, writer speed, audience stats
+   (who pressed play, how long they stayed, which shows they left during), clips, moderation.
+3. **Approve anything waiting** on the assignment desk (http://localhost:8088/desk.html): shoutout requests and any viewer
+   mail the moderator couldn't check.
+4. **Before you start, check:** **Low Power Mode is off** (System Settings → Battery) and the Mac is plugged in. The local AI
+   writer is 3–4× slower in Low Power Mode, and slower when Chrome and other heavy apps are busy.
 
 ---
 
@@ -36,9 +39,10 @@ https://github.com/taylordanger/channel-8-bit*
 
 ## 🧭 Ideas for the next session with Claude
 
-- **Set up the permanent address** once you have a domain (named Cloudflare tunnel).
-- **Raise the share of fresh airtime:** it was low today (lots of encores) because the local model needs about 2 minutes per
-  scene. Options: smarter scheduling, shorter scenes, or Claude.
+- **Set up the permanent address** once you have a domain (a named Cloudflare tunnel).
+- **Post some clips:** control room → CLIP IT on a scene viewers laughed at → download the vertical version for TikTok/Shorts/Reels.
+- **Watch the audience stats** for a few days, then decide what to grow (which shows people stay for, which they leave).
+- **Switch on a payment link for shoutouts** if people request them.
 
 ---
 
@@ -50,18 +54,21 @@ A 24/7 pixel-art TV network, written by AI, voiced by AI, and the same broadcast
 
 | Time | Show |
 |------|------|
-| 12–2am, 10pm–12am | **The Late Byte with Rex Volta**: late-night talk show, house band, guests, musical acts, viewer mail |
+| 12–2am | **The Late Byte with Rex Volta**: late-night talk show, house band, guests, musical acts, viewer mail |
 | 2–4am | Much Ado About Nada (encores) |
 | 4–6am | The Pixelsons (encores) |
 | 6–10am | **Rise & Pixel**: morning show (Sunny, grumpy Greg, intern Pip), viewer call-ins |
-| 10am–12pm, 5–6pm | **Pixel Heights**: an ongoing soap opera with a plot that carries forward |
-| 6–7pm | **The 8-Bit Report**: news parody; reads your assignment-desk links, otherwise reports on the network itself |
+| 10am–12pm | **Pixel Heights**: soap opera with weekly seasons (a question asked Monday, answered Sunday) |
 | 12–1pm | **Ask Dr. Dot**: call-in advice; other shows' characters call in, plus viewer letters |
-| 8–9pm | **Much Ado About Nada**: a sitcom about nothing, laugh track, slap bass |
-| 1–2pm, 9–10pm | **Hot Seat**: a game show where viewers vote on every round |
+| 1–2pm | **Hot Seat**: a game show where viewers vote on every round |
 | 2–4pm | **Couch Co-op**: three friends in a 90s basement talking old games |
-| 4–5pm | **Kitchen Nightmode**: cooking show; Chef Remy sets everything on fire, Pepper saves it, a guest tastes it |
+| 4–5pm | **Kitchen Nightmode**: Chef Remy sets everything on fire, Pepper saves it, a guest tastes it |
+| 5–6pm | **Pixel Heights** |
+| 6–7pm | **The 8-Bit Report**: news parody; reads your assignment-desk links, otherwise reports on the network itself |
 | 7–8pm | **The Pixelsons**: animated-style family sitcom, couch gags |
+| 8–9pm | **Much Ado About Nada**: a sitcom about nothing, laugh track, slap bass |
+| 9–10pm | **Hot Seat**: the nightly flagship; last place gets booked on The Late Byte |
+| 10pm–12am | **The Late Byte with Rex Volta** |
 
 Commercials (Vance Dazzle infomercials) air about every 10 minutes once there are products on the shelf.
 
@@ -69,11 +76,12 @@ Commercials (Vance Dazzle infomercials) air about every 10 minutes once there ar
 
 | Page | Who | What |
 |------|-----|------|
-| http://localhost:8088 | Everyone | The broadcast, live chat, voting, write-in box, program guide |
-| http://localhost:8088/drama.html | Everyone | Moods, feuds, who stormed off, what the characters remember |
+| http://localhost:8088 | Everyone | The broadcast, live chat, voting, "that was funny", write-in box, program guide, "your votes did this" |
+| http://localhost:8088/shoutout.html | Everyone | Request a personalized video for a friend; private pickup link |
+| http://localhost:8088/drama.html | Everyone | Moods, feuds, tonight's episode, this week's season question, what the characters remember |
 | http://localhost:8088/lineup.html | Everyone | Cast lineup; `?set=diner&ids=jerome,lenny` previews any set |
-| http://localhost:8088/desk.html | **Only this Mac** | Assignment desk (topics, links), special programming (air any show now), musical guests, viewer mail approval, product shelf |
-| http://localhost:8088/ops.html | **Only this Mac** | Control room: stats, writer health, moderation, spend, ad clicks, chat delete/mute |
+| http://localhost:8088/desk.html | **Only this Mac** | Assignment desk (topics, links), special programming, musical guests, viewer mail, shoutout approvals, product shelf |
+| http://localhost:8088/ops.html | **Only this Mac** | Control room: stats, audience, writer health, clips (16:9 + vertical), star/retire encores, moderation, spend, ad clicks |
 
 **Commands**
 
@@ -86,12 +94,13 @@ npm run check                  # all the tests
 npm run shadow -- 24           # simulate a whole day in seconds and check for problems
 ```
 
-**Settings live in `~/ai_network/.env`** (private, never uploaded): `PUBLIC_URL=auto`, plus `AMAZON_TAG`, `STREAM_URL`,
-`AD_EVERY_MIN`, `ANTHROPIC_API_KEY`, `DAILY_BUDGET_USD` when you add them. See `.env.example`.
+**Settings live in `~/ai_network/.env`** (private, never uploaded): `PUBLIC_URL=auto`, plus, when you add them,
+`AMAZON_TAG`, `STREAM_URL`, `TWITCH_CHANNEL`, `SHOUTOUT_PAYMENT_URL`, `SHOUTOUT_PRICE`, `FEED_FRESH_HOURS`, `AD_EVERY_MIN`,
+`ANTHROPIC_API_KEY`, `DAILY_BUDGET_USD`. Every one is explained in `.env.example`.
 
 ---
 
-## 🛠 What we built today (in order)
+## 🛠 What we built (in order; day one was items 1–19, day two the rest)
 
 1. **The core network:** one shared timeline everyone watches in sync, a schedule, writers, a standards desk, character memory and relationships, a budget governor (nothing gets written when nobody's watching), a shadow station that simulates whole days, and a rehearsal mode.
 2. **A nicer look:** chibi characters with outlines, distinct looks for everyone, signature lines, camera cuts between shots, CRT scanlines.
@@ -155,9 +164,12 @@ npm run shadow -- 24           # simulate a whole day in seconds and check for p
 
 ## ⚠️ Known issues / things to watch
 
-- **Fresh writing is a small share of airtime.** On this Mac the local model writes about 6–8 tokens per second (it's slower when Chrome and other apps are busy and memory is swapping), so even with the compact format a scene takes longer to write than to air. Encores fill the gaps: no dead air, just repeats. Closing heavy apps helps a little; Claude or a Mac with more memory helps a lot.
-- **The public address changes every time the tunnel restarts.** The station follows it automatically, but people need the new link. A domain fixes this.
+- **Encores still fill part of the day.** On this Mac the local model writes about 6–8 tokens per second. With the compact
+  format a scene now takes roughly as long to write as to air (about 40–55 seconds), but slow moments, new shows and
+  busy Macs still fall back to encores and improv. No dead air, just repeats. Claude, or a Mac with more memory, fixes this.
+- **The local model mixes up who says what** now and then (a character using someone else's catchphrase, or calling the
+  wrong person "Mother"). The checks catch copied, repeated and clichéd lines, but this one can't be fixed safely by rules.
+- **The public address changes when `onair` restarts** (not on `npm run reload`). A domain fixes this for good.
 - **The quick tunnel has no uptime guarantee.** Fine for testing with friends.
 - **Amazon often blocks reading product pages.** Add a name and facts yourself when adding products.
-- **The local model sometimes repeats itself or gets characters slightly wrong.** The standards checks catch the worst of it.
 - **The Mac must stay on, plugged in, and out of Low Power Mode** while the network runs.
