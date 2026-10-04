@@ -77,7 +77,7 @@ Commercials (Vance Dazzle infomercials) air about every 10 minutes once there ar
 **Commands**
 
 ```bash
-npm run onair                  # everything: station + public tunnel + keep-awake (Ctrl+C stops it all)
+npm run onair                  # everything: Ollama + station + public tunnel + keep-awake (Ctrl+C stops it all)
 RESTREAM=1 npm run onair       # ...and stream to Twitch/YouTube (needs STREAM_URL in .env)
 npm start                      # just the station, local only
 npm run check                  # all 130 tests
