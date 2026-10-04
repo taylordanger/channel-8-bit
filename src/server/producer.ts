@@ -42,6 +42,8 @@ export interface Produced {
   summary: string;
   /** The final, standards-cleared script (absent for bumpers and reruns). */
   script?: Script;
+  /** Written by the primary writer (not a fallback) - what pacing should measure. */
+  primary?: boolean;
   notes: StandardsNote[];
   rerunOf?: string;
 }
@@ -192,7 +194,13 @@ export class Producer {
         }
         const segment = await this.assemble(brief.show, brief.cast, checked.script, writerName);
         if (brief.deskTopicId) this.d.desk?.markUsed(brief.deskTopicId, at);
-        return { segment, summary: checked.script.summary, script: checked.script, notes: checked.notes };
+        return {
+          segment,
+          summary: checked.script.summary,
+          script: checked.script,
+          notes: checked.notes,
+          primary: writer === this.d.writers[0] && this.d.writers.length > 1,
+        };
       } catch (err) {
         lastError = `${writer.name}: ${(err as Error).message}`;
         this.d.log?.(`writer ${writer.name} failed on ${brief.show.id}: ${(err as Error).message}`);

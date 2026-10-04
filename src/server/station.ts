@@ -53,9 +53,23 @@ export class Station {
     return Math.max(this.d.timeline.tailEnd(), this.d.clock.now() + COMMIT_DELAY_MS);
   }
 
+  /** Below this lead, a slow writer couldn't finish in time, so the station airs an encore instead. */
+  private hurryThreshold(): number {
+    return Math.max(this.d.hurryBelowMs!, this.lastWriteMs * 1.15 + 10_000);
+  }
+
+  /**
+   * How far ahead to keep the timeline. With a slow writer, the target must sit well above
+   * the hurry threshold - otherwise every production would be an encore and nothing new
+   * would ever be written.
+   */
+  private leadTarget(base: number): number {
+    return this.slowWriter ? Math.max(base, this.hurryThreshold() + 90_000) : base;
+  }
+
   needsProduction(): boolean {
     const decision = this.d.governor.decide(this.d.clock.now());
-    return decision.leadTargetMs > 0 && this.d.timeline.tailEnd() - this.d.clock.now() < decision.leadTargetMs;
+    return decision.leadTargetMs > 0 && this.d.timeline.tailEnd() - this.d.clock.now() < this.leadTarget(decision.leadTargetMs);
   }
 
   /** Produce and commit one segment if the governor wants more. Returns what aired, if anything. */
@@ -71,11 +85,12 @@ export class Station {
       const coldStart = lead < 0;
       // Slow writers (local models) can't always outrun the clock; when the cushion is thin, buy time.
       // Hurry when what's already written would run out before the writer could finish another.
-      const hurry = !coldStart && this.slowWriter && lead < Math.max(this.d.hurryBelowMs!, this.lastWriteMs * 1.15 + 10_000);
-      const t0 = Date.now();
+      const hurry = !coldStart && this.slowWriter && lead < this.hurryThreshold();
+      const t0 = this.d.clock.now();
       const produced = await this.d.producer.produce(planAt, slot, { rerun: decision.rerunsOnly, coldStart, hurry });
-      if (produced.segment.kind === "live" && produced.script) {
-        this.lastWriteMs = Date.now() - t0;
+      // Measure only the primary writer: instant fallbacks would make a slow writer look fast.
+      if (produced.primary) {
+        this.lastWriteMs = this.d.clock.now() - t0;
         this.slowWriter = this.lastWriteMs > produced.segment.durationMs * 0.6;
       }
       this.commit(produced);
