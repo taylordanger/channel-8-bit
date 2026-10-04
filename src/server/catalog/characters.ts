@@ -738,7 +738,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "We reached out to {other} for comment. They said 'no comment.' Riveting.",
         "That's the news. If it happened, we said it. If we said it, it probably happened.",
       ],
-      voice: { say: "Daniel (English (UK))", rate: 175, kokoro: "bm_george", speed: 0.92 },
+      voice: { say: "Daniel", rate: 175, kokoro: "bm_george", speed: 0.92 },
       look: {
         skin: "#f0c8a0", hair: "#3a2a1a", hairStyle: "swoop", shirt: "#1d2b4f", pants: "#1d2b4f", accent: "#c8102e",
         outfit: "suit", build: "broad", eyes: "dot", nose: "big", facial: "none", accessories: [], height: 46,
@@ -758,7 +758,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "Our corrections segment is now longer than our news segment. I'm proud of it.",
         "Thank you, Lance. Now here's what actually happened with {topic}.",
       ],
-      voice: { say: "Kate (English (UK))", rate: 185, kokoro: "bf_alice", speed: 1.0 },
+      voice: { say: "Moira", rate: 185, kokoro: "bf_alice", speed: 1.0 },
       look: {
         skin: "#a0673a", hair: "#151515", hairStyle: "bun", shirt: "#e8e2d0", pants: "#34343f", accent: "#2a6f97",
         outfit: "vest", build: "slim", eyes: "lashes", nose: "small", facial: "none", accessories: ["glasses"], height: 41,

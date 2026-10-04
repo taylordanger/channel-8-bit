@@ -14,9 +14,14 @@ const log = (m: string) => console.log(`[${new Date().toISOString()}] ${m}`);
 if (config.tts === "say" || config.tts === "kokoro") {
   const missing = await checkVoices();
   if (missing.length) {
-    console.error("Missing macOS voices (System Settings > Accessibility > Spoken Content > Manage Voices):");
-    missing.forEach((m) => console.error("  - " + m));
-    process.exit(1);
+    const where = "System Settings > Accessibility > Spoken Content > Manage Voices";
+    // With Kokoro, macOS voices are only the backup: warn, but stay on the air.
+    if (config.tts === "kokoro") log(`backup macOS voices missing (only used if Kokoro fails; add them in ${where}): ${missing.join("; ")}`);
+    else {
+      console.error(`Missing macOS voices (${where}):`);
+      missing.forEach((m) => console.error("  - " + m));
+      process.exit(1);
+    }
   }
 }
 
