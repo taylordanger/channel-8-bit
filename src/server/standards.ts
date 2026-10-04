@@ -93,6 +93,7 @@ export function deterministicStandards(
   opts: { writerChecks?: boolean } = { writerChecks: true },
 ): StandardsResult {
   const writerChecks = opts.writerChecks !== false;
+  const catchphrases = brief.cast.flatMap((c) => c.catchphrases.map(normalize));
   // Everything the writers were shown as an example of tone, which must never air verbatim.
   const examples = writerChecks
     ? [
@@ -153,7 +154,10 @@ export function deterministicStandards(
       continue;
     }
     // Copying the prompt's own examples (the show's sample scene, the characters' sample lines).
-    if (writerChecks && examples.some((ex) => normalize(ex) === n || nearDuplicate(ex, b.line))) {
+    // (Catchphrases are meant to repeat, so compare what's left once they're taken out of both.)
+    const bare = (x: string) => catchphrases.reduce((acc, p) => ` ${acc} `.replace(` ${p} `, " ").trim(), normalize(x));
+    const mine = bare(b.line);
+    if (writerChecks && mine && examples.some((ex) => bare(ex) === mine || nearDuplicate(bare(ex), mine))) {
       notes.push({ verdict: "cut", line: b.line, reason: "copied an example from the writers' notes" });
       continue;
     }

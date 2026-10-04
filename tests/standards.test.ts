@@ -146,4 +146,16 @@ describe("quality checks from the show review", () => {
     );
     expect(r.script.beats.map((b) => b.line)).toEqual(["A brand new joke about a lighthouse keeper.", "Sure, Rex.", "One more line here.", "And another one."]);
   });
+
+  it("doesn't count a catchphrase as copying a sample line", async () => {
+    const { deterministicStandards } = await import("../src/server/standards.js");
+    const { getShow } = await import("../src/server/catalog/shows.js");
+    const { CHARACTERS } = await import("../src/server/catalog/characters.js");
+    const show = getShow("cooking");
+    const r = deterministicStandards(
+      scene([["remy", "Trust the process."], ["pepper", "Gerald, it's your time! Do your thing."], ["remy", "Fine."], ["pepper", "Okay."], ["remy", "Plate it, Pepper."], ["pepper", "Done."]]),
+      { show, cast: show.cast.map((id) => CHARACTERS[id]), recentLines: [] },
+    );
+    expect(r.script.beats.map((b) => b.line)).toContain("Gerald, it's your time! Do your thing.");
+  });
 });
