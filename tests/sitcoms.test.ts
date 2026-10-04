@@ -25,7 +25,7 @@ describe("sitcom and cartoon", () => {
 
   it("scenes play on their own sets and stand-up is solo", () => {
     const p = producer();
-    const at = Date.UTC(2026, 9, 3, 12, 0);
+    const at = Date.UTC(2026, 9, 3, 20, 0);
     const briefs = Array.from({ length: 60 }, (_, i) => p.brief(at + i * 1000, slotAt(at, "UTC"), 60));
     const standup = briefs.find((b) => b.segmentType === "stand-up cold open")!;
     expect(standup.cast.map((c) => c.id)).toEqual(["jerome"]);
@@ -55,7 +55,7 @@ describe("sitcom and cartoon", () => {
 
   it("the improv troupe can write a solo stand-up set and marks sitcom punchlines", async () => {
     const p = producer();
-    const at = Date.UTC(2026, 9, 3, 12, 0);
+    const at = Date.UTC(2026, 9, 3, 20, 0);
     let made = 0;
     for (let i = 0; i < 40 && made < 3; i++) {
       const out = await p.produce(at + i * 1000, slotAt(at, "UTC"), { rerun: false });
@@ -90,5 +90,23 @@ describe("every show", () => {
     const p = new Producer({ timeline: new Timeline(db), memory, tts: new SilentTTS(), writers: [new ImprovWriter(1)], timeZone: "UTC" });
     const topics = Array.from({ length: 20 }, (_, i) => p.brief(t + i * 1000, slotAt(t, "UTC"), 60).topic);
     expect(topics.some((x) => x.includes("Pip won the Golden Pixel"))).toBe(true);
+  });
+
+  it("Ask Dr. Dot takes a different caller from another show for each call", () => {
+    const db = openDb(":memory:");
+    const p = new Producer({ timeline: new Timeline(db), memory: new MemoryBank(db), tts: new SilentTTS(), writers: [new ImprovWriter(1)], timeZone: "UTC" });
+    const t = Date.UTC(2026, 9, 5, 12, 5);
+    const slot = slotAt(t, "UTC");
+    expect(slot.showId).toBe("callin");
+    const callers = new Set<string>();
+    for (let i = 0; i < 40; i++) {
+      const b = p.brief(t + i * 61_000, slot, 60);
+      if (b.guest) {
+        callers.add(b.guest.id);
+        expect(b.cast.map((c) => c.id)).toContain(b.guest.id);
+        expect(["dot", "murray"]).not.toContain(b.guest.id);
+      }
+    }
+    expect(callers.size).toBeGreaterThan(3);
   });
 });

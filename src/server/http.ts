@@ -205,6 +205,7 @@ async function handleMail(req: http.IncomingMessage, res: http.ServerResponse, u
     const out = await b.mailbag.submit(String(body.handle ?? ""), String(body.text ?? ""), showId, clientIp(req), b.clock.now());
     if (typeof out === "string") return json(res, { error: out }, out.includes("try again") ? 429 : 400);
     // Senders only learn whether it's in the queue, not the moderator's reasoning.
+    if (out.crisis) return json(res, { status: "needs help" }, 201);
     return json(res, { status: out.status === "rejected" ? "not accepted" : "received", id: out.id }, 201);
   }
   // "Where's my letter?" - only ever answers about the asker's own messages.
@@ -309,6 +310,14 @@ async function handleOverride(req: http.IncomingMessage, res: http.ServerRespons
 }
 
 export function startHttp(config: StationConfig, b: Built, publicDir: string) {
+  // Identifies the player code, so open pages reload themselves after an update.
+  const playerBuild = () => {
+    try {
+      return String(fs.statSync(path.join(publicDir, "app.js")).mtimeMs);
+    } catch {
+      return "";
+    }
+  };
   const mediaDir = path.join(config.dataDir, "media");
   const sockets = new Set<WebSocket>();
 
@@ -544,7 +553,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
     const isFeed = new URL(req.url ?? "/", "http://x").searchParams.get("feed") === "1";
     if (isFeed) feeds.add(ws);
     const session = isFeed ? undefined : b.audience.open(b.clock.now(), isLocal(req));
-    send(ws, { type: "hello", serverNow: b.clock.now(), network: config.networkName });
+    send(ws, { type: "hello", serverNow: b.clock.now(), network: config.networkName, build: playerBuild() });
     updateViewers();
     ws.on("message", (raw) => {
       let msg: ClientMessage;

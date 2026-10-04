@@ -9,6 +9,7 @@ export class StationLink {
   private offsets: number[] = [];
   private ws?: WebSocket;
   network = "";
+  private build = "";
   viewers = 0;
   connected = false;
 
@@ -59,6 +60,9 @@ export class StationLink {
     ws.onmessage = (ev) => {
       const m = JSON.parse(ev.data as string) as ServerMessage;
       if (m.type === "hello") {
+        // The player was updated while this page was open: reload to get the new version.
+        if (m.build && this.build && m.build !== this.build && !location.search.includes("clip=")) location.reload();
+        this.build ||= m.build ?? "";
         this.network = m.network;
         this.offsets.push(m.serverNow - Date.now());
         this.handlers.onSync();

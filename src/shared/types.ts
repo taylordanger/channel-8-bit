@@ -66,6 +66,7 @@ export type SetId =
   | "music_stage"
   | "game_show"
   | "news_desk"
+  | "radio_booth"
   | "commercial"
   | "bumper";
 
@@ -177,7 +178,7 @@ export interface GuideEntry {
 
 /** Messages on the /ws socket. */
 export type ServerMessage =
-  | { type: "hello"; serverNow: number; network: string }
+  | { type: "hello"; serverNow: number; network: string; build?: string }
   | { type: "pong"; c: number; s: number }
   | { type: "segment"; segment: Segment }
   | { type: "retract"; ids: string[] }

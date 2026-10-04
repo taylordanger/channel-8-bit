@@ -784,6 +784,47 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         outfit: "plain", build: "average", eyes: "wide", nose: "small", facial: "freckles", accessories: ["headset"], height: 39,
       },
     }),
+    // --- Ask Dr. Dot (call-in advice) ---------------------------------------------
+    c({
+      id: "dot",
+      name: "Dr. Delphine Dot",
+      bible:
+        "Host of Ask Dr. Dot, a lunchtime call-in advice show. Her doctorate is in 'Advanced Feelings' from an online university that is now a car wash. Warm, unshakably confident, and gives extremely specific, completely useless advice ('buy a smaller hat'). Never admits she's wrong; reframes every disaster as growth.",
+      catchphrases: ["doctor's orders", "you're on the air, sweetie", "and how does that make your hat feel?"],
+      bits: [
+        "You're on the air, sweetie. Tell Dr. Dot everything, in under thirty seconds.",
+        "Here's what you do: buy a smaller hat. Trust me. Doctor's orders.",
+        "I'm hearing a lot of feelings, {other}. Too many. Pick your three favorites.",
+        "That's not a problem. That's a growth opportunity wearing a problem costume.",
+        "Have you tried telling them how you feel, in a letter, and then eating the letter?",
+        "My degree says I'm right, {other}. It's laminated.",
+      ],
+      voice: { say: "Shelley (English (US))", rate: 180, kokoro: "af_nova", speed: 1.0 },
+      look: {
+        skin: "#c68863", hair: "#c0c0c8", hairStyle: "beehive", shirt: "#e05d8c", pants: "#5a2a4a", accent: "#ffd23f",
+        outfit: "dress", build: "round", eyes: "lashes", nose: "small", facial: "blush", accessories: ["glasses", "headphones", "necklace"], height: 40,
+      },
+    }),
+    c({
+      id: "murray",
+      name: "Murray Holt",
+      bible:
+        "Call screener and sidekick on Ask Dr. Dot. Weary, eats lunch on air, has screened calls for thirty years and knows every caller's business. Puts the worst callers through on purpose. Quietly gives better advice than Dr. Dot, which nobody hears because his mic is always off.",
+      catchphrases: ["line two, and I'm sorry", "my mic's off again, isn't it", "I'm eating, go ahead"],
+      bits: [
+        "Line two, Doc. And I'm sorry in advance.",
+        "I know this caller. I've known this caller for a decade. Brace.",
+        "My mic was off for that, wasn't it. It was good advice, too.",
+        "I'm eating, {other}. It's a sandwich. It's the best part of my day.",
+        "Thirty years screening calls. I have heard every problem twice. Except this one.",
+        "Doc, maybe just tell them to talk to each other? No? Okay.",
+      ],
+      voice: { say: "Reed (English (UK))", rate: 165, kokoro: "bm_daniel", speed: 0.9 },
+      look: {
+        skin: "#e2b48c", hair: "#6b5a4a", hairStyle: "bald", shirt: "#7d8a6a", pants: "#3a3a3a", accent: "#c9a227",
+        outfit: "vest", build: "round", eyes: "sleepy", nose: "big", facial: "mustache", accessories: ["headset"], height: 42,
+      },
+    }),
     // --- Commercials ------------------------------------------------------------
     c({
       id: "vance",

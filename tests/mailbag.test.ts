@@ -75,4 +75,10 @@ describe("mailbag", () => {
     mailbag.markAired(msg.id, 1);
     for (let i = 0; i < 100; i++) expect(p.brief(late + i * 1000, slot, 60).segmentType).not.toBe("viewer mail");
   });
+
+  it("keeps a sender in real trouble off the air and flags them for a kind reply", async () => {
+    const worried: Moderator = { moderate: async () => ({ allow: true, reason: "sounds serious", crisis: true }) };
+    const out = await new MailBag(openDb(":memory:"), DEFAULT_POLICY, worried).submit("Fan", "something serious", null, "1.1.1.1", 0);
+    expect(out).toMatchObject({ status: "rejected", crisis: true });
+  });
 });

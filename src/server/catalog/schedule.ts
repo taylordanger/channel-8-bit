@@ -17,7 +17,7 @@ export const GRID: Slot[] = [
   { startHour: 4, endHour: 6, showId: "pixelsons", mode: "rerun" },
   { startHour: 6, endHour: 10, showId: "rise_and_pixel", mode: "live" },
   { startHour: 10, endHour: 12, showId: "pixel_heights", mode: "live" },
-  { startHour: 12, endHour: 13, showId: "nada", mode: "live" },
+  { startHour: 12, endHour: 13, showId: "callin", mode: "live" },
   { startHour: 13, endHour: 14, showId: "hot_seat", mode: "live" },
   { startHour: 14, endHour: 17, showId: "couch_coop", mode: "live" },
   { startHour: 17, endHour: 18, showId: "pixel_heights", mode: "live" },

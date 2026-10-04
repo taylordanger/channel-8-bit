@@ -58,7 +58,7 @@ export function checkNoPrices(script: Script): StandardsResult {
 }
 
 /** Formats whose casts talk to the audience (and so may read the live chat). */
-const FOURTH_WALL = new Set(["late_night", "morning", "hangout", "gameshow", "news"]);
+const FOURTH_WALL = new Set(["late_night", "morning", "hangout", "gameshow", "news", "callin"]);
 
 /** Finished commercials kept per product; once there are this many, breaks rotate them. */
 export const ADS_PER_PRODUCT = 3;
@@ -298,7 +298,7 @@ export class Producer {
     }
 
     // One guest per slot, so the whole night has a consistent booking.
-    const booking = this.guestFor(show, slot);
+    const booking = this.guestFor(show, slot, at);
     const guest = booking && /guest/.test(segmentType) ? getCharacter(booking.id) : undefined;
     const solo = show.soloFor?.[segmentType];
     let cast = solo
@@ -357,7 +357,7 @@ export class Producer {
    * Who's booked on this airing. A show that books game-show losers gets the last-place
    * finisher of a game that ended just before it ("the loser has to face Rex").
    */
-  guestFor(show: Show, slot: ScheduledSlot): { id: string; note?: string } | undefined {
+  guestFor(show: Show, slot: ScheduledSlot, at?: number): { id: string; note?: string } | undefined {
     if (show.bookLosersFrom && this.d.results) {
       const r = this.d.results.latest(show.bookLosersFrom, slot.startAt - 90 * 60_000, slot.startAt + 10 * 60_000);
       if (r) {
@@ -370,6 +370,11 @@ export class Producer {
       }
     }
     if (!show.guestPool?.length) return undefined;
+    // Call-in shows take a new caller each segment (never someone already on the cast).
+    if (show.guestPerSegment && at !== undefined) {
+      const pool = show.guestPool.filter((id) => !show.cast.includes(id));
+      return { id: pool[hashText(`${slot.startAt}:${Math.floor(at / 1000)}`) % pool.length] };
+    }
     return { id: show.guestPool[Math.floor(slot.startAt / 3_600_000) % show.guestPool.length] };
   }
 
@@ -379,7 +384,7 @@ export class Producer {
     if (music) return this.music(at, brief.show, music, targetSeconds);
     if (this.d.episodes && !brief.ad) {
       const plan = await this.d.episodes.ensure(brief.show, slot, writers, brief.localTime, {
-        guest: this.guestFor(brief.show, slot)?.id,
+        guest: brief.show.guestPerSegment ? undefined : this.guestFor(brief.show, slot)?.id,
         keepTemplate: !this.d.writers.some(canPlan),
       });
       brief.episode = { plan, phase: phaseAt(plan, slot, at) };

@@ -595,6 +595,55 @@ const SETS: Record<Exclude<SetId, "bumper">, SetDef> = {
       }
     },
   },
+  radio_booth: {
+    marks: [
+      { x: 96, y: 124, seated: true, face: 1 }, // Dr. Dot at the big mic
+      { x: 262, y: 128, seated: true, face: -1 }, // Murray at the screening desk
+      { x: 182, y: 132, seated: true, face: -1 }, // the caller, on the guest stool with the studio phone
+    ],
+    back: (g, t, ev) => {
+      // acoustic foam walls
+      px(g, "#3b2a4a", 0, 0, W, H);
+      for (let y = 20; y < 116; y += 8) for (let x = (y / 8) % 2 ? 0 : 4; x < W; x += 8) px(g, "#4a3660", x, y, 4, 4);
+      // ON AIR light
+      const lit = Math.floor(t / 900) % 6 !== 0;
+      px(g, lit ? "#ff3355" : "#5a1020", 132, 22, 56, 14);
+      g.fillStyle = lit ? "#fff" : "#8a4050";
+      g.font = "bold 8px monospace";
+      g.fillText("ON AIR", 143, 32);
+      // show sign
+      px(g, "#e05d8c", 30, 40, 72, 22);
+      g.fillStyle = "#fff";
+      g.font = "bold 8px monospace";
+      g.fillText("ASK", 54, 49);
+      g.fillText("DR. DOT", 44, 58);
+      // the phone-line board Murray watches, lines blinking
+      px(g, "#1a1a1a", 238, 44, 62, 30);
+      for (let i = 0; i < 6; i++) px(g, (i + Math.floor(t / 400)) % 3 === 0 ? "#ffd23f" : "#3a3a20", 244 + i * 9, 54, 5, 5);
+      g.fillStyle = "#aaa";
+      g.font = "5px monospace";
+      g.fillText("LINES", 260, 68);
+      // carpet
+      px(g, "#5a4a3a", 0, 136, W, 44);
+      void ev;
+    },
+    front: (g) => {
+      // Dot's desk with the big broadcast mic on its arm
+      px(g, "#6a4a7a", 66, 118, 64, 28);
+      px(g, "#8a6a9a", 66, 118, 64, 3);
+      px(g, "#222", 124, 94, 2, 24);
+      px(g, "#222", 114, 94, 12, 2);
+      px(g, "#555", 108, 96, 7, 9);
+      // Murray's screening desk, with lunch
+      px(g, "#4a5a3a", 238, 122, 62, 22);
+      px(g, "#f2d16b", 246, 116, 12, 6); // sandwich
+      // the caller's stool and the studio phone
+      px(g, "#333", 176, 146, 12, 3);
+      px(g, "#333", 181, 146, 2, 18);
+      px(g, "#c8102e", 200, 120, 10, 6);
+      px(g, "#111", 204, 126, 2, 16);
+    },
+  },
   news_desk: {
     marks: [
       { x: 104, y: 124, seated: true, face: 1 }, // Lance, anchor chair

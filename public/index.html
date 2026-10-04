@@ -152,7 +152,13 @@
         e.preventDefault();
         const res = await fetch("/api/mail", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ handle: $("wi-handle").value, text: $("wi-text").value, showId: $("wi-show").value || null }) });
         const d = await res.json();
-        $("wi-status").textContent = res.ok ? (d.status === "received" ? "Got it! Watch for it on air." : "Thanks - that one won't make it to air.") : d.error;
+        $("wi-status").textContent = res.ok
+          ? d.status === "received"
+            ? "Got it! Watch for it on air."
+            : d.status === "needs help"
+              ? "It sounds like you might be going through something serious. This is a comedy show, so we can't help on air - but please talk to someone you trust. In the US you can call or text 988 any time, and if anyone is in danger right now, call 911 or your local emergency number."
+              : "Thanks - that one won't make it to air."
+          : d.error;
         if (res.ok) $("wi-text").value = "";
         if (res.ok && d.id) {
           saveMine([d.id, ...loadMine()].slice(0, 10));

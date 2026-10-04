@@ -44,6 +44,9 @@ const services: Service[] = [
 
 const running = new Map<string, ChildProcess>();
 let stopping = false;
+/** Services being restarted on purpose (npm run reload): come straight back, no backoff. */
+const reloading = new Set<string>();
+const pidFile = path.join(root, "data", "onair.pid");
 
 function start(svc: Service, attempt = 0) {
   if (stopping) return;
@@ -66,6 +69,10 @@ function start(svc: Service, attempt = 0) {
   child.on("exit", (code, signal) => {
     running.delete(svc.name);
     if (stopping) return;
+    if (reloading.delete(svc.name)) {
+      log(svc.name, "restarting with the new code");
+      return void setTimeout(() => start(svc, 0), 300);
+    }
     // A service that ran for a while gets a fresh backoff.
     const next = Date.now() - started > 60_000 ? 0 : attempt + 1;
     const wait = Math.min(60_000, 2000 * 2 ** next);
@@ -108,12 +115,36 @@ async function unloadModel() {
   }
 }
 
-async function main() {
-  // Build the player once up front (the station process doesn't).
-  await new Promise<void>((resolve, reject) => {
+function buildWeb(): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
     const b = spawn("npm", ["run", "-s", "build:web"], { cwd: root, stdio: "ignore" });
     b.on("exit", (c) => (c === 0 ? resolve() : reject(new Error("web build failed"))));
   });
+}
+
+/**
+ * npm run reload: rebuild the player and restart only the station, keeping the tunnel up, so
+ * the public address doesn't change and viewers just reconnect.
+ */
+async function reload() {
+  const station = running.get("station");
+  if (stopping || !station) return;
+  log("onair", "reloading the station (the tunnel and its address stay up)...");
+  try {
+    await buildWeb();
+  } catch (e) {
+    return log("onair", `reload cancelled: ${(e as Error).message}`);
+  }
+  reloading.add("station");
+  station.kill("SIGTERM");
+}
+process.on("SIGUSR2", () => void reload());
+
+async function main() {
+  // Build the player once up front (the station process doesn't).
+  await buildWeb();
+  fs.mkdirSync(path.dirname(pidFile), { recursive: true });
+  fs.writeFileSync(pidFile, String(process.pid));
   // Keep the Mac awake for as long as we're on the air.
   if (process.platform === "darwin") {
     const awake = spawn("caffeinate", ["-dims", "-w", String(process.pid)], { stdio: "ignore" });
@@ -132,6 +163,7 @@ async function stop() {
   if (stopping) return;
   stopping = true;
   log("onair", "going off the air...");
+  fs.rmSync(pidFile, { force: true });
   const ownOllama = running.get("ollama");
   for (const [name, child] of running) if (name !== "ollama") child.kill("SIGTERM");
   // Someone else's Ollama keeps running, but without our model hogging ~5 GB of memory.

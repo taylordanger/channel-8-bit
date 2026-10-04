@@ -1,6 +1,6 @@
 import type { SetId } from "../../shared/types.js";
 
-export type ShowFormat = "late_night" | "morning" | "soap" | "hangout" | "sitcom" | "cartoon" | "gameshow" | "news" | "commercial";
+export type ShowFormat = "late_night" | "morning" | "soap" | "hangout" | "sitcom" | "cartoon" | "gameshow" | "news" | "callin" | "commercial";
 
 export interface Show {
   id: string;
@@ -29,6 +29,8 @@ export interface Show {
   guestPool?: string[];
   /** A game show whose last-place finisher gets booked as this show's next guest. */
   bookLosersFrom?: string;
+  /** A different guest for every segment (call-in shows) instead of one per airing. */
+  guestPerSegment?: boolean;
   /** Whether the show carries an ongoing plot that the writers must advance. */
   serialized: boolean;
   bible: string;
@@ -209,6 +211,32 @@ export const SHOWS: Record<string, Show> = {
     ],
     example:
       "lance: Good evening, and brace yourselves. Tonight's top story: a fire at the network. Paige?\npaige: A small correction, Lance. It's a fire drill.\nlance: A fire drill. Was anyone drilled?\npaige: Nobody was drilled. It's a practice.\nlance: Then let's go live to Wren, who is practicing at the scene.\nwren: Lance, I'm live outside the building, which is the wrong building. But the people here are very calm.\nlance: Chilling. Back to you, Paige.\npaige: You can't send it back to me. I'm sitting right here.",
+  },
+  callin: {
+    id: "callin",
+    title: "Ask Dr. Dot",
+    format: "callin",
+    set: "radio_booth",
+    tier: "standard",
+    cast: ["dot", "murray"],
+    guestPool: ["rex", "greg", "victoria", "kev", "lenny", "marisol", "dash", "brick", "lola", "tony", "sunny", "hank"],
+    guestPerSegment: true,
+    serialized: false,
+    bible:
+      "A lunchtime call-in advice show. Dr. Dot gives confident, very specific, useless advice; Murray screens the calls and knows everyone's business. Callers are characters from the network's other shows calling about problems from their own lives - their feuds, their losses, their bosses, the people they share a set with - so use what they remember and how they feel. Viewer letters get the same treatment. Problems are silly and fictional, and so is the advice: never real medical, legal, financial or mental-health advice. If a letter seems to describe a real, serious problem, Dr. Dot drops the act for one kind line - this show is for silly problems; talk to someone you trust - and moves on.",
+    segmentTypes: ["guest caller", "guest caller", "viewer letter", "lightning round", "doctor's orders"],
+    mailSegment: "viewer letter",
+    soloFor: { "doctor's orders": "dot" },
+    topics: [
+      "a coworker who keeps stealing their lunch",
+      "a feud that has gotten out of hand",
+      "a terrible gift they have to pretend to love",
+      "a rival who is better at their job",
+      "a houseplant that seems to be judging them",
+      "a group chat they can't escape",
+    ],
+    example:
+      "dot: You're on the air, sweetie. What's troubling you?\ngreg: My co-host keeps stealing my weather segment.\ndot: Have you considered becoming the weather?\ngreg: I... what?\ndot: Wear a cloud costume. She can't steal you if you are the forecast.\nmurray: Doc, he's a grown man.\ndot: A grown man who will soon be a cumulonimbus. Doctor's orders!\ngreg: Seventy percent chance I hang up.\nmurray: My mic was off for the good advice again, wasn't it.",
   },
   hot_seat: {
     id: "hot_seat",
