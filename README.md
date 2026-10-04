@@ -93,7 +93,10 @@ records to a file instead. While streaming, the feed counts as a viewer, so the 
 3. ~~**Music**~~ — done: invented bands (Glimmer, The Rusty Spurs, The Sewer Rats, house band The Interference)
    perform original chiptune songs generated from a seed, identically in every viewer's browser; the band animates to
    the beat and the drummer waits for the drums to come in. Desk: "play a song now". Next: your own tracks (e.g. Suno).
-4. **Show formats** — game show with live audience voting, cooking show, call-in show reading viewer chat.
+4. ~~**Game show with viewer voting**~~ — done: *Hot Seat* (1pm, 9pm). Contestants are drafted from other shows;
+   viewers vote on every round from the website (`/api/vote`, one vote each), verdicts feed the next round, the
+   final counts double, and the champion's win and the losers' grudges go into memory, moods and relationships.
+   Set `PUBLIC_URL` to show a vote address on the stream. Next: a call-in show reading viewer messages.
 5. ~~**Character agency**~~ — done: lasting moods (cross-show, fade after hours), walk-offs that keep a regular off
    the set for the next scenes and earn them an entrance, feuds the writers must escalate or resolve; `/drama.html`.
 6. **Ops dashboard** — spend, standards log, what each writer produced, plot state per show.

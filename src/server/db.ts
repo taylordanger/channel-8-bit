@@ -78,6 +78,30 @@ CREATE TABLE IF NOT EXISTS character_state (
   owed_entrance   INTEGER NOT NULL DEFAULT 0   -- 1 = owed an entrance in their next scene
 );
 
+CREATE TABLE IF NOT EXISTS polls (
+  id         TEXT PRIMARY KEY,
+  segment_id TEXT NOT NULL,
+  show_id    TEXT NOT NULL,
+  episode    TEXT NOT NULL,
+  question   TEXT NOT NULL,
+  options    TEXT NOT NULL,          -- JSON [{id,label}]
+  opens_at   INTEGER NOT NULL,
+  closes_at  INTEGER NOT NULL,
+  closed     INTEGER NOT NULL DEFAULT 0,
+  winner     TEXT,
+  studio     INTEGER NOT NULL DEFAULT 0, -- nobody voted; the studio audience decided
+  weight     INTEGER NOT NULL DEFAULT 1  -- points the winner gets (the final counts double)
+);
+CREATE INDEX IF NOT EXISTS polls_episode ON polls(episode);
+
+CREATE TABLE IF NOT EXISTS votes (
+  poll_id    TEXT NOT NULL,
+  voter      TEXT NOT NULL,
+  option_id  TEXT NOT NULL,
+  at         INTEGER NOT NULL,
+  PRIMARY KEY (poll_id, voter)
+);
+
 CREATE TABLE IF NOT EXISTS overrides (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   show_id    TEXT NOT NULL,

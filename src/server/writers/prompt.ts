@@ -88,6 +88,27 @@ export function userPrompt(b: WriterBrief): string {
     sections.push(`BACK ON SET: ${b.returning.map(name).join(", ")} returns after storming off. Give them an entrance: their FIRST line uses action "enter", and the room should feel it.`);
   if (b.feuds?.length)
     sections.push(`FEUD: ${b.feuds.map((f) => `${name(f.a)} vs ${name(f.b)}`).join("; ")} - a full-blown feud. Escalate it with a petty new front, or stage a messy, short-lived reconciliation. Report the shift in relationshipChanges.`);
+  if (b.game) {
+    const g = b.game;
+    const standings = g.contestants.map((c) => `${name(c)} ${g.scores[c] ?? 0}`).join(", ");
+    const lines = [`GAME: ${name(b.cast[0].id)} hosts. Contestants: ${g.contestants.map(name).join(", ")}. Points so far: ${standings}.`];
+    if (g.lastVerdict) {
+      const v = g.lastVerdict;
+      const votes = Object.values(v.tally).reduce((a, x) => a + x, 0);
+      lines.push(
+        v.studio
+          ? `LATEST VERDICT: nobody at home voted, so the studio audience gave "${v.question}" to ${name(v.winner)}. The host announces it.`
+          : `LATEST VERDICT: the viewers voted ${name(v.winner)} the winner of "${v.question}" (${votes} vote${votes === 1 ? "" : "s"}). The host announces it with reverence; the others react in character.`,
+      );
+    }
+    if (g.pending) lines.push(`Some votes are still being counted - don't announce results you haven't been given.`);
+    if (g.step === "introductions") lines.push("THIS SEGMENT: the host introduces each contestant and their home show; each contestant boasts or trash-talks. No round yet, no winner.");
+    else if (g.champion)
+      lines.push(`THIS SEGMENT: the champion ceremony. ${name(g.champion)} wins the Golden Pixel with the most points. Crown them; give the losers sore-loser reactions true to their characters.`);
+    else
+      lines.push(`THIS SEGMENT: play the ${g.step}. Give every contestant a distinct, memorable moment. The host must NOT pick a winner - end with the host telling viewers at home to vote now.`);
+    sections.push(lines.join("\n"));
+  }
   if (b.recentLines.length) sections.push(`RECENTLY AIRED (do not repeat):\n${b.recentLines.slice(-40).map((l) => `- ${l}`).join("\n")}`);
   return sections.join("\n\n");
 }

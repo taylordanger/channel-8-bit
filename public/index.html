@@ -58,6 +58,11 @@
       #guide li { display: flex; gap: 14px; }
       #guide .time { color: var(--muted); min-width: 80px; }
       #guide li.now { color: #ffe066; }
+      .vote { border: 2px solid #ffd23f; }
+      .vote h2 { color: #ffd23f; }
+      .vote .options { display: flex; gap: 12px; flex-wrap: wrap; }
+      .vote button { font: inherit; font-size: 12px; padding: 14px 20px; background: #ff5a1f; color: #fff; border: 0; border-radius: 4px; cursor: pointer; }
+      .vote button:disabled { opacity: 0.4; cursor: default; }
     </style>
   </head>
   <body>
@@ -68,6 +73,7 @@
         <small>sound on · everyone sees the same broadcast</small>
       </div>
     </div>
+    <section class="below vote" id="vote" hidden></section>
     <section class="below">
       <h2>PROGRAM GUIDE <a href="/desk.html">ASSIGNMENT DESK →</a> <a href="/drama.html">DRAMA →</a> <a href="/lineup.html">CAST →</a></h2>
       <ol id="guide"></ol>

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
-import type { ClientMessage, ServerMessage, Segment } from "../shared/types.js";
+import type { ClientMessage, PollResult, ServerMessage, Segment } from "../shared/types.js";
 import type { Built } from "./build.js";
 import { CHARACTERS } from "./catalog/characters.js";
 import { guideWith, programAt } from "./catalog/schedule.js";
@@ -120,6 +120,33 @@ async function handleTopics(req: http.IncomingMessage, res: http.ServerResponse,
   return json(res, { error: "unsupported" }, 405);
 }
 
+/** Simple per-IP throttle so one viewer can't flood the vote endpoint. */
+const voteHits = new Map<string, number[]>();
+
+/** Viewers vote from anywhere - that's the point - but once per poll, and not too fast. */
+async function handleVote(req: http.IncomingMessage, res: http.ServerResponse, b: Built, broadcast: (m: ServerMessage) => void) {
+  if (req.method !== "POST") return json(res, { error: "unsupported" }, 405);
+  const ip = req.socket.remoteAddress ?? "?";
+  const now = b.clock.now();
+  const hits = (voteHits.get(ip) ?? []).filter((t) => now - t < 60_000);
+  if (hits.length >= 30) return json(res, { error: "slow down" }, 429);
+  voteHits.set(ip, [...hits, now]);
+  let body: { pollId?: unknown; option?: unknown; voter?: unknown };
+  try {
+    body = (await readJson(req, 1024)) as typeof body;
+  } catch (e) {
+    return json(res, { error: (e as Error).message }, 400);
+  }
+  const { pollId, option, voter } = body;
+  if (typeof pollId !== "string" || typeof option !== "string" || typeof voter !== "string" || !/^[a-zA-Z0-9-]{8,64}$/.test(voter))
+    return json(res, { error: "bad vote" }, 400);
+  const outcome = b.polls.vote(pollId, voter, option, now);
+  if (outcome !== "ok") return json(res, { error: outcome }, outcome === "already voted" ? 409 : 400);
+  const result = b.polls.result(pollId)!;
+  broadcast({ type: "poll", result });
+  return json(res, result);
+}
+
 async function handleMusic(req: http.IncomingMessage, res: http.ServerResponse, b: Built) {
   const artists = Object.values(ARTISTS).map((a) => ({ id: a.id, name: a.name, style: a.style }));
   if (req.method === "GET") return json(res, { artists });
@@ -164,6 +191,13 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://x");
     const now = b.clock.now();
+    if (url.pathname === "/api/vote") {
+      void handleVote(req, res, b, broadcast);
+      return;
+    }
+    if (url.pathname === "/api/polls") {
+      return json(res, b.polls.active(now).map((p) => ({ ...p, tally: b.polls.tally(p.id) })));
+    }
     if (url.pathname === "/api/music") {
       void handleMusic(req, res, b);
       return;
@@ -178,7 +212,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
     }
     switch (url.pathname) {
       case "/api/now":
-        return json(res, { serverNow: now, network: config.networkName, onNow: programAt(now, config.timeZone, b.station.override()), override: b.station.override() });
+        return json(res, { serverNow: now, network: config.networkName, voteUrl: config.publicUrl.replace(/^https?:\/\//, ""), onNow: programAt(now, config.timeZone, b.station.override()), override: b.station.override() });
       case "/api/timeline": {
         const from = Number(url.searchParams.get("from") ?? now - 60_000);
         const to = Math.min(Number(url.searchParams.get("to") ?? now + 600_000), from + 3_600_000);
@@ -278,6 +312,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
     server,
     pushSegment: (segment: Segment) => broadcast({ type: "segment", segment }),
     retract: (ids: string[]) => broadcast({ type: "retract", ids }),
+    pollResult: (r: PollResult) => broadcast({ type: "poll", result: r }),
     close: () => {
       wss.close();
       server.close();

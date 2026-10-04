@@ -65,7 +65,7 @@ describe("http + ws", () => {
     expect(bad.status).toBe(400);
     const list = await (await fetch(base + "/api/topics")).json();
     expect(list.topics.map((t: { id: number }) => t.id)).toContain(topic.id);
-    expect(list.shows.length).toBe(6);
+    expect(list.shows.length).toBe(7);
     expect(await (await fetch(`${base}/api/topics/${topic.id}`, { method: "DELETE" })).json()).toEqual({ removed: true });
   });
 
@@ -89,6 +89,19 @@ describe("http + ws", () => {
       body: JSON.stringify({ url: "http://127.0.0.1:8088/api/status" }),
     });
     expect(local.status).toBe(400);
+  });
+
+  it("takes viewer votes from anywhere, once each", async () => {
+    built.polls.open({ id: "poll-http", segmentId: "s", showId: "hot_seat", episode: "e", question: "Who won?", options: [{ id: "a", label: "A" }, { id: "b", label: "B" }], opensAt: built.clock.now() - 1000, closesAt: built.clock.now() + 60_000, weight: 1 });
+    const vote = (voter: string) =>
+      fetch(base + "/api/vote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pollId: "poll-http", option: "a", voter }) });
+    const ok = await vote("viewer-abcdef01");
+    expect(ok.status).toBe(200);
+    expect((await ok.json()).tally).toEqual({ a: 1, b: 0 });
+    expect((await vote("viewer-abcdef01")).status).toBe(409);
+    expect((await vote("x")).status).toBe(400);
+    const active = await (await fetch(base + "/api/polls")).json();
+    expect(active[0]).toMatchObject({ id: "poll-http", tally: { a: 1, b: 0 } });
   });
 
   it("refuses path traversal out of the media and public dirs", async () => {

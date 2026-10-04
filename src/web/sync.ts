@@ -1,4 +1,4 @@
-import type { ClientMessage, Segment, ServerMessage } from "../shared/types.js";
+import type { ClientMessage, PollResult, Segment, ServerMessage } from "../shared/types.js";
 
 /**
  * Keeps this browser's idea of station time in step with the server (NTP-style:
@@ -13,7 +13,12 @@ export class StationLink {
   connected = false;
 
   constructor(
-    private handlers: { onSegment: (s: Segment) => void; onSync: () => void; onRetract?: (ids: string[]) => void },
+    private handlers: {
+      onSegment: (s: Segment) => void;
+      onSync: () => void;
+      onRetract?: (ids: string[]) => void;
+      onPoll?: (r: PollResult) => void;
+    },
   ) {}
 
   /** Station "now" in ms. */
@@ -46,6 +51,7 @@ export class StationLink {
         if (this.offsets.length > 15) this.offsets.shift();
       } else if (m.type === "segment") this.handlers.onSegment(m.segment);
       else if (m.type === "retract") this.handlers.onRetract?.(m.ids);
+      else if (m.type === "poll") this.handlers.onPoll?.(m.result);
       else if (m.type === "viewers") this.viewers = m.count;
     };
     ws.onclose = () => {

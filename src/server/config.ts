@@ -5,6 +5,8 @@ const num = (v: string | undefined, d: number) => (v === undefined || v === "" ?
 
 export interface StationConfig {
   networkName: string;
+  /** Public address viewers can vote at, shown on the broadcast feed (e.g. a tunnel or domain). */
+  publicUrl: string;
   port: number;
   dataDir: string;
   /** IANA time zone the schedule grid is laid out in. */
@@ -31,6 +33,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): StationConfig 
   const writer = (env.WRITER as StationConfig["writer"]) ?? "auto";
   return {
     networkName: env.NETWORK_NAME ?? "Channel 8-Bit",
+    publicUrl: env.PUBLIC_URL ?? "",
     port: num(env.PORT, 8088),
     dataDir: path.resolve(env.DATA_DIR ?? "data"),
     timeZone: env.STATION_TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone,

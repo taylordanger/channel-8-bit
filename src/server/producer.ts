@@ -4,6 +4,7 @@ import { getCharacter, type Character } from "./catalog/characters.js";
 import { slotAt, type ScheduledSlot } from "./catalog/schedule.js";
 import { getShow, type Show } from "./catalog/shows.js";
 import type { TopicDesk } from "./desk.js";
+import type { PollBox } from "./polls.js";
 import type { CharacterStates, MemoryBank } from "./memory.js";
 import { checkNames, checkNumbers, checkVerbatim, type SourceChecker } from "./factcheck.js";
 import { CHARACTERS } from "./catalog/characters.js";
@@ -60,6 +61,7 @@ export interface ProducerDeps {
   timeline: Timeline;
   memory: MemoryBank;
   states?: CharacterStates;
+  polls?: PollBox;
   desk?: TopicDesk;
   tts: TTSEngine;
   /** Tried in order; the last one should never fail (the improv writer). */
@@ -112,6 +114,11 @@ export class Producer {
     }
   }
 
+  /** A short card while the last votes of a game come in, before the champion is crowned. */
+  countingVotes(slot: ScheduledSlot, ms: number): Produced {
+    return this.bumper(slot, ms, `${slot.title}: counting your votes...`);
+  }
+
   /**
    * Instant filler for when the timeline is about to run dry while a slow write is still in
    * progress: an encore if there is anything at all to re-air, otherwise a short standby card.
@@ -153,7 +160,7 @@ export class Producer {
       }
     });
     return {
-      segment: { ...old, cast, id: crypto.randomUUID(), startAt: 0, kind: "rerun", title: `${old.title.replace(/ \(encore\)$/, "")} (encore)` },
+      segment: { ...old, cast, poll: undefined, id: crypto.randomUUID(), startAt: 0, kind: "rerun", title: `${old.title.replace(/ \(encore\)$/, "")} (encore)` },
       summary: "",
       notes: [],
       rerunOf: old.id,
@@ -165,7 +172,8 @@ export class Producer {
     const show = getShow(slot.showId);
     const r = rng(Math.floor(at / 1000));
     const pick = <T>(xs: T[]) => xs[Math.floor(r() * xs.length)];
-    const segmentType = pick(show.segmentTypes);
+    const game = show.gameSteps ? this.gameFor(show, slot, at) : undefined;
+    const segmentType = game ? game.step : pick(show.segmentTypes);
 
     // One guest per slot, so the whole night has a consistent booking.
     let guest: Character | undefined;
@@ -173,7 +181,9 @@ export class Producer {
       guest = getCharacter(show.guestPool[Math.floor(slot.startAt / 3_600_000) % show.guestPool.length]);
     }
     const solo = show.soloFor?.[segmentType];
-    let cast = solo ? [getCharacter(solo)] : [...show.cast.map(getCharacter), ...(guest ? [guest] : [])];
+    let cast = solo
+      ? [getCharacter(solo)]
+      : [...show.cast.map(getCharacter), ...(guest ? [guest] : []), ...(game ? game.contestants.map(getCharacter) : [])];
     // Whoever stormed off this show sits out - as long as at least two people are left to talk.
     const off = solo ? [] : (this.d.states?.offSet(show.id) ?? []);
     if (off.length) {
@@ -210,6 +220,7 @@ export class Producer {
       offSet: off.filter((o) => !ids.includes(o.id)).map((o) => ({ id: o.id, reason: o.reason })),
       returning: (this.d.states?.returning(show.id) ?? []).filter((id) => ids.includes(id)),
       feuds: this.d.memory.feuds(ids).map(({ a, b }) => ({ a, b })),
+      game,
     };
   }
 
@@ -229,6 +240,7 @@ export class Producer {
           continue;
         }
         const segment = await this.assemble(brief.show, brief.cast, checked.script, writerName, brief.segmentType, brief.moods);
+        if (brief.game) this.attachGame(segment, brief.show, brief.game);
         if (brief.deskTopicId) this.d.desk?.markUsed(brief.deskTopicId, at);
         return {
           segment,
@@ -305,6 +317,43 @@ export class Producer {
   }
 
   /**
+   * Where the game on this slot stands: which step comes next, who's playing, the score from
+   * the viewers' closed votes, and the latest verdict. A game is a fixed run of steps; when it
+   * ends, the next one drafts new contestants.
+   */
+  gameFor(show: Show, slot: ScheduledSlot, at: number): NonNullable<WriterBrief["game"]> {
+    const steps = show.gameSteps!;
+    const played = this.d.timeline
+      .range(slot.startAt, at)
+      .filter((s) => s.showId === show.id && s.kind === "live" && s.game).length;
+    const cycle = Math.floor(played / steps.length);
+    const step = steps[played % steps.length];
+    const episode = `${show.id}:${slot.startAt}:${cycle}`;
+    const r = rng(hashText(episode));
+    const pool = [...(show.contestantPool ?? [])];
+    const contestants: string[] = [];
+    while (contestants.length < 3 && pool.length) contestants.push(pool.splice(Math.floor(r() * pool.length), 1)[0]);
+    const polls = this.d.polls?.episode(episode) ?? [];
+    const scores: Record<string, number> = Object.fromEntries(contestants.map((c) => [c, 0]));
+    for (const p of polls) if (p.closed && p.winner && p.winner in scores) scores[p.winner] += p.weight;
+    const closed = polls.filter((p) => p.closed);
+    const last = closed[closed.length - 1];
+    const lastVerdict = last
+      ? { question: last.question, winner: last.winner!, studio: last.studio, tally: this.d.polls!.tally(last.id) }
+      : undefined;
+    const leader = [...contestants].sort((a, b) => scores[b] - scores[a] || contestants.indexOf(a) - contestants.indexOf(b))[0];
+    return {
+      episode,
+      contestants,
+      scores,
+      step,
+      lastVerdict,
+      pending: polls.filter((p) => !p.closed).length,
+      champion: step === steps[steps.length - 1] ? leader : undefined,
+    };
+  }
+
+  /**
    * Everything a script must pass before air, in order. Each model pass is followed by
    * the deterministic desk again, since rewrites are new text.
    */
@@ -344,6 +393,20 @@ export class Producer {
       }
     }
     return { script: r.script, notes };
+  }
+
+  /** Game segments carry the scoreboard, and every scored round opens a viewer poll. */
+  private attachGame(segment: Segment, show: Show, game: NonNullable<WriterBrief["game"]>): void {
+    segment.game = { episode: game.episode, contestants: game.contestants, scores: game.scores, step: game.step, champion: game.champion };
+    const scored = game.step !== show.gameSteps![0] && !game.champion;
+    if (!scored) return;
+    const final = game.step === show.gameSteps![show.gameSteps!.length - 2];
+    segment.poll = {
+      id: crypto.randomUUID(),
+      question: final ? "Who won the FINAL SHOWDOWN? (counts double)" : `Who won the ${game.step}?`,
+      options: game.contestants.map((id) => ({ id, label: getCharacter(id).name.split(" ")[0] })),
+      closesAt: 0, // set when the segment is scheduled
+    };
   }
 
   /** Voice every line and lay the cues end to end. Durations come from the real audio. */
@@ -413,4 +476,10 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R
   };
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return out;
+}
+
+function hashText(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
 }

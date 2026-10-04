@@ -1,6 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Segment } from "../shared/types.js";
+import type { PollResult, Segment } from "../shared/types.js";
 import { buildStation, checkVoices } from "./build.js";
 import { OffsetClock, systemClock } from "./clock.js";
 import { loadConfig } from "./config.js";
@@ -22,13 +22,15 @@ if (config.tts === "say" || config.tts === "kokoro") {
 
 let push: (s: Segment) => void = () => {};
 let retract: (ids: string[]) => void = () => {};
+let pollResult: (r: PollResult) => void = () => {};
 // Rehearsal: CLOCK_OFFSET_MIN=540 DATA_DIR=data-rehearsal PORT=8089 runs a copy of the station nine hours ahead.
 const offsetMin = Number(process.env.CLOCK_OFFSET_MIN ?? 0);
 const clock = offsetMin ? new OffsetClock(offsetMin * 60_000) : systemClock;
-const built = buildStation(config, { log, clock, onSegment: (s) => push(s), onRetract: (ids) => retract(ids) });
+const built = buildStation(config, { log, clock, onSegment: (s) => push(s), onRetract: (ids) => retract(ids), onPoll: (r) => pollResult(r) });
 const http = startHttp(config, built, path.resolve(here, "../../public"));
 push = http.pushSegment;
 retract = http.retract;
+pollResult = http.pollResult;
 built.station.start();
 
 log(`${config.networkName} is on the air at http://localhost:${config.port}${offsetMin ? ` (REHEARSAL, clock shifted ${offsetMin} min)` : ""}`);

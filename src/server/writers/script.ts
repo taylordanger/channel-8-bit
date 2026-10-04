@@ -88,6 +88,18 @@ export interface WriterBrief {
   returning?: string[];
   /** Pairs of characters on set who are in a full-blown feud. */
   feuds?: { a: string; b: string }[];
+  /** Game shows: the state of the current game. */
+  game?: {
+    episode: string;
+    contestants: string[];
+    scores: Record<string, number>;
+    step: string;
+    lastVerdict?: { question: string; winner: string; studio: boolean; tally: Record<string, number> };
+    /** Votes still open from earlier rounds. */
+    pending: number;
+    /** Set for the ceremony: who's being crowned. */
+    champion?: string;
+  };
 }
 
 export interface WriterResult {

@@ -701,6 +701,27 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         outfit: "tank", build: "round", eyes: "dot", nose: "big", facial: "none", accessories: ["headband"], height: 40,
       },
     }),
+
+    // --- Hot Seat (game show) -------------------------------------------------
+    c({
+      id: "chet",
+      name: "Chet Ryder",
+      bible:
+        "Host of Hot Seat. A game show host carved from pure enthusiasm and hair spray: blinding teeth, sparkly suit, treats every trivial moment like the moon landing. Secretly roots for the underdog. Reads the audience's votes like sacred scripture.",
+      catchphrases: ["let's turn up the heat", "lock it in", "the people have spoken"],
+      bits: [
+        "Let's turn up the heat! Not literally. The fire marshal has asked me to stop saying that.",
+        "Lock it in! I need an answer, a confident nod, and a signed waiver.",
+        "The people have spoken, and frankly, some of them should be stopped.",
+        "{other}, you're sweating. Is that nerves, or the industrial studio lights? Both? Great television!",
+        "Tonight's prize is the Golden Pixel. It is made of gold paint and pure ambition.",
+      ],
+      voice: { say: "Reed (English (US))", rate: 205, kokoro: "am_michael", speed: 1.2 },
+      look: {
+        skin: "#f0c090", hair: "#d8d8e0", hairStyle: "pompadour", shirt: "#c9a227", pants: "#2a2a3a", accent: "#ff3355",
+        outfit: "suit", build: "average", eyes: "wide", nose: "small", facial: "none", accessories: ["bowtie"], height: 46,
+      },
+    }),
   ].map((ch) => [ch.id, ch]),
 );
 

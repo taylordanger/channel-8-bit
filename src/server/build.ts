@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Segment } from "../shared/types.js";
+import type { PollResult, Segment } from "../shared/types.js";
 import { CHARACTERS } from "./catalog/characters.js";
 import { validateGrid } from "./catalog/schedule.js";
 import { systemClock, type Clock } from "./clock.js";
@@ -11,6 +11,7 @@ import { Ledger } from "./ledger.js";
 import { CharacterStates, MemoryBank } from "./memory.js";
 import { Producer } from "./producer.js";
 import { TopicDesk } from "./desk.js";
+import { PollBox } from "./polls.js";
 import { FactChecker, LocalFactChecker } from "./factcheck.js";
 import { OllamaClient, OllamaWriter } from "./writers/ollama.js";
 import { DEFAULT_POLICY, LlmStandards, type StandardsPolicy } from "./standards.js";
@@ -29,6 +30,7 @@ export interface BuildOptions {
   writers?: Writer[];
   onSegment?: (s: Segment) => void;
   onRetract?: (ids: string[]) => void;
+  onPoll?: (r: PollResult) => void;
   log?: (msg: string) => void;
   /** Override how assignment-desk links are read (tests). */
   sourceReader?: (url: string) => Promise<Source>;
@@ -56,6 +58,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   const timeline = new Timeline(db);
   const memory = new MemoryBank(db);
   const states = new CharacterStates(db);
+  const polls = new PollBox(db);
   const desk = new TopicDesk(db, o.sourceReader);
   const ledger = new Ledger(db, config.timeZone);
   const governor = new Governor({ ...config, ledger });
@@ -101,6 +104,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     timeline,
     memory,
     states,
+    polls,
     desk,
     tts,
     writers,
@@ -116,16 +120,18 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     timeline,
     memory,
     states,
+    polls,
     producer,
     governor,
     timeZone: config.timeZone,
     onSegment: o.onSegment,
     onRetract: o.onRetract,
+    onPoll: o.onPoll,
     log: o.log,
   });
   // Finish reading any links a restart interrupted.
   for (const t of desk.pending()) void desk.ingest(t.id);
-  return { ollama, db, clock, timeline, memory, states, desk, ledger, governor, tts, writers, producer, station };
+  return { ollama, db, clock, timeline, memory, states, polls, desk, ledger, governor, tts, writers, producer, station };
 }
 
 export type Built = ReturnType<typeof buildStation>;

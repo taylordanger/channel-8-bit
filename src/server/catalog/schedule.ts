@@ -18,12 +18,12 @@ export const GRID: Slot[] = [
   { startHour: 6, endHour: 10, showId: "rise_and_pixel", mode: "live" },
   { startHour: 10, endHour: 12, showId: "pixel_heights", mode: "live" },
   { startHour: 12, endHour: 13, showId: "nada", mode: "live" },
-  { startHour: 13, endHour: 14, showId: "pixelsons", mode: "live" },
+  { startHour: 13, endHour: 14, showId: "hot_seat", mode: "live" },
   { startHour: 14, endHour: 17, showId: "couch_coop", mode: "live" },
   { startHour: 17, endHour: 19, showId: "pixel_heights", mode: "live" },
   { startHour: 19, endHour: 20, showId: "pixelsons", mode: "live" },
   { startHour: 20, endHour: 21, showId: "nada", mode: "live" },
-  { startHour: 21, endHour: 22, showId: "pixel_heights", mode: "live" },
+  { startHour: 21, endHour: 22, showId: "hot_seat", mode: "live" },
   { startHour: 22, endHour: 24, showId: "late_byte", mode: "live" },
 ];
 

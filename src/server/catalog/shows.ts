@@ -1,6 +1,6 @@
 import type { SetId } from "../../shared/types.js";
 
-export type ShowFormat = "late_night" | "morning" | "soap" | "hangout" | "sitcom" | "cartoon";
+export type ShowFormat = "late_night" | "morning" | "soap" | "hangout" | "sitcom" | "cartoon" | "gameshow";
 
 export interface Show {
   id: string;
@@ -9,6 +9,10 @@ export interface Show {
   set: SetId;
   /** Segment types that play on a different set (e.g. the diner scenes of a sitcom). */
   setFor?: Record<string, SetId>;
+  /** Game shows: who can be drafted as a contestant (from across the network). */
+  contestantPool?: string[];
+  /** Game shows: the fixed order of segments in one game (repeats with new contestants). */
+  gameSteps?: string[];
   /** Segment types that are music performances: a rotating guest artist, or the house band. */
   musicFor?: Record<string, "guest" | "house">;
   /** Segment types performed by one cast member alone (e.g. a stand-up cold open). */
@@ -173,6 +177,29 @@ export const SHOWS: Record<string, Show> = {
       "Midge discovers she's secretly great at something",
       "a mysterious mascot appears in Pleasantburg",
       "Grimsworth wants the family's house for a parking lot",
+    ],
+  },
+  hot_seat: {
+    id: "hot_seat",
+    title: "Hot Seat",
+    example: "chet: Welcome back to Hot Seat! Greg, the question was \"name something you'd find in a kitchen.\" You said \"regret.\"\ngreg: It's MY kitchen, Chet.\nchet: Pip! Same question!\npip: A... kitchen?\nchet: Lock it in!\nlenny: I'd like to change my answer to whatever Pip said.\nchet: Lenny, you haven't answered yet.\nlenny: And I'd like to keep it that way.",
+    format: "gameshow",
+    set: "game_show",
+    tier: "standard",
+    cast: ["chet"],
+    contestantPool: ["greg", "pip", "kev", "marisol", "tony", "lenny", "dash", "margo", "hank", "lyra", "brick", "oolong", "marcus", "lola"],
+    gameSteps: ["introductions", "lightning round", "pitch round", "would you rather round", "final showdown", "champion ceremony"],
+    serialized: false,
+    bible:
+      "A loud, glittering game show where three contestants drafted from other shows on the network compete for the Golden Pixel. The viewers at home vote on who won each round - their verdicts are law, and Chet reads them out with total reverence. Contestants bring their own personalities, grudges and catchphrases from their home shows. Rounds are short and silly: lightning questions with absurd answers, pitching ridiculous products, impossible would-you-rathers. Every contestant must get a distinct, memorable moment each round so the audience has something to vote on. Chet never declares a round winner himself - the vote does.",
+    segmentTypes: ["introductions", "lightning round", "pitch round", "would you rather round", "final showdown", "champion ceremony"],
+    topics: [
+      "name something you should never microwave",
+      "pitch a product for people who hate mornings",
+      "would you rather fight one horse-sized duck or keep this job",
+      "describe your nemesis using only food",
+      "invent a new holiday and its worst tradition",
+      "explain your home show to an alien",
     ],
   },
 };

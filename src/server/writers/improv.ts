@@ -84,6 +84,10 @@ OPENERS.sitcom = [
   { text: "What is the deal with {topic}? Who are these people?", emotion: "smug", action: "gesture", target: "audience" },
   { text: "Okay, okay, you are not going to believe what happened with {topic}.", emotion: "surprised", target: "other" },
 ];
+OPENERS.gameshow = [
+  { text: "Welcome to Hot Seat! Tonight's round is all about {topic}. Let's turn up the heat!", emotion: "happy", action: "gesture", target: "audience" },
+  { text: "Contestants, your next challenge: {topic}. Lock it in!", emotion: "happy", target: "other" },
+];
 OPENERS.cartoon = [
   { text: "Family meeting! It's about {topic}. And also dinner.", emotion: "happy", action: "gesture", target: "other" },
   { text: "Kids, your father has a brilliant idea involving {topic}.", emotion: "nervous", target: "other" },
@@ -101,6 +105,7 @@ const CLOSERS: Record<string, Line[]> = {
     { text: "That's it. I'm done. I'm out. I'm going to the diner.", emotion: "angry", action: "walk_off", target: "other" },
     { text: "Well, that's a {topic} I'll never get back.", emotion: "smug", target: "other" },
   ],
+  gameshow: [{ text: "Folks at home, you know what to do. Vote now! The people have spoken... soon.", emotion: "happy", action: "gesture", target: "camera" }],
   cartoon: [
     { text: "Kids, let this be a lesson. About... something. Let's eat.", emotion: "happy", target: "other" },
     { text: "Well, at least nobody got hurt. Much.", emotion: "nervous", target: "other" },

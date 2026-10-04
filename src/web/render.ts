@@ -1,4 +1,4 @@
-import { ENVELOPE_STEP_MS, type CastMember, type Cue, type GuideEntry, type Segment, type SetId } from "../shared/types.js";
+import { ENVELOPE_STEP_MS, type CastMember, type Cue, type GuideEntry, type PollResult, type Segment, type SetId } from "../shared/types.js";
 import { drawSprite, shade } from "./sprite.js";
 import { generateSong, type Song } from "../shared/music.js";
 
@@ -42,6 +42,8 @@ interface SceneEvents {
   crowd: number;
   /** Music segments: where the song is right now (drives lights, crowd and the band). */
   music?: MusicState;
+  /** Game shows: contestants, scores, and how the current vote is going. */
+  game?: { names: Record<string, string>; contestants: string[]; scores: Record<string, number>; leading?: string; champion?: string };
 }
 
 interface MusicState {
@@ -170,6 +172,56 @@ function skyline(g: Ctx, x0: number, y0: number, w: number, h: number, t: number
 }
 
 const SETS: Record<Exclude<SetId, "bumper">, SetDef> = {
+  game_show: {
+    marks: [
+      { x: 58, y: 146, seated: false, face: 1 }, // the host at his lectern
+      { x: 148, y: 140, seated: false, face: -1 },
+      { x: 204, y: 140, seated: false, face: -1 },
+      { x: 260, y: 140, seated: false, face: -1 },
+    ],
+    back: (g, t) => {
+      px(g, "#120a2a", 0, 0, W, H);
+      // the giant LED wall
+      px(g, "#1f1048", 22, 10, 276, 70);
+      for (let y = 12; y < 78; y += 4)
+        for (let x = 24; x < 296; x += 4) if ((x + y + Math.floor(t / 120)) % 24 < 2) px(g, "#3a1f7a", x, y, 2, 2);
+      g.fillStyle = Math.floor(t / 500) % 2 ? "#ff5a1f" : "#ffd23f";
+      g.font = "bold 22px monospace";
+      g.textAlign = "center";
+      g.fillText("HOT SEAT", W / 2, 54);
+      g.textAlign = "left";
+      // chasing marquee bulbs
+      for (let i = 0; i < 46; i++) px(g, (i + Math.floor(t / 150)) % 3 === 0 ? "#fff6b0" : "#7a5a1a", 22 + i * 6, 82, 3, 3);
+      // floor with a spotlight disc
+      px(g, "#241446", 0, 138, W, 42);
+      g.fillStyle = "rgba(255,210,63,0.12)";
+      g.beginPath();
+      g.ellipse(204, 150, 80, 12, 0, 0, Math.PI * 2);
+      g.fill();
+    },
+    front: (g, t, ev) => {
+      // host lectern
+      px(g, "#c9a227", 40, 120, 36, 28);
+      px(g, "#ff3355", 40, 120, 36, 4);
+      // contestant podiums with name plates and score lights
+      (ev.game?.contestants ?? []).forEach((id, i) => {
+        const x = 130 + i * 56;
+        const champ = ev.game?.champion === id;
+        const lit = champ ? Math.floor(t / 200) % 2 === 0 : ev.game?.leading === id;
+        px(g, "#2a1a5a", x, 112, 36, 36);
+        px(g, lit ? "#ffd23f" : "#4a2a8a", x, 112, 36, 3);
+        px(g, "#0d0820", x + 3, 118, 30, 10);
+        g.fillStyle = "#fff";
+        g.font = "6px monospace";
+        g.textAlign = "center";
+        g.fillText((ev.game?.names[id] ?? id).toUpperCase().slice(0, 8), x + 18, 125);
+        g.fillStyle = champ ? "#ffd23f" : "#ff5a1f";
+        g.font = "bold 10px monospace";
+        g.fillText(String(ev.game?.scores[id] ?? 0), x + 18, 142);
+        g.textAlign = "left";
+      });
+    },
+  },
   music_stage: {
     marks: [
       { x: 146, y: 152, seated: false, face: 1 }, // vocals, front and center
@@ -624,6 +676,10 @@ function castStates(seg: Segment, local: number, marks: Mark[]): CastState[] {
 
 export interface Frame {
   now: number;
+  /** Live tallies for open polls, keyed by poll id. */
+  polls?: Map<string, PollResult>;
+  /** Where viewers can vote (shown on the broadcast feed). */
+  voteUrl?: string;
   segment?: Segment;
   next?: Segment;
   guide: GuideEntry[];
@@ -642,7 +698,10 @@ export class Renderer {
     this.scene = this.sceneCanvas.getContext("2d")!;
   }
 
+  private polls = new Map<string, PollResult>();
+
   draw(f: Frame) {
+    if (f.polls) this.polls = f.polls;
     const g = this.scene;
     const seg = f.segment;
     if (!seg) this.standby(g, f.now);
@@ -704,7 +763,21 @@ export class Renderer {
       return d >= 0 && d < 2200 ? Math.max(acc, 1 - d / 2200) : acc;
     }, 0);
     const music = musicState(seg, local);
-    const ev: SceneEvents = { crowd, music };
+    const tally = seg.poll ? this.polls.get(seg.poll.id)?.tally : undefined;
+    const leading = tally ? Object.entries(tally).sort((a, b) => b[1] - a[1]).find(([, n]) => n > 0)?.[0] : undefined;
+    const ev: SceneEvents = {
+      crowd,
+      music,
+      game: seg.game
+        ? {
+            names: Object.fromEntries(seg.cast.map((c) => [c.id, c.name.split(" ")[0]])),
+            contestants: seg.game.contestants,
+            scores: seg.game.scores,
+            leading,
+            champion: seg.game.champion,
+          }
+        : undefined,
+    };
     set.back(g, now, ev);
 
     // Draw back-to-front so seated people on the couch overlap naturally.
@@ -853,6 +926,41 @@ export class Renderer {
       o.fillStyle = "#fff";
       o.font = font(5);
       o.fillText(clip(upNext ? `${f.next!.showTitle}: ${f.next!.title}` : seg.title, 40), ox + 18 * s, oy + 131 * s);
+    }
+
+    // Viewer poll: question, options with live bars, then the result.
+    if (seg.poll) {
+      const poll = seg.poll;
+      const res = this.polls.get(poll.id);
+      const tally = res?.tally ?? {};
+      const total = Object.values(tally).reduce((a, n) => a + n, 0);
+      const open = f.now < poll.closesAt && !res?.closed;
+      const x0 = ox + (W - 116) * s;
+      const y0 = oy + 22 * s;
+      const rows = poll.options.length;
+      o.fillStyle = "#000000d9";
+      o.fillRect(x0, y0, 108 * s, (24 + rows * 11) * s);
+      o.fillStyle = "#ffd23f";
+      o.fillRect(x0, y0, 108 * s, 2 * s);
+      o.font = font(3.4);
+      o.fillStyle = "#ffd23f";
+      o.fillText(open ? (f.voteUrl ? `VOTE NOW: ${f.voteUrl}` : "VOTE NOW!") : res?.studio ? "STUDIO AUDIENCE DECIDED" : "VOTING CLOSED", x0 + 4 * s, y0 + 5 * s);
+      o.fillStyle = "#fff";
+      o.fillText(clip(poll.question.replace(" (counts double)", " (x2)"), 30), x0 + 4 * s, y0 + 12 * s);
+      poll.options.forEach((opt, i) => {
+        const n = tally[opt.id] ?? 0;
+        const y = y0 + (20 + i * 11) * s;
+        const won = res?.closed && res.winner === opt.id;
+        o.fillStyle = "#2a2140";
+        o.fillRect(x0 + 4 * s, y, 100 * s, 8 * s);
+        o.fillStyle = won ? "#ffd23f" : "#ff5a1f";
+        o.fillRect(x0 + 4 * s, y, (total ? (n / total) * 100 : 0) * s, 8 * s);
+        o.fillStyle = "#fff";
+        o.fillText(`${opt.label}${won ? " WINS" : ""}`, x0 + 6 * s, y + 2.4 * s);
+        o.textAlign = "right";
+        o.fillText(String(n), x0 + 102 * s, y + 2.4 * s);
+        o.textAlign = "left";
+      });
     }
 
     // Now playing.

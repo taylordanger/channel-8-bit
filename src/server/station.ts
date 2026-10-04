@@ -1,4 +1,5 @@
-import type { Segment } from "../shared/types.js";
+import type { PollResult, Segment } from "../shared/types.js";
+import type { PollBox } from "./polls.js";
 import { getShow } from "./catalog/shows.js";
 import { programAt, type Override } from "./catalog/schedule.js";
 import type { Clock } from "./clock.js";
@@ -12,6 +13,10 @@ import type { Timeline } from "./timeline.js";
 /** Lead time added when a segment is committed into a gap, so viewers can fetch audio first. */
 export const COMMIT_DELAY_MS = 1500;
 /** The watchdog airs filler when less than this much is queued and a write is still running. */
+/** Votes stay open this long after their segment ends, for stragglers. */
+export const POLL_GRACE_MS = 20_000;
+/** Length of the "counting your votes" card, and how close to empty the queue gets before it airs. */
+export const COUNTING_CARD_MS = 20_000;
 export const EMERGENCY_BELOW_MS = 4000;
 
 export interface StationDeps {
@@ -20,12 +25,15 @@ export interface StationDeps {
   timeline: Timeline;
   memory: MemoryBank;
   states?: CharacterStates;
+  polls?: PollBox;
   producer: Producer;
   governor: Governor;
   timeZone: string;
   onSegment?: (s: Segment) => void;
   /** Segments pulled from the timeline before airing (a special cut in). */
   onRetract?: (ids: string[]) => void;
+  /** A poll closed (or its tally changed). */
+  onPoll?: (r: PollResult) => void;
   log?: (msg: string) => void;
   /** With a slow writer, air an encore when the timeline is less than this far ahead. */
   hurryBelowMs?: number;
@@ -81,6 +89,28 @@ export class Station {
     }
   }
 
+  /** A champion is crowned: the win, the losses, and the bruised egos all stick. */
+  private applyGameResult(p: Produced, now: number): void {
+    const g = p.segment.game;
+    if (!g?.champion) return;
+    const show = getShow(p.segment.showId);
+    const name = (id: string) => CHARACTERS[id]?.name ?? id;
+    const losers = g.contestants.filter((c) => c !== g.champion);
+    this.d.memory.remember(show.id, g.contestants, `${name(g.champion)} won the Golden Pixel on ${show.title}, beating ${losers.map(name).join(" and ")}.`, 0.65, now);
+    this.d.states?.setMood(g.champion, "smug", `won the Golden Pixel on ${show.title}`, now);
+    const last = [...losers].sort((a, b) => (g.scores[a] ?? 0) - (g.scores[b] ?? 0))[0];
+    if (last) this.d.states?.setMood(last, "embarrassed", `came last on ${show.title}`, now);
+    for (const l of losers) this.d.memory.adjust(l, g.champion, -8, `lost ${show.title} to them`, now);
+  }
+
+  /** Close polls past their deadline and announce the results. */
+  closePolls(): void {
+    for (const p of this.d.polls?.closeDue(this.d.clock.now()) ?? []) {
+      this.d.log?.(`poll closed: "${p.question}" -> ${p.winner}${p.studio ? " (studio audience)" : ""}`);
+      this.d.onPoll?.({ pollId: p.id, tally: p.tally, closed: true, winner: p.winner ?? undefined, studio: p.studio });
+    }
+  }
+
   /** Where the next segment will start if produced now. */
   nextStart(): number {
     return Math.max(this.d.timeline.tailEnd(), this.d.clock.now() + COMMIT_DELAY_MS);
@@ -115,6 +145,18 @@ export class Station {
       const decision = this.d.governor.decide(this.d.clock.now());
       const planAt = this.nextStart();
       const slot = programAt(planAt, this.d.timeZone, this.override());
+      // A champion can't be crowned while votes are still open: hold the ceremony until they
+      // close, airing a short "counting the votes" card only if the queue is about to run out.
+      const show = getShow(slot.showId);
+      if (show.gameSteps) {
+        const game = this.d.producer.gameFor(show, slot, planAt);
+        if (game.champion && game.pending > 0) {
+          if (this.d.timeline.tailEnd() - this.d.clock.now() > COUNTING_CARD_MS) return null;
+          const card = this.d.producer.countingVotes(slot, COUNTING_CARD_MS);
+          this.commit(card);
+          return card;
+        }
+      }
       const now = this.d.clock.now();
       const lead = this.d.timeline.tailEnd() - now;
       const coldStart = lead < 0;
@@ -144,15 +186,27 @@ export class Station {
   commit(p: Produced): void {
     const now = this.d.clock.now();
     p.segment.startAt = Math.max(this.d.timeline.tailEnd(), now + COMMIT_DELAY_MS);
+    if (p.segment.poll) p.segment.poll.closesAt = p.segment.startAt + p.segment.durationMs + POLL_GRACE_MS;
     // Memories, feelings and plot only change when something new is written - reruns don't rewrite history.
     const apply = this.d.db.transaction(() => {
       this.d.timeline.append(p.segment, p.summary, p.rerunOf);
+      const poll = p.segment.poll;
+      if (poll && p.segment.game && this.d.polls)
+        this.d.polls.open({
+          ...poll,
+          segmentId: p.segment.id,
+          showId: p.segment.showId,
+          episode: p.segment.game.episode,
+          opensAt: p.segment.startAt,
+          weight: poll.question.includes("double") ? 2 : 1,
+        });
       if (p.script) {
         const show = p.segment.showId;
         for (const m of p.script.memories) this.d.memory.remember(show, m.about, m.text, m.importance, now);
         for (const r of p.script.relationshipChanges) this.d.memory.adjust(r.from, r.to, r.delta, r.reason, now);
         if (p.script.storyState) this.d.memory.setStoryState(show, p.script.storyState, now);
         this.applyCharacterState(p, now);
+        this.applyGameResult(p, now);
       }
       for (const n of p.notes.filter((x) => x.verdict !== "fix")) {
         this.d.db
@@ -241,7 +295,10 @@ export class Station {
       this.timer = setTimeout(loop, intervalMs);
     };
     void loop();
-    this.guard = setInterval(() => this.watchdog(), 1000);
+    this.guard = setInterval(() => {
+      this.watchdog();
+      this.closePolls();
+    }, 1000);
   }
 
   stop(): void {

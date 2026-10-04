@@ -64,6 +64,7 @@ export type SetId =
   | "comedy_club"
   | "family_couch"
   | "music_stage"
+  | "game_show"
   | "bumper";
 
 export interface CastMember {
@@ -118,6 +119,37 @@ export interface Segment {
   writer: string;
   /** Music segments: the song, regenerated identically in every viewer's browser. */
   song?: SongSpec;
+  /** Game shows: who's playing and the score going into this segment. */
+  game?: GameState;
+  /** A viewer poll that opens with this segment. */
+  poll?: Poll;
+}
+
+export interface GameState {
+  episode: string;
+  contestants: string[];
+  /** Round wins so far. */
+  scores: Record<string, number>;
+  step: string;
+  /** Set on the ceremony segment: who takes home the trophy. */
+  champion?: string;
+}
+
+export interface Poll {
+  id: string;
+  question: string;
+  options: { id: string; label: string }[];
+  /** Absolute station time voting closes (set when the segment is scheduled). */
+  closesAt: number;
+}
+
+export interface PollResult {
+  pollId: string;
+  tally: Record<string, number>;
+  closed: boolean;
+  winner?: string;
+  /** True when nobody voted and the studio audience decided. */
+  studio?: boolean;
 }
 
 export interface GuideEntry {
@@ -134,6 +166,7 @@ export type ServerMessage =
   | { type: "pong"; c: number; s: number }
   | { type: "segment"; segment: Segment }
   | { type: "retract"; ids: string[] }
+  | { type: "poll"; result: PollResult }
   | { type: "viewers"; count: number };
 
 export type ClientMessage = { type: "ping"; c: number };
