@@ -217,11 +217,13 @@ export class EpisodeBook {
   }
 
   /**
-   * The plan for this airing: stored, or made now by the first writer that can plan. Only the
-   * improv fallback available (a hurried scene): a throwaway template plan, so the real
-   * writers still get to plan the episode on the next scene.
+   * The plan for this airing: stored, or made now by the first writer that can plan. When none
+   * of `writers` can (a hurried scene, or the planner failed), a template plan covers this scene;
+   * it's only kept when `keepTemplate` (the station has no model planner at all), so a real
+   * planner still gets to plan the episode on the next scene.
    */
-  async ensure(show: Show, slot: ScheduledSlot, writers: Writer[], localTime: string, guest?: string, timeoutMs = 150_000): Promise<EpisodePlan> {
+  async ensure(show: Show, slot: ScheduledSlot, writers: Writer[], localTime: string, opts: { guest?: string; keepTemplate?: boolean; timeoutMs?: number } = {}): Promise<EpisodePlan> {
+    const { guest, keepTemplate = false, timeoutMs = 150_000 } = opts;
     const stored = this.get(show.id, slot.startAt);
     if (stored) return stored.plan;
     const req = this.request(show, slot, localTime, guest);
@@ -236,8 +238,7 @@ export class EpisodeBook {
       }
     }
     const plan = improvPlan(req, slot.startAt ^ hash(show.id));
-    // Persist the template plan only when no model planner exists at all (improv-only stations).
-    if (!writers.some(canPlan)) this.save(show.id, slot.startAt, "improv", plan);
+    if (keepTemplate) this.save(show.id, slot.startAt, "improv", plan);
     return plan;
   }
 

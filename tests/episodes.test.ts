@@ -110,6 +110,25 @@ describe("episode plans", () => {
     expect(asked).toHaveLength(2);
   });
 
+  it("a hurried scene (improv only) doesn't lock in a template plan for the episode", async () => {
+    const { w, asked } = planner(plan());
+    const { producer, briefs, episodes } = setup([w, new ImprovWriter(1)]);
+    const slot = slotAt(noon, TZ);
+    await producer.produce(noon, slot, { rerun: false, hurry: true });
+    expect(briefs[0].episode?.plan.beats).toHaveLength(3); // the template covered it
+    expect(episodes.get("pixel_heights", slot.startAt)).toBeUndefined();
+    await producer.produce(noon + 60_000, slot, { rerun: false });
+    expect(asked).toHaveLength(1);
+    expect(episodes.get("pixel_heights", slot.startAt)?.plan.logline).toBe("Victoria's will goes missing.");
+  });
+
+  it("keeps the template plan on an improv-only station", async () => {
+    const { producer, episodes } = setup([new ImprovWriter(1)]);
+    const slot = slotAt(noon, TZ);
+    await producer.produce(noon, slot, { rerun: false });
+    expect(episodes.get("pixel_heights", slot.startAt)?.writer).toBe("improv");
+  });
+
   it("hides later beats from the scene being written", () => {
     const p = plan();
     const text = episodeBlock({ plan: p, phase: phaseAt(p, { startAt: 0, endAt: 100 }, 25) }, (id) => id, false);

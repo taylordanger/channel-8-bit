@@ -28,7 +28,7 @@ import { rng } from "./writers/improv.js";
 import { ARTISTS } from "./catalog/music.js";
 import { generateSong, songShape, type SongSpec } from "../shared/music.js";
 import type { Script, Writer, WriterBrief } from "./writers/script.js";
-import { phaseAt, type EpisodeBook, type GameResults } from "./episodes.js";
+import { canPlan, phaseAt, type EpisodeBook, type GameResults } from "./episodes.js";
 
 /** Names from the network's own fictional world, which the name check must never flag. */
 const FICTIONAL_NAMES = [
@@ -347,7 +347,10 @@ export class Producer {
     const music = brief.show.musicFor?.[brief.segmentType];
     if (music) return this.music(at, brief.show, music, targetSeconds);
     if (this.d.episodes && !brief.ad) {
-      const plan = await this.d.episodes.ensure(brief.show, slot, writers, brief.localTime, this.guestFor(brief.show, slot)?.id);
+      const plan = await this.d.episodes.ensure(brief.show, slot, writers, brief.localTime, {
+        guest: this.guestFor(brief.show, slot)?.id,
+        keepTemplate: !this.d.writers.some(canPlan),
+      });
       brief.episode = { plan, phase: phaseAt(plan, slot, at) };
     }
     return this.fromBrief(brief, writers, at);
