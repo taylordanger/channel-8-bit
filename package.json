@@ -5,6 +5,7 @@
   "type": "module",
   "description": "A 24/7 AI-run pixel-art television network",
   "scripts": {
+    "onair": "node --import tsx src/onair.ts",
     "dev": "npm run build:web && tsx watch src/server/main.ts",
     "start": "npm run build:web && node --env-file-if-exists=.env --import tsx src/server/main.ts",
     "build:web": "esbuild src/web/main.ts src/web/lineup.ts --bundle --format=esm --outdir=public --entry-names=[name] --sourcemap && mv public/main.js public/app.js && mv public/main.js.map public/app.js.map && sed -i '' 's/main.js.map/app.js.map/' public/app.js",

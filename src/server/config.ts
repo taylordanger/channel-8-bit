@@ -37,7 +37,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): StationConfig 
   const writer = (env.WRITER as StationConfig["writer"]) ?? "auto";
   return {
     networkName: env.NETWORK_NAME ?? "Channel 8-Bit",
-    publicUrl: env.PUBLIC_URL ?? "",
+    publicUrl: env.PUBLIC_URL && env.PUBLIC_URL !== "auto" ? env.PUBLIC_URL : "",
     amazonTag: (env.AMAZON_TAG ?? "").trim(),
     adEveryMin: num(env.AD_EVERY_MIN, 10),
     port: num(env.PORT, 8088),

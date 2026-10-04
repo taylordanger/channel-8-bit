@@ -45,6 +45,28 @@ if (config.writer === "local") {
 }
 if (config.writer === "improv") log("The improv troupe is writing (WRITER=improv).");
 
+// Public address: PUBLIC_URL=auto (or unset) follows the Cloudflare quick tunnel, whose
+// address changes every time it restarts; cloudflared reports it on its local metrics port.
+const followTunnel = !process.env.PUBLIC_URL || process.env.PUBLIC_URL === "auto";
+if (followTunnel) {
+  const metrics = process.env.TUNNEL_METRICS ?? "127.0.0.1:20241";
+  const check = async () => {
+    try {
+      const res = await fetch(`http://${metrics}/quicktunnel`, { signal: AbortSignal.timeout(2000) });
+      const { hostname } = (await res.json()) as { hostname?: string };
+      const url = hostname ? `https://${hostname}` : "";
+      if (url && url !== config.publicUrl) {
+        config.publicUrl = url;
+        log(`public address: ${url}`);
+      }
+    } catch {
+      /* no tunnel running - local only */
+    }
+  };
+  void check();
+  setInterval(() => void check(), 30_000);
+}
+
 // Your own songs: data/music/<band>/<Song>.mp3 - scanned now and every few minutes.
 void built.tracks.scan();
 setInterval(() => void built.tracks.scan(), 5 * 60_000);

@@ -5,8 +5,13 @@ Everyone watching sees the same broadcast at the same moment.
 
 ```bash
 npm install
-npm start            # http://localhost:8088
+npm run onair        # station + public tunnel + keep-awake, auto-restarting: http://localhost:8088
+npm start            # just the station
 ```
+
+`npm run onair` keeps the station and the Cloudflare quick tunnel running together (crashed pieces restart),
+keeps the Mac awake, and the station follows the tunnel's current public address (`PUBLIC_URL=auto`).
+`scripts/install-launch-agent.sh` makes it start at login.
 
 With no API key, the house improv troupe (an offline template writer) keeps the network on the air.
 Set `ANTHROPIC_API_KEY` to bring in the Claude writers' room.
