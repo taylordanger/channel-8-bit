@@ -3,6 +3,7 @@ import { AudioDirector } from "./audio.js";
 import { Renderer } from "./render.js";
 import { StationLink } from "./sync.js";
 import { startIngest } from "./ingest.js";
+import { ChatPanel } from "./chat.js";
 
 // Broadcast mode (/broadcast.html, or ?broadcast=1): a clean full-frame picture with sound on
 // from the start - what the restreamer captures. ?ingest=ws://... also records and sends it.
@@ -13,6 +14,7 @@ const ingestUrl = params.get("ingest");
 const segments = new Map<string, Segment>();
 const polls = new Map<string, PollResult>();
 let voteUrl = "";
+let chat: ChatPanel | undefined;
 let guide: GuideEntry[] = [];
 let audio: AudioDirector | undefined;
 
@@ -22,6 +24,9 @@ const addSegment = (s: Segment) => segments.set(s.id, s);
 const link = new StationLink({
   onSegment: addSegment,
   onSync: () => void refreshTimeline(),
+  onChat: (m) => chat?.add(m),
+  onChatDelete: (id) => chat?.remove(id),
+  onChatError: (e) => chat?.flash(e),
   onPoll: (r) => {
     polls.set(r.pollId, r);
     renderVote();
@@ -32,6 +37,8 @@ const link = new StationLink({
   },
 });
 link.connect();
+const chatRoot = document.getElementById("chat");
+if (chatRoot && !broadcast) chat = new ChatPanel(chatRoot, (h, t) => link.sendChat(h, t));
 
 const canvas = document.getElementById("tv") as HTMLCanvasElement;
 const renderer = new Renderer(canvas);

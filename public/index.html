@@ -26,8 +26,21 @@
         min-height: 100vh;
         padding: 16px;
       }
+      .stage { display: flex; gap: 14px; width: min(100%, 1600px); align-items: stretch; flex-wrap: wrap; justify-content: center; }
+      #chat { flex: 1 1 280px; max-width: 420px; min-height: 320px; background: var(--panel); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; }
+      #chat h2 { margin-bottom: 8px; }
+      .chat-list { list-style: none; margin: 0; padding: 0; flex: 1; overflow-y: auto; font-size: 9px; line-height: 1.8; max-height: 60vh; word-break: break-word; }
+      .chat-list li { padding: 3px 0; }
+      .chat-list b { color: #ffe066; font-weight: normal; }
+      #chat form { display: grid; gap: 8px; margin-top: 8px; }
+      #chat input, #chat button { font: inherit; font-size: 9px; color: var(--text); background: #0f0b1f; border: 2px solid #2a2140; border-radius: 4px; padding: 8px; }
+      .chat-row { display: flex; gap: 6px; }
+      .chat-row input { flex: 1; min-width: 0; }
+      #chat button { background: var(--accent); border-color: var(--accent); cursor: pointer; }
+      .chat-status { font-size: 8px; color: var(--accent); min-height: 1em; }
       .tv-wrap {
         position: relative;
+        flex: 3 1 640px;
         width: min(100%, 1280px);
         aspect-ratio: 16 / 9;
         border: 6px solid #2a2140;
@@ -71,16 +84,27 @@
     </style>
   </head>
   <body>
-    <div class="tv-wrap">
-      <canvas id="tv"></canvas>
-      <div id="tunein">
-        <div class="btn">▶ TUNE IN</div>
-        <small>sound on · everyone sees the same broadcast</small>
+    <div class="stage">
+      <div class="tv-wrap">
+        <canvas id="tv"></canvas>
+        <div id="tunein">
+          <div class="btn">▶ TUNE IN</div>
+          <small>sound on · everyone sees the same broadcast</small>
+        </div>
       </div>
+      <aside id="chat">
+        <h2>LIVE CHAT</h2>
+        <ul class="chat-list"></ul>
+        <form>
+          <input id="chat-handle" maxlength="24" placeholder="your name" />
+          <div class="chat-row"><input id="chat-text" maxlength="200" placeholder="say something..." autocomplete="off" /><button type="submit">SEND</button></div>
+          <div class="chat-status"></div>
+        </form>
+      </aside>
     </div>
     <section class="below vote" id="vote" hidden></section>
     <section class="below">
-      <h2>PROGRAM GUIDE <a href="/desk.html">ASSIGNMENT DESK →</a> <a href="/drama.html">DRAMA →</a> <a href="/lineup.html">CAST →</a></h2>
+      <h2>PROGRAM GUIDE <a href="/ops.html">CONTROL ROOM →</a> <a href="/desk.html">ASSIGNMENT DESK →</a> <a href="/drama.html">DRAMA →</a> <a href="/lineup.html">CAST →</a></h2>
       <ol id="guide"></ol>
     </section>
     <section class="below writein">

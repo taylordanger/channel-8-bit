@@ -39,6 +39,18 @@ describe("lasting character state", () => {
     expect(st.returning("rise_and_pixel")).toEqual([]);
   });
 
+  it("one storm-off per show per hour", () => {
+    const st = new CharacterStates(openDb(":memory:"));
+    expect(st.walkOff("rex", "late_byte", "I quit!", 2, 0)).toBe(true);
+    expect(st.walkOff("rex", "late_byte", "I quit again!", 2, 1000)).toBe(false); // already off
+    st.segmentAired("late_byte", []);
+    st.segmentAired("late_byte", []);
+    st.segmentAired("late_byte", ["rex"]); // back on set
+    expect(st.walkOff("rex", "late_byte", "Third time!", 2, 30 * 60_000)).toBe(false); // within the hour
+    expect(st.walkOff("rex", "late_byte", "Okay NOW I quit", 2, 61 * 60_000)).toBe(true);
+    expect(st.walkOff("rex", "rise_and_pixel", "Different show", 2, 61 * 60_000 + 1)).toBe(true);
+  });
+
   it("feuds show up once relationships sink far enough", () => {
     const m = new MemoryBank(openDb(":memory:"));
     m.seed("greg", "sunny", -70, "", 0);

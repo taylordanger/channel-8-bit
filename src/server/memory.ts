@@ -130,6 +130,8 @@ export const MOOD_TTL_MS = 6 * 3_600_000;
 export const FEUD_SCORE = -60;
 /** How many of that show's segments someone sits out after storming off. */
 export const WALK_OFF_SEGMENTS = 2;
+/** One storm-off per character per show per hour: any more and it stops meaning anything. */
+export const WALK_OFF_COOLDOWN_MS = 3_600_000;
 
 export interface CharacterMood {
   id: string;
@@ -176,12 +178,20 @@ export class CharacterStates {
     return { id, mood: r.mood, reason: r.mood_reason, at: r.mood_at };
   }
 
-  /** Someone stormed off a show: they sit out its next few segments. */
-  walkOff(id: string, showId: string, reason: string, segments = WALK_OFF_SEGMENTS): void {
+  /**
+   * Someone stormed off a show: they sit out its next few segments. Ignored (returns false)
+   * if they're already off this show or stormed off it within the cooldown.
+   */
+  walkOff(id: string, showId: string, reason: string, segments = WALK_OFF_SEGMENTS, now = Date.now()): boolean {
     this.ensure(id);
+    const r = this.db.prepare("SELECT off_show, off_remaining, owed_entrance, off_at FROM character_state WHERE id = ?").get(id) as {
+      off_show: string | null; off_remaining: number; owed_entrance: number; off_at: number;
+    };
+    if (r.off_show === showId && (r.off_remaining > 0 || r.owed_entrance || now - r.off_at < WALK_OFF_COOLDOWN_MS)) return false;
     this.db
-      .prepare("UPDATE character_state SET off_show = ?, off_reason = ?, off_remaining = ?, owed_entrance = 0 WHERE id = ?")
-      .run(showId, reason, segments, id);
+      .prepare("UPDATE character_state SET off_show = ?, off_reason = ?, off_remaining = ?, owed_entrance = 0, off_at = ? WHERE id = ?")
+      .run(showId, reason, segments, now, id);
+    return true;
   }
 
   offSet(showId: string): { id: string; reason: string; remaining: number }[] {
@@ -203,7 +213,7 @@ export class CharacterStates {
     this.db.prepare("UPDATE character_state SET owed_entrance = 1 WHERE off_show = ? AND off_remaining = 0 AND owed_entrance = 0 AND off_reason != ''").run(showId);
     // Once they've made their entrance, the walk-off is over.
     for (const id of appearedIds)
-      this.db.prepare("UPDATE character_state SET owed_entrance = 0, off_show = NULL, off_reason = '' WHERE id = ? AND off_show = ? AND owed_entrance = 1").run(id, showId);
+      this.db.prepare("UPDATE character_state SET owed_entrance = 0, off_reason = '' WHERE id = ? AND off_show = ? AND owed_entrance = 1").run(id, showId);
   }
 
   all(now: number): (CharacterMood & { offShow: string | null; offRemaining: number; returning: boolean })[] {

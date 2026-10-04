@@ -1,4 +1,4 @@
-import type { ClientMessage, PollResult, Segment, ServerMessage } from "../shared/types.js";
+import type { ChatMessage, ClientMessage, PollResult, Segment, ServerMessage } from "../shared/types.js";
 
 /**
  * Keeps this browser's idea of station time in step with the server (NTP-style:
@@ -18,6 +18,9 @@ export class StationLink {
       onSync: () => void;
       onRetract?: (ids: string[]) => void;
       onPoll?: (r: PollResult) => void;
+      onChat?: (m: ChatMessage) => void;
+      onChatDelete?: (id: number) => void;
+      onChatError?: (e: string) => void;
     },
   ) {}
 
@@ -52,6 +55,9 @@ export class StationLink {
       } else if (m.type === "segment") this.handlers.onSegment(m.segment);
       else if (m.type === "retract") this.handlers.onRetract?.(m.ids);
       else if (m.type === "poll") this.handlers.onPoll?.(m.result);
+      else if (m.type === "chat") this.handlers.onChat?.(m.message);
+      else if (m.type === "chat-delete") this.handlers.onChatDelete?.(m.id);
+      else if (m.type === "chat-error") this.handlers.onChatError?.(m.error);
       else if (m.type === "viewers") this.viewers = m.count;
     };
     ws.onclose = () => {
@@ -59,6 +65,10 @@ export class StationLink {
       clearInterval(pinger);
       setTimeout(() => this.connect(), 2000);
     };
+  }
+
+  sendChat(handle: string, text: string) {
+    this.send({ type: "chat", handle, text });
   }
 
   private send(m: ClientMessage) {

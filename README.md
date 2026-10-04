@@ -102,4 +102,8 @@ records to a file instead. While streaming, the feed counts as a viewer, so the 
    mail in "viewer mail" segments of The Late Byte, Rise & Pixel and Couch Co-op.
 5. ~~**Character agency**~~ — done: lasting moods (cross-show, fade after hours), walk-offs that keep a regular off
    the set for the next scenes and earn them an entrance, feuds the writers must escalate or resolve; `/drama.html`.
-6. **Ops dashboard** — spend, standards log, what each writer produced, plot state per show.
+6. ~~**Control room**~~ — done: `/ops.html` (this machine only): viewers, lead, airtime mix (fresh / music / encores /
+   improv / cards), dead air while watched, writer success and timing, standards cuts, mail moderation, spend, chat
+   moderation (delete / mute 24h).
+7. ~~**Live chat**~~ — done: viewers chat beside the TV; blocklist + rate limits before posting, background moderation
+   by the local model, operator delete/mute (muted viewers only see their own messages).

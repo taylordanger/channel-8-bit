@@ -167,6 +167,16 @@ export type ServerMessage =
   | { type: "segment"; segment: Segment }
   | { type: "retract"; ids: string[] }
   | { type: "poll"; result: PollResult }
+  | { type: "chat"; message: ChatMessage }
+  | { type: "chat-delete"; id: number }
+  | { type: "chat-error"; error: string }
   | { type: "viewers"; count: number };
 
-export type ClientMessage = { type: "ping"; c: number };
+export type ClientMessage = { type: "ping"; c: number } | { type: "chat"; handle: string; text: string };
+
+export interface ChatMessage {
+  id: number;
+  at: number;
+  handle: string;
+  text: string;
+}

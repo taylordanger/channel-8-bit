@@ -11,6 +11,7 @@ import { ARTISTS } from "./catalog/music.js";
 import type { StationConfig } from "./config.js";
 import type { Topic } from "./desk.js";
 import { assertPublicUrl, URL_PATTERN } from "./sources.js";
+import { senderId } from "./chat.js";
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -222,6 +223,20 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
       void handleMail(req, res, url, b);
       return;
     }
+    if (url.pathname === "/api/chat") return json(res, b.chat.recent());
+    if (url.pathname.startsWith("/api/chat/")) {
+      if (!isLocal(req)) return json(res, { error: "chat moderation is only available from this machine" }, 403);
+      const [, , , idPart, action] = url.pathname.split("/");
+      if (idPart === "log") return json(res, b.chat.log());
+      const id = Number(idPart);
+      if (req.method === "POST" && Number.isInteger(id) && (action === "delete" || action === "mute")) {
+        if (action === "mute") b.chat.muteAuthorOf(id, now);
+        const removed = b.chat.remove(id, action === "mute" ? "author muted by the operator" : "removed by the operator");
+        if (removed) broadcast({ type: "chat-delete", id });
+        return json(res, { ok: true });
+      }
+      return json(res, { error: "unsupported" }, 405);
+    }
     if (url.pathname === "/api/vote") {
       void handleVote(req, res, b, broadcast);
       return;
@@ -290,6 +305,23 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
           memories: b.memory.latest(20).map((m) => ({ text: m.text, about: m.about.map(name), at: m.createdAt, show: SHOWS[m.showId]?.title ?? m.showId })),
         });
       }
+      case "/api/ops": {
+        if (!isLocal(req)) return json(res, { error: "the operator dashboard is only visible from this machine" }, 403);
+        return json(res, {
+          ...b.ops.report(now),
+          now,
+          network: config.networkName,
+          viewers: b.governor.viewerCount,
+          leadMs: Math.max(0, b.timeline.tailEnd() - now),
+          decision: b.governor.decide(now),
+          spentTodayUsd: b.governor.spentToday(now),
+          dailyBudgetUsd: config.dailyBudgetUsd,
+          writerChain: b.writers.map((w) => w.name),
+          model: config.writer === "local" ? config.ollama.model : config.writer === "claude" ? `${config.models.standard} / ${config.models.premium}` : "improv",
+          tts: b.tts.name,
+          onNow: programAt(now, config.timeZone, b.station.override()).title,
+        });
+      }
       case "/api/guide":
         return json(res, guideWith(now, 24, config.timeZone, b.station.override()));
       case "/api/status": {
@@ -319,7 +351,8 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
     broadcast({ type: "viewers", count: sockets.size });
   };
 
-  wss.on("connection", (ws) => {
+  wss.on("connection", (ws, req) => {
+    const sender = senderId(req.socket.remoteAddress ?? "?");
     sockets.add(ws);
     send(ws, { type: "hello", serverNow: b.clock.now(), network: config.networkName });
     updateViewers();
@@ -331,6 +364,13 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
         return;
       }
       if (msg.type === "ping" && typeof msg.c === "number") send(ws, { type: "pong", c: msg.c, s: b.clock.now() });
+      if (msg.type === "chat" && typeof msg.text === "string") {
+        const out = b.chat.post(String(msg.handle ?? ""), msg.text, sender, b.clock.now());
+        if (out.kind === "error") return send(ws, { type: "chat-error", error: out.error });
+        if (out.kind === "shadow") return send(ws, { type: "chat", message: out.message }); // muted: only they see it
+        broadcast({ type: "chat", message: out.message });
+        void b.chat.review(out.message).then((removed) => removed && broadcast({ type: "chat-delete", id: out.message.id }));
+      }
     });
     ws.on("close", () => {
       sockets.delete(ws);

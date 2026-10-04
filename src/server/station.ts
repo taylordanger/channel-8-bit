@@ -1,5 +1,6 @@
 import type { PollResult, Segment } from "../shared/types.js";
 import type { PollBox } from "./polls.js";
+import type { OpsLog } from "./ops.js";
 import { getShow } from "./catalog/shows.js";
 import { programAt, type Override } from "./catalog/schedule.js";
 import type { Clock } from "./clock.js";
@@ -26,6 +27,7 @@ export interface StationDeps {
   memory: MemoryBank;
   states?: CharacterStates;
   polls?: PollBox;
+  ops?: OpsLog;
   producer: Producer;
   governor: Governor;
   timeZone: string;
@@ -82,7 +84,8 @@ export class Station {
       const theirs = p.segment.cues.filter((c) => c.speaker === id);
       const last = theirs[theirs.length - 1];
       if (last?.action !== "walk_off") continue;
-      states.walkOff(id, showId, last.text.slice(0, 120));
+      // Already off, or stormed off this show within the hour: let it go, it's not news.
+      if (!states.walkOff(id, showId, last.text.slice(0, 120), undefined, now)) continue;
       if (!p.script.moodChanges.some((m) => m.character === id)) states.setMood(id, "furious", `stormed off ${show.title}: "${last.text.slice(0, 80)}"`, now);
       this.d.memory.remember(showId, [id], `${CHARACTERS[id]?.name ?? id} stormed off the set of ${show.title}: "${last.text.slice(0, 100)}"`, 0.75, now);
       this.d.log?.(`${CHARACTERS[id]?.name ?? id} walked off ${show.title}`);
@@ -298,6 +301,8 @@ export class Station {
     this.guard = setInterval(() => {
       this.watchdog();
       this.closePolls();
+      const now = this.d.clock.now();
+      this.d.ops?.airTick(now, this.d.governor.viewerCount, Boolean(this.d.timeline.at(now)));
     }, 1000);
   }
 

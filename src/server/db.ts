@@ -78,6 +78,40 @@ CREATE TABLE IF NOT EXISTS character_state (
   owed_entrance   INTEGER NOT NULL DEFAULT 0   -- 1 = owed an entrance in their next scene
 );
 
+CREATE TABLE IF NOT EXISTS production_log (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  at         INTEGER NOT NULL,
+  show_id    TEXT NOT NULL,
+  writer     TEXT NOT NULL,
+  outcome    TEXT NOT NULL,            -- ok | failed | rejected
+  write_ms   INTEGER NOT NULL,         -- writing + standards checks
+  voice_ms   INTEGER NOT NULL DEFAULT 0,
+  detail     TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS production_log_at ON production_log(at);
+
+CREATE TABLE IF NOT EXISTS air_stats (
+  minute       INTEGER PRIMARY KEY,    -- unix minute
+  viewers_max  INTEGER NOT NULL DEFAULT 0,
+  dead_seconds INTEGER NOT NULL DEFAULT 0  -- seconds with viewers present but nothing on air
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  at       INTEGER NOT NULL,
+  handle   TEXT NOT NULL,
+  text     TEXT NOT NULL,
+  sender   TEXT NOT NULL,              -- hashed IP
+  deleted  INTEGER NOT NULL DEFAULT 0,
+  reason   TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS chat_messages_at ON chat_messages(at);
+
+CREATE TABLE IF NOT EXISTS chat_mutes (
+  sender TEXT PRIMARY KEY,
+  until  INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS viewer_messages (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   handle     TEXT NOT NULL,
@@ -151,4 +185,6 @@ function migrate(db: DB) {
     ["fetch_error", "TEXT"],
   ];
   for (const [name, type] of add) if (!topics.has(name)) db.exec(`ALTER TABLE topics ADD COLUMN ${name} ${type}`);
+  const cs = cols("character_state");
+  if (!cs.has("off_at")) db.exec("ALTER TABLE character_state ADD COLUMN off_at INTEGER NOT NULL DEFAULT 0");
 }

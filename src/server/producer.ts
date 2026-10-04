@@ -6,6 +6,7 @@ import { getShow, type Show } from "./catalog/shows.js";
 import type { TopicDesk } from "./desk.js";
 import type { PollBox } from "./polls.js";
 import type { MailBag } from "./mailbag.js";
+import type { OpsLog } from "./ops.js";
 import type { CharacterStates, MemoryBank } from "./memory.js";
 import { checkNames, checkNumbers, checkVerbatim, type SourceChecker } from "./factcheck.js";
 import { CHARACTERS } from "./catalog/characters.js";
@@ -64,6 +65,7 @@ export interface ProducerDeps {
   states?: CharacterStates;
   polls?: PollBox;
   mailbag?: MailBag;
+  ops?: OpsLog;
   desk?: TopicDesk;
   tts: TTSEngine;
   /** Tried in order; the last one should never fail (the improv writer). */
@@ -237,15 +239,21 @@ export class Producer {
     let lastError = "";
 
     for (const writer of writers) {
+      const t0 = Date.now();
+      const record = (outcome: "ok" | "failed" | "rejected", detail = "", voiceMs = 0, writeMs = Date.now() - t0) =>
+        this.d.ops?.production({ at, showId: brief.show.id, writer: writer.name, outcome, writeMs, voiceMs, detail });
       try {
         const { script: draft, writer: writerName } = await writer.write(brief);
         const checked = await this.clear(draft, brief, writer.name !== "improv");
         if (checked.rejected) {
+          record("rejected", checked.rejected);
           lastError = `${writer.name}: ${checked.rejected}`;
           this.d.log?.(`standards rejected a ${brief.show.id} script from ${writer.name}: ${checked.rejected}`);
           continue;
         }
+        const writeMs = Date.now() - t0;
         const segment = await this.assemble(brief.show, brief.cast, checked.script, writerName, brief.segmentType, brief.moods);
+        record("ok", "", Date.now() - t0 - writeMs, writeMs);
         if (brief.game) this.attachGame(segment, brief.show, brief.game);
         if (brief.deskTopicId) this.d.desk?.markUsed(brief.deskTopicId, at);
         if (brief.viewerMessage) this.d.mailbag?.markAired(brief.viewerMessage.id, at);
@@ -257,6 +265,7 @@ export class Producer {
           primary: writer === this.d.writers[0] && this.d.writers.length > 1,
         };
       } catch (err) {
+        record("failed", (err as Error).message);
         lastError = `${writer.name}: ${(err as Error).message}`;
         this.d.log?.(`writer ${writer.name} failed on ${brief.show.id}: ${(err as Error).message}`);
       }

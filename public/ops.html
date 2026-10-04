@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Control Room</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #0b0814; --panel: #15102a; --line: #2a2140; --text: #e9e4ff; --muted: #8a82b0; --gold: #ffe066;
+        /* categorical slots (validated on this surface): fresh, music, encores, improv, cards */
+        --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+        --good: #199e70; --bad: #e66767;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font-family: "Press Start 2P", monospace; padding: 16px; }
+      main { max-width: 1200px; margin: 0 auto; }
+      header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+      h1 { font-size: 16px; margin: 0; }
+      header .sub { font-size: 9px; color: var(--muted); }
+      a { color: var(--gold); font-size: 10px; }
+      .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 14px; }
+      .kpi { background: var(--panel); border-radius: 8px; padding: 14px; }
+      .kpi .label { font-size: 8px; color: var(--muted); }
+      .kpi .value { font-size: 18px; margin-top: 10px; }
+      .kpi .note { font-size: 7px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 14px; }
+      .card { background: var(--panel); border-radius: 8px; padding: 14px; overflow: hidden; }
+      .card h2 { font-size: 10px; color: var(--gold); margin: 0 0 12px; }
+      .stack { display: flex; height: 22px; gap: 2px; margin-bottom: 10px; }
+      .stack div { border-radius: 4px; min-width: 2px; position: relative; }
+      .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 8px; color: var(--muted); }
+      .legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 2px; background: var(--c); margin-right: 6px; vertical-align: -1px; }
+      .legend b { color: var(--text); font-weight: normal; }
+      table { width: 100%; border-collapse: collapse; font-size: 8px; }
+      th { text-align: left; color: var(--muted); font-weight: normal; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+      td { padding: 7px 4px; border-bottom: 1px solid var(--line); line-height: 1.6; vertical-align: top; }
+      td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+      .cols { display: flex; align-items: flex-end; gap: 2px; height: 120px; border-bottom: 1px solid var(--line); position: relative; }
+      .cols div { flex: 1; background: var(--s1); border-radius: 4px 4px 0 0; min-height: 2px; cursor: default; }
+      .cols div:hover { filter: brightness(1.3); }
+      .axis { display: flex; justify-content: space-between; font-size: 7px; color: var(--muted); margin-top: 6px; }
+      .tip { position: fixed; pointer-events: none; background: #000; border: 1px solid var(--line); padding: 8px; font-size: 8px; line-height: 1.7; border-radius: 4px; display: none; z-index: 10; }
+      .list { list-style: none; margin: 0; padding: 0; }
+      .list li { font-size: 8px; line-height: 1.8; color: var(--muted); border-left: 2px solid var(--line); padding-left: 10px; margin-bottom: 8px; word-break: break-word; }
+      .list li b { color: var(--text); font-weight: normal; }
+      .pill { font-size: 7px; padding: 2px 5px; border-radius: 3px; border: 1px solid var(--line); margin-right: 6px; color: var(--text); }
+      .pill.bad::before { content: "✕ "; color: var(--bad); }
+      .pill.good::before { content: "✓ "; color: var(--good); }
+      .empty { font-size: 8px; color: var(--muted); }
+      .list li.gone { opacity: 0.5; }
+      .list button { font: inherit; font-size: 7px; background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 3px 5px; margin-left: 6px; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div><h1>CONTROL ROOM</h1><div class="sub" id="sub"></div></div>
+        <div><a href="/desk.html">desk</a> · <a href="/drama.html">drama</a> · <a href="/">broadcast →</a></div>
+      </header>
+      <section class="kpis" id="kpis"></section>
+      <section class="grid">
+        <div class="card"><h2>AIRTIME, LAST 24 HOURS</h2><div class="stack" id="mix"></div><div class="legend" id="mix-legend"></div></div>
+        <div class="card"><h2>WRITING TIME, LAST 30 FRESH SEGMENTS</h2><div class="cols" id="writes"></div><div class="axis"><span id="w-first"></span><span id="w-max"></span><span id="w-last"></span></div></div>
+        <div class="card"><h2>WRITERS, LAST 24 HOURS</h2><table id="writers"></table></div>
+        <div class="card"><h2>STANDARDS DESK, LAST 24 HOURS</h2><table id="standards"></table><ul class="list" id="standards-recent" style="margin-top:12px"></ul></div>
+        <div class="card"><h2>VIEWER MAIL, LAST 24 HOURS</h2><div class="legend" id="mail"></div><ul class="list" id="mail-recent" style="margin-top:12px"></ul></div>
+        <div class="card"><h2>SPEND</h2><table id="spend"></table><div class="legend" id="spend-week" style="margin-top:12px"></div></div>
+        <div class="card"><h2>RECENT WRITER PROBLEMS</h2><ul class="list" id="errors"></ul></div>
+        <div class="card"><h2>LIVE CHAT MODERATION</h2><ul class="list" id="chatlog"></ul></div>
+      </section>
+    </main>
+    <div class="tip" id="tip"></div>
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+      const secs = (ms) => (ms >= 60_000 ? `${(ms / 60_000).toFixed(1)}m` : `${Math.round(ms / 1000)}s`);
+      const time = (t) => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      const usd = (n) => `$${(n ?? 0).toFixed(2)}`;
+      const MIX = [["fresh", "Fresh writing", "--s1"], ["music", "Music", "--s2"], ["encores", "Encores", "--s3"], ["improv", "Improv filler", "--s4"], ["cards", "Cards", "--s5"]];
+      const tip = $("tip");
+      const hover = (node, html) => {
+        node.addEventListener("mousemove", (e) => { tip.innerHTML = html; tip.style.display = "block"; tip.style.left = e.clientX + 14 + "px"; tip.style.top = e.clientY + 14 + "px"; });
+        node.addEventListener("mouseleave", () => (tip.style.display = "none"));
+      };
+      const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const table = (node, head, rows) => {
+        node.replaceChildren();
+        const tr = el("tr");
+        head.forEach(([h, num]) => tr.append(el("th", num ? "num" : "", h)));
+        node.append(tr);
+        if (!rows.length) { const r = el("tr"); const td = el("td", "empty", "Nothing yet."); td.colSpan = head.length; r.append(td); node.append(r); }
+        for (const row of rows) { const r = el("tr"); row.forEach((v, i) => r.append(el("td", head[i][1] ? "num" : "", v))); node.append(r); }
+      };
+
+      async function load() {
+        const d = await (await fetch("/api/ops")).json();
+        $("sub").textContent = `${d.network} · on now: ${d.onNow} · writer: ${d.model} · voices: ${d.tts}`;
+
+        const totalMix = Object.values(d.mixMs).reduce((a, n) => a + n, 0);
+        const freshPct = totalMix ? Math.round(((d.mixMs.fresh + d.mixMs.music) / totalMix) * 100) : 0;
+        const kpis = [
+          ["VIEWERS NOW", d.viewers, d.decision.reason],
+          ["WRITTEN AHEAD", secs(d.leadMs), `target ${secs(d.decision.leadTargetMs)}`],
+          ["NEW MATERIAL", `${freshPct}%`, "fresh writing + music, share of the last 24h of airtime"],
+          ["DEAD AIR", `${d.deadAirSec}s`, `while viewers were watching (${d.watchedMinutes} watched minutes, 24h)`],
+          ["SPEND TODAY", usd(d.spentTodayUsd), `budget ${usd(d.dailyBudgetUsd)} / day`],
+          ["TYPICAL WRITE", d.lastHourMedianWriteMs ? secs(d.lastHourMedianWriteMs) : "-", "median for a fresh segment, last hour"],
+          ["VOTES", d.votes, "viewer votes cast, 24h"],
+        ];
+        $("kpis").replaceChildren(...kpis.map(([l, v, n]) => { const k = el("div", "kpi"); k.append(el("div", "label", l), el("div", "value", String(v)), el("div", "note", n)); return k; }));
+
+        // Airtime mix: one stacked bar, legend with values (identity never color-alone).
+        $("mix").replaceChildren(...MIX.filter(([k]) => d.mixMs[k] > 0).map(([k, label, c]) => {
+          const seg = el("div");
+          seg.style.flex = String(d.mixMs[k]);
+          seg.style.background = `var(${c})`;
+          hover(seg, `<b>${label}</b><br>${secs(d.mixMs[k])} · ${Math.round((d.mixMs[k] / totalMix) * 100)}%`);
+          return seg;
+        }));
+        $("mix-legend").replaceChildren(...MIX.map(([k, label, c]) => { const s = el("span"); s.style.setProperty("--c", `var(${c})`); s.append(document.createTextNode(label + " "), el("b", null, totalMix ? `${Math.round((d.mixMs[k] / totalMix) * 100)}%` : "0%")); return s; }));
+
+        // Writing time per fresh segment (single series, so no legend: the title names it).
+        const w = d.recentWrites;
+        const max = Math.max(1, ...w.map((x) => x.write_ms + x.voice_ms));
+        $("writes").replaceChildren(...w.map((x) => {
+          const col = el("div");
+          col.style.height = `${((x.write_ms + x.voice_ms) / max) * 100}%`;
+          hover(col, `<b>${time(x.at)} · ${esc(x.show_id)}</b><br>${esc(x.writer)}<br>writing ${secs(x.write_ms)} · voicing ${secs(x.voice_ms)}`);
+          return col;
+        }));
+        $("w-first").textContent = w.length ? time(w[0].at) : "";
+        $("w-max").textContent = w.length ? `tallest ${secs(max)}` : "no fresh segments yet";
+        $("w-last").textContent = w.length ? time(w[w.length - 1].at) : "";
+
+        table($("writers"), [["WRITER"], ["OK", 1], ["FAILED", 1], ["REJECTED", 1], ["MEDIAN", 1], ["SLOW (P90)", 1], ["VOICING", 1]],
+          d.writers.map((x) => [x.writer, x.ok, x.failed, x.rejected, x.ok ? secs(x.medianMs) : "-", x.ok ? secs(x.p90Ms) : "-", x.ok ? secs(x.voiceMedianMs) : "-"]));
+
+        const byShow = {};
+        for (const r of d.standards) (byShow[r.show_id] ??= { cut: 0, rewrite: 0, reject: 0 })[r.verdict] = r.n;
+        table($("standards"), [["SHOW"], ["CUT", 1], ["REWRITTEN", 1]], Object.entries(byShow).map(([s, v]) => [s, v.cut ?? 0, v.rewrite ?? 0]));
+        $("standards-recent").replaceChildren(...d.standardsRecent.slice(0, 8).map((r) => { const li = el("li"); li.append(el("span", "pill bad", r.verdict), el("b", null, r.detail.slice(0, 140)), document.createTextNode(` · ${r.show_id}, ${time(r.at)}`)); return li; }));
+
+        const MAIL = [["approved", "--s3"], ["aired", "--s1"], ["pending", "--s4"], ["rejected", "--s5"]];
+        const mailCounts = Object.fromEntries(d.mail.map((m) => [m.status, m.n]));
+        $("mail").replaceChildren(...MAIL.map(([k, c]) => { const s = el("span"); s.style.setProperty("--c", `var(${c})`); s.append(document.createTextNode(k + " "), el("b", null, String(mailCounts[k] ?? 0))); return s; }));
+        $("mail-recent").replaceChildren(...(d.mailRecent.length ? d.mailRecent.map((m) => { const li = el("li"); li.append(el("span", `pill ${m.status === "rejected" ? "bad" : "good"}`, m.status), el("b", null, m.handle), document.createTextNode(` · ${m.reason} · ${time(m.created_at)}`)); return li; }) : [el("li", null, "No mail yet.")]));
+
+        table($("spend"), [["MODEL (24H)"], ["TOKENS IN", 1], ["TOKENS OUT", 1], ["COST", 1]],
+          d.spendToday.map((x) => [x.model, x.input.toLocaleString(), x.output.toLocaleString(), usd(x.usd)]));
+        $("spend-week").replaceChildren(...(d.spendWeek.length ? d.spendWeek.map((x) => { const s = el("span"); s.append(document.createTextNode(x.day.slice(5) + " "), el("b", null, usd(x.usd))); return s; }) : [el("span", null, "No paid model usage this week - the local model is free.")]));
+
+        $("errors").replaceChildren(...(d.errors.length ? d.errors.map((e) => { const li = el("li"); li.append(el("span", "pill bad", e.outcome), el("b", null, e.writer), document.createTextNode(` · ${e.detail.slice(0, 120)} · ${e.show_id}, ${time(e.at)}`)); return li; }) : [el("li", null, "No problems in the log.")]));
+      }
+      async function loadChat() {
+        const log = await (await fetch("/api/chat/log")).json();
+        const act = (id, action) => async () => { await fetch(`/api/chat/${id}/${action}`, { method: "POST" }); loadChat(); };
+        $("chatlog").replaceChildren(...(log.length ? log.slice(0, 25).map((m) => {
+          const li = el("li", m.deleted ? "gone" : "");
+          li.append(el("b", null, `${m.handle}: ${m.text}`), document.createTextNode(` · ${time(m.at)}${m.deleted ? " · " + m.reason : ""}${m.muted ? " · author muted" : ""}`));
+          if (!m.deleted) {
+            const del = el("button", null, "DELETE"); del.onclick = act(m.id, "delete");
+            const mute = el("button", null, "MUTE 24H"); mute.onclick = act(m.id, "mute");
+            li.append(del, mute);
+          }
+          return li;
+        }) : [el("li", null, "No chat yet.")]));
+      }
+      load();
+      loadChat();
+      setInterval(load, 15000);
+      setInterval(loadChat, 5000);
+    </script>
+  </body>
+</html>
