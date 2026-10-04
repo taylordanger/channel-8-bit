@@ -1,3 +1,4 @@
+import { channelName } from "./twitch.js";
 import path from "node:path";
 import { kokoroInstalled } from "./tts.js";
 
@@ -20,6 +21,8 @@ export interface StationConfig {
   dailyBudgetUsd: number;
   /** Hours when a restream alone (no website viewers) gets fresh writing; see Governor. */
   feedFreshHours: Set<number>;
+  /** Twitch channel whose chat is relayed into the network's chat (read-only; just the name). */
+  twitchChannel: string;
   /** How far ahead of "now" the station keeps written segments while people are watching. */
   leadTargetMs: number;
   /** Keep producing for this long after the last viewer leaves. */
@@ -51,6 +54,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): StationConfig 
     },
     dailyBudgetUsd: num(env.DAILY_BUDGET_USD, 3),
     // Local writing is free, so a restream gets it around the clock; paid writing only when asked.
+    twitchChannel: channelName(env.TWITCH_CHANNEL),
     feedFreshHours: parseHours(env.FEED_FRESH_HOURS ?? (writer === "auto" && !hasClaude || writer === "local" ? "0-24" : "")),
     leadTargetMs: num(env.LEAD_TARGET_SEC, 150) * 1000,
     idleGraceMs: num(env.IDLE_GRACE_SEC, 120) * 1000,

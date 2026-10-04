@@ -28,6 +28,15 @@ CREATE TABLE IF NOT EXISTS episode_plans (
   PRIMARY KEY (show_id, slot_start)
 );
 
+CREATE TABLE IF NOT EXISTS seasons (
+  show_id    TEXT NOT NULL,
+  week       TEXT NOT NULL,          -- the Monday's date, YYYY-MM-DD in the station's time zone
+  created_at INTEGER NOT NULL,
+  writer     TEXT NOT NULL,
+  plan       TEXT NOT NULL,          -- JSON SeasonPlan
+  PRIMARY KEY (show_id, week)
+);
+
 CREATE TABLE IF NOT EXISTS game_results (
   id       INTEGER PRIMARY KEY AUTOINCREMENT,
   show_id  TEXT NOT NULL,

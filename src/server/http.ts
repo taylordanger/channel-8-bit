@@ -13,8 +13,9 @@ import type { Topic } from "./desk.js";
 import { assertPublicUrl, URL_PATTERN } from "./sources.js";
 import { senderId } from "./chat.js";
 import { affiliateLink } from "./products.js";
-import { phaseAt } from "./episodes.js";
+import { phaseAt, weekOf } from "./episodes.js";
 import { impactFeed, mailStatus } from "./impact.js";
+import { TwitchChat } from "./twitch.js";
 
 const TYPES: Record<string, string> = {
   ".m4a": "audio/mp4",
@@ -452,6 +453,10 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
               id: show.id,
               title: show.title,
               episode: episode && episode.showId === show.id ? episode : undefined,
+              season: (() => {
+                const s = show.serialized ? b.episodes.getSeason(show.id, weekOf(now, config.timeZone).key) : undefined;
+                return s && { title: s.title, question: s.question, day: weekOf(now, config.timeZone).day + 1 };
+              })(),
               cast: ids.map((id) => {
                 const st = states.get(id);
                 return {
@@ -566,6 +571,18 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
       updateViewers();
     });
   });
+
+  // The stream's Twitch chat joins the network's chat: same moderation, labeled TWITCH.
+  const twitch = config.twitchChannel
+    ? new TwitchChat(config.twitchChannel, (line) => {
+        const out = b.chat.post(line.name, line.text, `twitch:${line.login}`, b.clock.now());
+        if (out.kind !== "posted") return;
+        broadcast({ type: "chat", message: out.message });
+        void b.chat.review(out.message).then((removed) => removed && broadcast({ type: "chat-delete", id: out.message.id }));
+      }, (m) => console.log(`[${new Date().toISOString()}] ${m}`))
+    : undefined;
+  twitch?.start();
+  server.on("close", () => twitch?.stop());
 
   server.listen(config.port);
   return {

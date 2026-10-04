@@ -344,7 +344,7 @@ export class Producer {
       game,
       viewerMessage: mail ? { id: mail.id, handle: mail.handle, text: mail.text } : undefined,
       // Shows that talk to the audience can glance at the live chat; scripted fiction never does.
-      chat: FOURTH_WALL.has(show.format) && !solo ? (this.d.chat?.digest(at) ?? []).map((m) => ({ handle: m.handle, text: m.text })) : undefined,
+      chat: FOURTH_WALL.has(show.format) && !solo ? (this.d.chat?.digest(at) ?? []).map((m) => ({ handle: m.source === "twitch" ? `${m.handle} (on Twitch)` : m.handle, text: m.text })) : undefined,
     };
   }
 

@@ -58,7 +58,14 @@ export class ChatPanel {
     li.dataset.id = String(m.id);
     const who = document.createElement("b");
     who.textContent = m.handle;
-    li.append(who, document.createTextNode(" " + m.text));
+    li.append(who);
+    if (m.source === "twitch") {
+      const tag = document.createElement("span");
+      tag.className = "tag-twitch";
+      tag.textContent = "TWITCH";
+      li.append(" ", tag);
+    }
+    li.append(document.createTextNode(" " + m.text));
     this.list.append(li);
     while (this.list.children.length > 150) this.list.firstElementChild?.remove();
     if (nearBottom) this.list.scrollTop = this.list.scrollHeight;

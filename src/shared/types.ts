@@ -197,4 +197,6 @@ export interface ChatMessage {
   at: number;
   handle: string;
   text: string;
+  /** Relayed from the stream's Twitch chat (absent for the website's own chat). */
+  source?: "twitch";
 }

@@ -25,7 +25,7 @@ https://github.com/taylordanger/channel-8-bit*
 |---|------|-----|-----|
 | 1 | **Sign up for Amazon Associates** | Get paid when people buy from the commercials | affiliate-program.amazon.com → sign up → copy your tracking ID (like `channel8bit-20`) → add `AMAZON_TAG=channel8bit-20` to `~/ai_network/.env` → restart. For the "website" field, list your Twitch/YouTube channel or the GitHub page, not the trycloudflare address (it keeps changing). **Needs 3 sales within 180 days.** |
 | 2 | **Add products to sell** | Commercials only air once the shelf has something on it | http://localhost:8088/desk.html → Commercials → paste an Amazon link + a name + a few true facts. Funny small objects work best. |
-| 3 | **Stream to Twitch** | Reach people beyond the website | Twitch → Creator Dashboard → Settings → Stream → copy **Primary Stream key** → add `STREAM_URL=rtmp://live.twitch.tv/app/YOUR_KEY` to `.env` → run `RESTREAM=1 npm run onair`. Needs about 5 Mbps of upload. Keep the key secret. |
+| 3 | **Stream to Twitch** | Reach people beyond the website | Twitch → Creator Dashboard → Settings → Stream → copy **Primary Stream key** → add `STREAM_URL=rtmp://live.twitch.tv/app/YOUR_KEY` to `.env` → run `RESTREAM=1 npm run onair`. Needs about 5 Mbps of upload. Keep the key secret. Also add `TWITCH_CHANNEL=yourchannel` so your Twitch chat shows up on the network. |
 | 4 | **Add your songs** | Bands perform your real tracks | Drop files into `~/ai_network/data/music/<band>/` (`glimmer`, `rusty_spurs`, `sewer_rats`, `interference`). For exact lip-sync, add the vocals-only track as `Song Name.vocals.mp3`. Picked up within 5 minutes. ⚠️ Suno free-plan songs generally can't be used commercially, and a monetized stream counts. |
 | 5 | **(Optional) Start at login** | Survive reboots without opening a terminal | Stop the running copy (Ctrl+C), then `./scripts/install-launch-agent.sh`. |
 | 6 | **(Optional) Buy a domain** (~$10/yr) | A permanent address instead of a random one; Amazon prefers one | Buy one (Cloudflare Registrar is at cost), then ask Claude to set up a named tunnel. |
@@ -35,12 +35,10 @@ https://github.com/taylordanger/channel-8-bit*
 
 ## 🧭 Ideas for the next session with Claude
 
-- **Twitch chat on the network:** show Twitch messages in the website chat, and let the cast react to them.
 - **Set up the permanent address** once you have a domain (named Cloudflare tunnel).
 - **Raise the share of fresh airtime:** it was low today (lots of encores) because the local model needs about 2 minutes per
   scene. Options: smarter scheduling, shorter scenes, or Claude.
 - **More shows:** a cooking show, a call-in advice show, a news-parody desk that reads assignment-desk links.
-- **Weekly "season" arcs:** Pixel Heights plot twists that build across the week.
 
 ---
 
@@ -123,6 +121,8 @@ npm run shadow -- 24           # simulate a whole day in seconds and check for p
 27. **Commercials are reused:** each product keeps up to 3 finished ads and rotates them, so a break doesn't wait on the local AI. If a listing is re-read with new facts, fresh ads get written.
 28. **The nightly flagship is promoted:** a banner on the broadcast page ("TONIGHT 9:00 PM: Hot Seat… then the loser has to face Rex") shows the start in each viewer's own time. Station breaks in the hours before it say "Tonight 9 PM PDT: Hot Seat - the loser faces Rex".
 29. **The local writer writes a compact format:** I measured it first. On this Mac the model writes only about 6–8 tokens per second, and most of what it wrote was JSON labels, not dialogue (863 tokens for about 160 tokens of speech). Lines are now short tuples, the bookkeeping is trimmed, and the story notes are rewritten only at an episode's setup and payoff. Result: about 30–40% more airtime per second of model time, with roughly half the output per scene.
+30. **Weekly seasons for Pixel Heights:** on Monday the writer plans the week around one question viewers want answered, with a development for each day and the answer in Sunday's finale. Each episode plan gets that day's development; the answer stays hidden until Sunday. The Drama board shows "THIS WEEK · DAY N OF 7". A season only starts Monday to Thursday (a Sunday start would reveal its answer at once), so the first one begins Monday.
+31. **Twitch chat on the network:** set `TWITCH_CHANNEL=yourchannel` in `.env` and restart. Your Twitch chat then shows in the website chat, labeled TWITCH and moderated like everything else, and the cast can react to it. No key or password is needed to read chat. At most 6 Twitch messages a minute are relayed, so moderation doesn't crowd out the writer.
 
 ---
 

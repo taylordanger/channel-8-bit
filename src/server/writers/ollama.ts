@@ -3,7 +3,7 @@ import { CHARACTERS } from "../catalog/characters.js";
 import { systemPrompt, userPrompt } from "./prompt.js";
 import { ACTIONS, EMOTIONS, MOODS } from "../../shared/types.js";
 import type { Show } from "../catalog/shows.js";
-import { PlanSchema, planPrompt, type EpisodePlan, type PlanRequest } from "../episodes.js";
+import { PlanSchema, planPrompt, SeasonSchema, seasonPrompt, type EpisodePlan, type PlanRequest, type SeasonPlan } from "../episodes.js";
 import { type Script, type Writer, type WriterBrief, type WriterResult } from "./script.js";
 
 export type Fetcher = (url: string, init: RequestInit) => Promise<Response>;
@@ -246,6 +246,13 @@ export class OllamaWriter implements Writer {
       }
     }
     throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  }
+
+  /** Once a week per serialized show: the season arc. */
+  async planSeason(show: Show, storyState: string, last?: SeasonPlan): Promise<SeasonPlan> {
+    if (this.now() < this.coolingUntil) throw new Error("local model is cooling down after a timeout");
+    const { system, user } = seasonPrompt(show, storyState, last);
+    return this.client.chat(system, user, SeasonSchema, { temperature: 0.85 });
   }
 
   /** The episode arc. Small output, so it's quick even on the local model. */

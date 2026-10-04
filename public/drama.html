@@ -54,6 +54,11 @@
         shows.replaceChildren(...d.shows.map((s) => {
           const card = el("div", "card");
           card.append(el("h2", null, s.title.toUpperCase()));
+          if (s.season) {
+            const se = el("div", "ep");
+            se.append(el("div", "live", `THIS WEEK · DAY ${s.season.day} OF 7 · ANSWERED SUNDAY`), el("div", null, s.season.title), el("div", "want", s.season.question));
+            card.append(se);
+          }
           if (s.episode) {
             const ep = el("div", "ep");
             ep.append(el("div", "live", `ON NOW · PART ${s.episode.part} OF ${s.episode.of}`), el("div", null, s.episode.logline));

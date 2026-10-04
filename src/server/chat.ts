@@ -6,6 +6,9 @@ import type { StandardsPolicy } from "./standards.js";
 
 export const MAX_CHAT_CHARS = 200;
 const MIN_GAP_MS = 2000;
+/** Twitch messages are stored with a "twitch:<login>" sender. */
+const SOURCE = "CASE WHEN sender LIKE 'twitch:%' THEN 'twitch' END AS source";
+const withSource = <T extends { source?: string | null }>(m: T): T => (m.source ? m : { ...m, source: undefined });
 const PER_MINUTE = 10;
 export const MUTE_MS = 24 * 3_600_000;
 
@@ -41,7 +44,7 @@ export class ChatRoom {
     if ([...this.policy.blocklist, ...this.policy.fictionBlocklist].some((re) => re.test(text) || re.test(handle)))
       return { kind: "error", error: "that message can't be posted" };
     const info = this.db.prepare("INSERT INTO chat_messages (at, handle, text, sender) VALUES (?,?,?,?)").run(now, handle, text, sender);
-    const message: ChatMessage = { id: Number(info.lastInsertRowid), at: now, handle, text };
+    const message: ChatMessage = { id: Number(info.lastInsertRowid), at: now, handle, text, ...(sender.startsWith("twitch:") ? { source: "twitch" as const } : {}) };
     if (this.isMuted(sender, now)) {
       this.db.prepare("UPDATE chat_messages SET deleted = 1, reason = 'muted' WHERE id = ?").run(message.id);
       return { kind: "shadow", message };
@@ -86,13 +89,15 @@ export class ChatRoom {
   digest(now: number, limit = 6): ChatMessage[] {
     return (
       this.db
-        .prepare("SELECT id, at, handle, text FROM chat_messages WHERE deleted = 0 AND at <= ? AND at > ? ORDER BY id DESC LIMIT ?")
+        .prepare(`SELECT id, at, handle, text, ${SOURCE} FROM chat_messages WHERE deleted = 0 AND at <= ? AND at > ? ORDER BY id DESC LIMIT ?`)
         .all(now - 15_000, now - 15 * 60_000, limit) as ChatMessage[]
-    ).reverse();
+    )
+      .reverse()
+      .map(withSource);
   }
 
   recent(limit = 50): ChatMessage[] {
-    return (this.db.prepare("SELECT id, at, handle, text FROM chat_messages WHERE deleted = 0 ORDER BY id DESC LIMIT ?").all(limit) as ChatMessage[]).reverse();
+    return (this.db.prepare(`SELECT id, at, handle, text, ${SOURCE} FROM chat_messages WHERE deleted = 0 ORDER BY id DESC LIMIT ?`).all(limit) as ChatMessage[]).reverse().map(withSource);
   }
 
   /** For the operator: everything, including removed messages and why. */

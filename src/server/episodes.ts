@@ -33,6 +33,67 @@ export const PlanSchema = z.object({
 });
 export type EpisodePlan = z.infer<typeof PlanSchema>;
 
+/**
+ * A season: one week of a serialized show, built around a question viewers want answered. Each
+ * day's episodes deliver that day's development; Sunday's finale gives the answer.
+ */
+export const SeasonSchema = z.object({
+  title: z.string().describe("The week's title, like a TV season arc: 'The Week of the Missing Will'"),
+  question: z.string().describe("The central question viewers will want answered by Sunday"),
+  days: z.array(z.string()).describe("Exactly seven developments, Monday to Sunday, each raising the stakes; Sunday's answers the question"),
+  answer: z.string().describe("The secret answer to the question, revealed only in Sunday's finale"),
+});
+export type SeasonPlan = z.infer<typeof SeasonSchema>;
+
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/** Which week (keyed by its Monday's date) and which day of it (0 = Monday) an instant falls in. */
+export function weekOf(t: number, timeZone: string): { key: string; day: number } {
+  const date = new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(t));
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "long" }).format(new Date(t));
+  const day = WEEKDAYS.indexOf(weekday);
+  // Calendar arithmetic at noon UTC, so daylight-saving shifts can't move the date.
+  const monday = new Date(`${date}T12:00:00Z`).getTime() - day * 86_400_000;
+  return { key: new Date(monday).toISOString().slice(0, 10), day };
+}
+
+/** Make a model's season safe to use: exactly seven clean days, the finale kept last. */
+export function tidySeason(s: SeasonPlan): SeasonPlan {
+  const days = s.days
+    .map((d) =>
+      d
+        .replace(/&#x?[0-9a-f]+;|&nbsp;/gi, " ")
+        .replace(/^\s*(?:(?:mon|tue|tues|wed|wednes|thu|thur|thurs|fri|sat|satur|sun)(?:day)?\b\.?|day\s*\d+)?\s*(?:\d+[.):]|[-*•:])?\s*/i, "")
+        // Small models lead with stray punctuation and an episode title: ", 'Betrayal of Trust', ..."
+        .replace(/^[\s,;:.-]+/, "")
+        .replace(/^(['"‘“])[^'"’”]{1,60}['"’”]\s*[,:.-]\s*/, "")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
+    // At most two sentences a day: the whole week goes into every episode's planning prompt.
+    .map((d) => (d.match(/[^.!?]+[.!?]+/g)?.slice(0, 2).join("").trim() || d).slice(0, 320))
+    .filter((d) => d.length >= 3 && !/:$/.test(d))
+    .slice(0, 7);
+  // Too few: stretch the middle of the week, keeping the finale on Sunday.
+  while (days.length < 7) days.splice(Math.max(0, days.length - 1), 0, days[Math.max(0, days.length - 2)] ?? s.question);
+  return { ...s, days };
+}
+
+/** The season prompt. */
+export function seasonPrompt(show: Show, storyState: string, last?: SeasonPlan): { system: string; user: string } {
+  const name = (id: string) => CHARACTERS[id]?.name ?? id;
+  const system = `You are the head writer of ${show.title}, a serialized show on a 24/7 network of fictional pixel-art characters. Plan this week's season arc: one central question the audience will want answered, seven escalating daily developments (Monday to Sunday), and the answer, revealed only in Sunday's finale. The answer must be surprising but fair: the daily developments should plant clues for it. All characters are fictional: never involve real people, companies or current events. Be concrete and dramatic; keep each field to one or two sentences.
+
+SHOW: ${show.title}
+${show.bible}
+
+CAST (use these names): ${show.cast.map((id) => `${name(id)} (${CHARACTERS[id]?.bible ?? ""})`).join("; ")}`;
+  const parts = ["Plan this week."];
+  if (storyState) parts.push(`STORY SO FAR:\n${storyState}`);
+  if (last) parts.push(`LAST WEEK: "${last.title}" asked: ${last.question} The answer was: ${last.answer} Build on it; don't repeat it.`);
+  return { system, user: parts.join("\n\n") };
+}
+
 /** What a planner gets to work with. */
 export interface PlanRequest {
   show: Show;
@@ -46,6 +107,8 @@ export interface PlanRequest {
   feuds: { a: string; b: string }[];
   /** Tonight's booked guest, if the show has one. */
   guest?: string;
+  /** Serialized shows: this week's arc and what must happen today. */
+  season?: { title: string; question: string; day: number; today: string; answer?: string };
 }
 
 /** Where in the episode a scene falls. */
@@ -127,6 +190,12 @@ CAST (use these ids): ${req.cast.map((id) => `${id} (${name(id)}: ${CHARACTERS[i
   const parts = [`Plan the episode airing ${req.localTime}.`];
   if (req.guest) parts.push(`TONIGHT'S GUEST: ${name(req.guest)} (${req.guest}): ${CHARACTERS[req.guest]?.bible ?? ""}`);
   if (req.headlines.length) parts.push(`JUST HAPPENED ON THE NETWORK (use what fits):\n${req.headlines.map((h) => `- ${h}`).join("\n")}`);
+  if (req.season) {
+    const s = req.season;
+    parts.push(
+      `THIS WEEK'S SEASON: "${s.title}" - the question everyone wants answered: ${s.question}\nTODAY IS DAY ${s.day + 1} OF 7. Today's development, which this episode must deliver: ${s.today}${s.answer ? `\nTONIGHT IS THE FINALE: the payoff reveals the answer: ${s.answer}` : "\nDon't answer the question yet; deepen it."}`,
+    );
+  }
   if (req.storyState) parts.push(`STORY SO FAR:\n${req.storyState}`);
   if (req.previous) {
     parts.push(`LAST EPISODE: ${req.previous.logline} It ended: ${req.previous.payoff} Left open: ${req.previous.openThread}`);
@@ -166,10 +235,11 @@ export function improvPlan(req: PlanRequest, seed: number): EpisodePlan {
   };
 }
 
-/** Writers that can also plan episodes. */
+/** Writers that can also plan episodes (and seasons). */
 export interface Planner {
   readonly name: string;
   plan(req: PlanRequest): Promise<EpisodePlan>;
+  planSeason?(show: Show, storyState: string, last?: SeasonPlan): Promise<SeasonPlan>;
 }
 export const canPlan = (w: Writer): w is Writer & Planner => typeof (w as Partial<Planner>).plan === "function";
 
@@ -187,6 +257,8 @@ export class EpisodeBook {
     private memory: MemoryBank,
     private states?: CharacterStates,
     private log?: (m: string) => void,
+    /** The station's time zone; seasons follow its calendar week. */
+    private timeZone?: string,
   ) {}
 
   get(showId: string, slotStart: number): StoredPlan | undefined {
@@ -207,8 +279,37 @@ export class EpisodeBook {
     return rows.map(toStored);
   }
 
+  getSeason(showId: string, week: string): SeasonPlan | undefined {
+    const row = this.db.prepare("SELECT plan FROM seasons WHERE show_id = ? AND week = ?").get(showId, week) as { plan: string } | undefined;
+    return row ? tidySeason(JSON.parse(row.plan) as SeasonPlan) : undefined;
+  }
+
+  /** This week's season for a serialized show: stored, or planned now by the first writer that can. */
+  async ensureSeason(show: Show, at: number, writers: Writer[], timeoutMs = 150_000): Promise<SeasonPlan | undefined> {
+    if (!show.serialized || !this.timeZone) return undefined;
+    const { key, day } = weekOf(at, this.timeZone);
+    const stored = this.getSeason(show.id, key);
+    if (stored) return stored;
+    // A season needs room to build: one that would start Friday or later waits for Monday.
+    if (day > 3) return undefined;
+    const lastRow = this.db.prepare("SELECT plan FROM seasons WHERE show_id = ? AND week < ? ORDER BY week DESC LIMIT 1").get(show.id, key) as { plan: string } | undefined;
+    const last = lastRow ? (JSON.parse(lastRow.plan) as SeasonPlan) : undefined;
+    for (const w of writers.filter(canPlan)) {
+      if (!w.planSeason) continue;
+      try {
+        const season = tidySeason(await withTimeout(w.planSeason(show, this.memory.storyState(show.id) || (show.storySeed ?? ""), last), timeoutMs));
+        this.db.prepare("INSERT OR REPLACE INTO seasons (show_id, week, created_at, writer, plan) VALUES (?,?,?,?,?)").run(show.id, key, Date.now(), w.name, JSON.stringify(season));
+        this.log?.(`planned the week on ${show.title} (${w.name}): ${season.title} - ${season.question}`);
+        return season;
+      } catch (e) {
+        this.log?.(`season planner ${w.name} failed on ${show.id}: ${(e as Error).message}`);
+      }
+    }
+    return undefined;
+  }
+
   /** Everything a planner should know about this airing. */
-  request(show: Show, slot: ScheduledSlot, localTime: string, guest?: string): PlanRequest {
+  request(show: Show, slot: ScheduledSlot, localTime: string, guest?: string, season?: SeasonPlan): PlanRequest {
     const cast = [...show.cast, ...(guest ? [guest] : [])];
     const since = slot.startAt - 12 * 3_600_000;
     // Big moments from other shows involving this cast: wins, losses, walk-offs.
@@ -231,7 +332,14 @@ export class EpisodeBook {
       moods,
       feuds: this.memory.feuds(cast).map(({ a, b }) => ({ a, b })),
       guest,
+      season: season && this.timeZone ? this.seasonFor(season, slot.startAt) : undefined,
     };
+  }
+
+  /** What a planner may know of the season today: the answer only on Sunday. */
+  private seasonFor(s: SeasonPlan, at: number): PlanRequest["season"] {
+    const { day } = weekOf(at, this.timeZone!);
+    return { title: s.title, question: s.question, day, today: s.days[day] ?? s.days[s.days.length - 1], answer: day === 6 ? s.answer : undefined };
   }
 
   /**
@@ -244,7 +352,8 @@ export class EpisodeBook {
     const { guest, keepTemplate = false, timeoutMs = 150_000 } = opts;
     const stored = this.get(show.id, slot.startAt);
     if (stored) return stored.plan;
-    const req = this.request(show, slot, localTime, guest);
+    const season = await this.ensureSeason(show, slot.startAt, writers, timeoutMs);
+    const req = this.request(show, slot, localTime, guest, season);
     for (const w of writers.filter(canPlan)) {
       try {
         const plan = tidyPlan(await withTimeout(w.plan(req), timeoutMs), req);

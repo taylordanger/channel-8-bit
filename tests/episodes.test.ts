@@ -3,7 +3,7 @@ import { slotAt } from "../src/server/catalog/schedule.js";
 import { getShow } from "../src/server/catalog/shows.js";
 import { CHARACTERS } from "../src/server/catalog/characters.js";
 import { openDb } from "../src/server/db.js";
-import { EpisodeBook, GameResults, phaseAt, tidyBeats, tidyPlan, type EpisodePlan, type PlanRequest } from "../src/server/episodes.js";
+import { EpisodeBook, GameResults, phaseAt, tidyBeats, tidyPlan, tidySeason, weekOf, type EpisodePlan, type PlanRequest, type SeasonPlan } from "../src/server/episodes.js";
 import { MemoryBank } from "../src/server/memory.js";
 import { Producer } from "../src/server/producer.js";
 import { Timeline } from "../src/server/timeline.js";
@@ -158,5 +158,76 @@ describe("Hot Seat losers face the host", () => {
     // The next night, with no new game, it's back to the usual rotation.
     const tomorrow = { ...slot, startAt: tenPm + 86_400_000, endAt: tenPm + 86_400_000 + 7_200_000 };
     expect(lateByte.guestPool).toContain(producer.guestFor(lateByte, tomorrow)?.id);
+  });
+});
+
+describe("weekly seasons", () => {
+  const season: SeasonPlan = {
+    title: "The Week of the Missing Will",
+    question: "Who took Victoria's will?",
+    days: ["Mon: the will vanishes", "Tue: a forged copy", "Wed: Marcus remembers", "Thu: the safe code", "Fri: Lola's alibi cracks", "Sat: Dante confesses (falsely)", "Sun: the truth"],
+    answer: "Victoria hid it herself to test them.",
+  };
+
+  it("keys weeks by their Monday in the station's time zone", () => {
+    const tz = "America/Los_Angeles";
+    expect(weekOf(Date.UTC(2026, 9, 4, 19), tz)).toEqual({ key: "2026-09-28", day: 6 }); // Sun Oct 4, noon PDT
+    expect(weekOf(Date.UTC(2026, 9, 5, 6, 30), tz)).toEqual({ key: "2026-09-28", day: 6 }); // still Sunday night locally
+    expect(weekOf(Date.UTC(2026, 9, 5, 19), tz)).toEqual({ key: "2026-10-05", day: 0 }); // Monday
+  });
+
+  it("tidies a season to seven clean days, finale last", () => {
+    expect(tidySeason(season).days[0]).toBe("the will vanishes");
+    const short = tidySeason({ ...season, days: ["1. a", "2. bee", "3. sea", "Sunday: the end"] });
+    expect(short.days).toHaveLength(7);
+    expect(short.days[6]).toBe("the end");
+    const padded = tidySeason({ ...season, days: [", 'Betrayal of Trust', Victoria demands Lola leave. Dante meets her in secret. Lola reveals a benefactor. Dante walks out.", ...season.days.slice(1)] });
+    expect(padded.days[0]).toBe("Victoria demands Lola leave. Dante meets her in secret.");
+  });
+
+  function seasonSetup(answerAt: number) {
+    const asked: PlanRequest[] = [];
+    let seasons = 0;
+    const improv = new ImprovWriter(3);
+    const w: Writer & { plan(r: PlanRequest): Promise<EpisodePlan>; planSeason(): Promise<SeasonPlan> } = {
+      name: "planner",
+      write: (b) => improv.write(b),
+      plan: async (r) => (asked.push(r), plan()),
+      planSeason: async () => (seasons++, season),
+    };
+    const db = openDb(":memory:");
+    const episodes = new EpisodeBook(db, new MemoryBank(db), undefined, undefined, TZ);
+    const producer = new Producer({ timeline: new Timeline(db), memory: new MemoryBank(db), tts: new SilentTTS(), writers: [w, new ImprovWriter(1)], timeZone: TZ, episodes });
+    const at = answerAt;
+    return { producer, asked, episodes, seasonsPlanned: () => seasons, at };
+  }
+
+  it("plans the week once and gives each episode its day's development; the answer only on Sunday", async () => {
+    // Pixel Heights 10am-12pm UTC. Thursday Oct 8 2026, then Sunday Oct 11.
+    const thu = Date.UTC(2026, 9, 8, 10, 30);
+    const { producer, asked, episodes, seasonsPlanned } = seasonSetup(thu);
+    await producer.produce(thu, slotAt(thu, TZ), { rerun: false });
+    expect(asked[0].season).toMatchObject({ day: 3, today: "the safe code", answer: undefined });
+    const sun = Date.UTC(2026, 9, 11, 10, 30);
+    await producer.produce(sun, slotAt(sun, TZ), { rerun: false });
+    expect(asked[1].season).toMatchObject({ day: 6, today: "the truth", answer: "Victoria hid it herself to test them." });
+    expect(seasonsPlanned()).toBe(1);
+    expect(episodes.getSeason("pixel_heights", "2026-10-05")?.title).toBe("The Week of the Missing Will");
+  });
+
+  it("episodic shows don't get seasons", async () => {
+    const lateByte = Date.UTC(2026, 9, 8, 23, 0); // late_byte in UTC
+    const { producer, asked, seasonsPlanned } = seasonSetup(lateByte);
+    await producer.produce(lateByte, slotAt(lateByte, TZ), { rerun: false });
+    expect(asked[0]?.season).toBeUndefined();
+    expect(seasonsPlanned()).toBe(0);
+  });
+
+  it("doesn't start a season late in the week (it would reveal its answer almost at once)", async () => {
+    const sat = Date.UTC(2026, 9, 10, 10, 30);
+    const { producer, asked, seasonsPlanned } = seasonSetup(sat);
+    await producer.produce(sat, slotAt(sat, TZ), { rerun: false });
+    expect(seasonsPlanned()).toBe(0);
+    expect(asked[0].season).toBeUndefined();
   });
 });
