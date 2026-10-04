@@ -348,10 +348,14 @@ export class Producer {
       show.format === "news"
         ? this.d.memory.latest(200).filter((m) => m.createdAt > at - 12 * 3_600_000 && m.showId !== show.id && m.weight >= 0.6).map((m) => m.text)
         : [];
+    // Rotate topic seeds: never one of the last few this show used.
+    const usedTopics = new Set(this.d.timeline.recentTopics(show.id, at, Math.min(4, show.topics.length - 1)));
+    const freshTopics = show.topics.filter((t) => !usedTopics.has(t));
     return {
       show,
       segmentType,
-      topic: desk?.text ?? (headlines.length && r() < 0.7 ? `network news: ${pick(headlines)}` : pick(show.topics)),
+      topic: desk?.text ?? (headlines.length && r() < 0.7 ? `network news: ${pick(headlines)}` : pick(freshTopics.length ? freshTopics : show.topics)),
+      lastSegment: slot.endAt - at <= 5 * 60_000,
       deskTopicId: desk?.id,
       source: desk?.fetchStatus === "ok" ? (desk.source ?? undefined) : undefined,
       cast,
@@ -431,8 +435,8 @@ export class Producer {
         this.d.ops?.production({ at, showId: brief.show.id, writer: writer.name, outcome, writeMs, voiceMs, detail });
       try {
         const { script: draft, writer: writerName } = await writer.write(brief);
-        // The cliché trim is for the model writers; the improv troupe's act *is* its stock bits.
-        const checked = await this.clear(draft, writer.name === "improv" ? { ...brief, overused: [] } : brief, writer.name !== "improv");
+        // The writer-habit checks are for the model writers; the improv troupe's act *is* its stock bits.
+        const checked = await this.clear(draft, brief, writer.name !== "improv");
         if (checked.rejected) {
           record("rejected", checked.rejected);
           lastError = `${writer.name}: ${checked.rejected}`;
@@ -441,6 +445,7 @@ export class Producer {
         }
         const writeMs = Date.now() - t0;
         const segment = await this.assemble(brief.show, brief.cast, checked.script, writerName, brief.segmentType, brief.moods);
+        if (!brief.deskTopicId && !brief.shoutout && !brief.ad) segment.topic = brief.topic;
         record("ok", "", Date.now() - t0 - writeMs, writeMs);
         if (brief.game) this.attachGame(segment, brief.show, brief.game);
         if (brief.deskTopicId) this.d.desk?.markUsed(brief.deskTopicId, at);
@@ -603,13 +608,13 @@ export class Producer {
       notes.push(...r.notes);
       return r;
     };
-    let r = step(deterministicStandards(draft, brief, policy));
+    let r = step(deterministicStandards(draft, brief, policy, { writerChecks: modelPasses }));
     if (r.rejected) return { ...r, notes };
 
     if (modelPasses && this.d.llmStandards && (brief.show.tier === "premium" || brief.source)) {
       r = step(await this.d.llmStandards.review(r.script, brief.show.id, Boolean(brief.source)));
       if (r.rejected) return { ...r, notes };
-      r = step(deterministicStandards(r.script, brief, policy));
+      r = step(deterministicStandards(r.script, brief, policy, { writerChecks: modelPasses }));
       if (r.rejected) return { ...r, notes };
     }
 
@@ -628,7 +633,7 @@ export class Producer {
       if (modelPasses && this.d.factChecker) {
         r = step(await this.d.factChecker.check(r.script, brief.source, brief.show.id));
         if (r.rejected) return { ...r, notes };
-        r = step(deterministicStandards(r.script, brief, policy));
+        r = step(deterministicStandards(r.script, brief, policy, { writerChecks: modelPasses }));
         if (r.rejected) return { ...r, notes };
         r = step(checkNumbers(r.script, brief.source));
         if (r.rejected) return { ...r, notes };

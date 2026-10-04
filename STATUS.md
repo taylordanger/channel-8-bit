@@ -144,6 +144,12 @@ npm run shadow -- 24           # simulate a whole day in seconds and check for p
     - The requester downloads widescreen and vertical videos from their own private link. No email or account is needed, and files have unguessable names.
     - Free by default. To charge, create a payment link yourself (for example a Stripe Payment Link) and add `SHOUTOUT_PAYMENT_URL` and `SHOUTOUT_PRICE` to `.env`; the form then shows it, and you approve requests once paid.
 39. **A new show, Kitchen Nightmode (4–5 PM):** Chef Remy Burns (supremely confident, sets every dish on fire, "that's what we call a flavor event") and Pepper Mills (the one who can actually cook, and keeps a fire extinguisher named Gerald handy). A guest from another show tastes the result, and viewer recipes are read on air. The recipes are absurd and fictional, never real cooking or food-safety advice. It has a new kitchen set. Couch Co-op is now 2–4 PM.
+40. **Quality pass across the shows** (from reading a day and a half of real scenes):
+    - **Topic rotation:** each scene picks a topic seed the show hasn't used in its last few scenes (The Late Byte kept doing the broken applause sign).
+    - **Stage directions read aloud are cut** ("enter, walking back into the set with a sheepish grin").
+    - **No goodbyes mid-show:** on shows that talk to the audience, "that's all the time we have" only survives in a show's final minutes.
+    - **No telling the same joke twice in one scene:** a line that mostly repeats an earlier one is cut (Jerome said the marble-rye line three times).
+    - These apply to scenes the AI writes; the improv troupe's stock bits are exempt. On 1,415 real lines, the rules flagged 2 stage directions, a handful of mid-show goodbyes, and 18 repeated lines; two false alarms found that way were fixed.
 
 ---
 

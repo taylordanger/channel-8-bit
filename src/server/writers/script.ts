@@ -85,6 +85,8 @@ export interface WriterBrief {
   storyState: string;
   /** Lines aired recently; writers must not repeat them. */
   recentLines: string[];
+  /** False when the show keeps going after this scene (so no goodnights); true for its final scene. */
+  lastSegment?: boolean;
   /** What this airing's earlier fresh scenes already did (so this one moves on). */
   episodeSoFar?: string[];
   /** Phrases repeated across recent scenes: banned for now. */

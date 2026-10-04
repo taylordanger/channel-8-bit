@@ -106,3 +106,35 @@ describe("overused phrases", () => {
     expect(dropOverused("Playing dumbbells is fine.", ["don't play dumb"])).toBe("Playing dumbbells is fine.");
   });
 });
+
+describe("quality checks from the show review", () => {
+  const brief = async (over = {}) => {
+    const { getShow } = await import("../src/server/catalog/shows.js");
+    const { CHARACTERS } = await import("../src/server/catalog/characters.js");
+    const show = getShow("late_byte");
+    return { show, cast: show.cast.map((id) => CHARACTERS[id]), recentLines: [], ...over };
+  };
+  const scene = (lines: [string, string][]) => ({
+    title: "t", summary: "s", memories: [], relationshipChanges: [], moodChanges: [], storyState: "",
+    beats: lines.map(([speaker, line]) => ({ speaker, line, emotion: "neutral" as const, action: "none" as const, target: "audience", laugh: false })),
+  });
+
+  it("cuts stage directions written as dialogue", async () => {
+    const { deterministicStandards } = await import("../src/server/standards.js");
+    const r = deterministicStandards(scene([["rex", "enter, walking back into the set with a sheepish grin"], ["rex", "Enter, Dee Dee. You're late."], ["deedee", "Sure, Rex."], ["rex", "Walks are good for you, Dee Dee."], ["deedee", "Sure."], ["rex", "Fine."]]), await brief());
+    expect(r.script.beats.map((b) => b.line)).toEqual(["Enter, Dee Dee. You're late.", "Sure, Rex.", "Walks are good for you, Dee Dee.", "Sure.", "Fine."]);
+  });
+
+  it("drops goodbyes in the middle of the show, keeps them at the end", async () => {
+    const { deterministicStandards } = await import("../src/server/standards.js");
+    const lines: [string, string][] = [["rex", "Great bit. That's all the time we have for tonight!"], ["deedee", "Sure, Rex."], ["rex", "One"], ["deedee", "Two"], ["rex", "Three"]];
+    expect(deterministicStandards(scene(lines), await brief({ lastSegment: false })).script.beats[0].line).toBe("Great bit.");
+    expect(deterministicStandards(scene(lines), await brief({ lastSegment: true })).script.beats[0].line).toMatch(/all the time we have/);
+  });
+
+  it("cuts a line that tells the same joke again", async () => {
+    const { nearDuplicate } = await import("../src/server/standards.js");
+    expect(nearDuplicate("Lenny and Dash have eaten the last good marble rye in the city.", "Seriously folks, Lenny and Dash have eaten the last good marble rye.")).toBe(true);
+    expect(nearDuplicate("Lenny and Dash found the marble rye.", "I'm going to sulk about my jacket now.")).toBe(false);
+  });
+});

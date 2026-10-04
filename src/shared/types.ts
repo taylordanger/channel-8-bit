@@ -131,6 +131,8 @@ export interface Segment {
   poll?: Poll;
   /** Commercials: what's being sold and where to buy it. */
   ad?: AdInfo;
+  /** The topic seed it was written from (so the next scenes pick a different one). */
+  topic?: string;
 }
 
 export interface AdInfo {

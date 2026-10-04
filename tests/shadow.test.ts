@@ -22,7 +22,9 @@ describe("shadow station", () => {
     const r = await runShadow({ startAt: start, hours: 14, viewersAt: watching, config: { timeZone: "UTC" } });
     expect(r.violations).toEqual([]);
     expect(r.producedWhileIdle).toBe(0);
-    expect(r.segments).toBeLessThan(80); // ~2 watched hours, not 14
+    // ~2 watched hours, not 14 (all 14 would be ~400 scenes). Scene lengths vary with the topics
+    // chosen, so this bound only needs to separate the two.
+    expect(r.segments).toBeLessThan(110);
     expect(r.deadAirSec).toBeLessThanOrEqual(15);
   }, 60_000);
 

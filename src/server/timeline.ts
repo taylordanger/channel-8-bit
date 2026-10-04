@@ -100,6 +100,14 @@ export class Timeline {
     return rows.map((r) => r.summary).reverse();
   }
 
+  /** Topic seeds of a show's last few fresh scenes. */
+  recentTopics(showId: string, before: number, scenes: number): string[] {
+    const rows = this.db
+      .prepare("SELECT json_extract(body, '$.topic') AS topic FROM segments WHERE show_id = ? AND kind = 'live' AND start_at < ? ORDER BY start_at DESC LIMIT ?")
+      .all(showId, before, scenes) as { topic: string | null }[];
+    return rows.map((r) => r.topic).filter((t): t is string => Boolean(t));
+  }
+
   /** The lines of a show's last few fresh scenes, one array per scene. */
   recentScenes(showId: string, before: number, scenes: number): string[][] {
     const rows = this.db

@@ -40,6 +40,24 @@ export const DEFAULT_POLICY: StandardsPolicy = {
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
 
 /** Remove things TTS would read aloud that were never meant to be spoken. */
+/** A "line" that is really a stage direction: starts with an action word and a comma or "-ing" clause. */
+const STAGE_DIRECTION = /^(enters?|exits?|walks?|walking|storms?|stands?|sits?|leans?|laughs?|sighs?|pauses?|gestures?|turns?|nods?|shrugs?|returns?|re-?enters?|looks?)\b(,|\s+(in|out|off|back|away|over|up|down|to|toward|into|onto)\b|\s+\w+ing\b)/i;
+
+/** Ways a show says goodbye for the night. */
+const SIGN_OFF = /\b(that's all the time we have|that's all for (tonight|today)|see you (next time|tomorrow)|thanks for watching|good ?night,? (everybody|everyone|folks|insomniacs)|until next time)\b/i;
+/** Formats that address the viewers directly, so a goodbye means the show is ending. */
+const AUDIENCE_FORMATS = new Set(["late_night", "morning", "hangout", "gameshow", "news", "callin", "cooking"]);
+
+/** Two lines that are mostly the same words (the same joke told twice). */
+export function nearDuplicate(a: string, b: string): boolean {
+  const words = (x: string) => x.toLowerCase().replace(/[^a-z' ]+/g, " ").split(/\s+/).filter((w) => w.length > 2);
+  const wa = words(a);
+  const wb = new Set(words(b));
+  if (wa.length < 5 || wb.size < 5) return false;
+  const shared = new Set(wa.filter((w) => wb.has(w))).size;
+  return shared / Math.min(new Set(wa).size, wb.size) >= 0.7;
+}
+
 export function cleanLine(line: string): string {
   return line
     .replace(/\*[^*]*\*/g, " ") // *leans in*
@@ -69,9 +87,12 @@ function capWords(line: string, max: number): string {
  */
 export function deterministicStandards(
   input: Script,
-  brief: Pick<WriterBrief, "cast" | "show" | "recentLines" | "source" | "overused">,
+  brief: Pick<WriterBrief, "cast" | "show" | "recentLines" | "source" | "overused" | "lastSegment">,
   policy: StandardsPolicy = DEFAULT_POLICY,
+  /** Checks aimed at the model writers' habits (the improv troupe's stock bits are exempt). */
+  opts: { writerChecks?: boolean } = { writerChecks: true },
 ): StandardsResult {
+  const writerChecks = opts.writerChecks !== false;
   const notes: StandardsNote[] = [];
   const castIds = new Set(brief.cast.map((c) => c.id));
   const recent = new Set(brief.recentLines.map(normalize));
@@ -88,8 +109,24 @@ export function deterministicStandards(
     const cleaned = capWords(cleanLine(b.line), MAX_WORDS);
     if (cleaned !== b.line) notes.push({ verdict: "fix", line: b.line, reason: "removed stage directions / trimmed length" });
     b.line = cleaned;
+    // A stage direction written as dialogue ("enter, walking back in with a grin") isn't speakable.
+    // ("Enter, Dash. You've got five seconds..." is dialogue: real directions don't end in punctuation.)
+    if (STAGE_DIRECTION.test(b.line) && !/[.!?]["']?$/.test(b.line)) {
+      notes.push({ verdict: "cut", line: b.line, reason: "stage direction, not dialogue" });
+      continue;
+    }
+    // Goodbyes belong to the end of the show, not the middle of it.
+    // (Only shows that talk to the audience: a soap character's "until next time" is part of the story.)
+    if (writerChecks && brief.lastSegment === false && AUDIENCE_FORMATS.has(brief.show.format)) {
+      const kept = (b.line.match(/[^.!?]+[.!?]*\s*/g) ?? [b.line]).filter((s) => !SIGN_OFF.test(s)).join("").trim();
+      if (kept !== b.line) {
+        notes.push({ verdict: kept ? "fix" : "cut", line: b.line, reason: "signed off in the middle of the show" });
+        b.line = kept;
+        if (!kept) continue;
+      }
+    }
     // Worn-out phrases: small models ignore "never say X", so trim the sentences that say it.
-    const fresh = dropOverused(b.line, brief.overused ?? []);
+    const fresh = writerChecks ? dropOverused(b.line, brief.overused ?? []) : b.line;
     if (fresh !== b.line) {
       notes.push({ verdict: fresh ? "fix" : "cut", line: b.line, reason: "overused phrase" });
       b.line = fresh;
@@ -106,6 +143,11 @@ export function deterministicStandards(
     const n = normalize(b.line);
     if (recent.has(n) || seen.has(n)) {
       notes.push({ verdict: "cut", line: b.line, reason: "repeat of an aired line" });
+      continue;
+    }
+    // The same joke twice in one scene: a line that mostly repeats an earlier one.
+    if (writerChecks && beats.some((prev) => nearDuplicate(prev.line, b.line))) {
+      notes.push({ verdict: "cut", line: b.line, reason: "repeats an earlier line in this scene" });
       continue;
     }
     seen.add(n);

@@ -64,4 +64,20 @@ describe("producer", () => {
     }
     expect(briefs.some((b) => b.guest)).toBe(true);
   });
+
+  it("rotates topic seeds so consecutive scenes of a show don't reuse one", async () => {
+    const db = openDb(":memory:");
+    const timeline = new Timeline(db);
+    const p = new Producer({ timeline, memory: new MemoryBank(db), tts: new SilentTTS(), writers: [new ImprovWriter(3)], timeZone: TZ });
+    let t = noon;
+    const topics: string[] = [];
+    for (let i = 0; i < 6; i++) {
+      const made = await p.produce(t, slotAt(t, TZ), { rerun: false });
+      made.segment.startAt = t;
+      timeline.append(made.segment, made.summary);
+      topics.push(made.segment.topic ?? "");
+      t += made.segment.durationMs;
+    }
+    for (let i = 1; i < topics.length; i++) expect(topics.slice(Math.max(0, i - 4), i)).not.toContain(topics[i]);
+  });
 });

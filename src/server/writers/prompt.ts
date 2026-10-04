@@ -150,6 +150,7 @@ export function userPrompt(b: WriterBrief): string {
       lines.push(`THIS SEGMENT: play the ${g.step}. Give every contestant a distinct, memorable moment. The host must NOT pick a winner - end with the host telling viewers at home to vote now.`);
     sections.push(lines.join("\n"));
   }
+  if (b.lastSegment === false) sections.push("This is NOT the end of the show: no goodbyes, goodnights or \"that's all the time we have\".");
   if (b.episodeSoFar?.length)
     sections.push(
       `ALREADY ON AIR THIS EPISODE (don't restage any of these - this scene must add something new: a new fact, a decision, or a reversal):\n${b.episodeSoFar.map((s) => `- ${s}`).join("\n")}`,
