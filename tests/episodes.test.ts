@@ -3,7 +3,7 @@ import { slotAt } from "../src/server/catalog/schedule.js";
 import { getShow } from "../src/server/catalog/shows.js";
 import { CHARACTERS } from "../src/server/catalog/characters.js";
 import { openDb } from "../src/server/db.js";
-import { EpisodeBook, GameResults, phaseAt, tidyPlan, type EpisodePlan, type PlanRequest } from "../src/server/episodes.js";
+import { EpisodeBook, GameResults, phaseAt, tidyBeats, tidyPlan, type EpisodePlan, type PlanRequest } from "../src/server/episodes.js";
 import { MemoryBank } from "../src/server/memory.js";
 import { Producer } from "../src/server/producer.js";
 import { Timeline } from "../src/server/timeline.js";
@@ -74,6 +74,12 @@ describe("episode plans", () => {
     expect(t.beats).toEqual(["one", "one", "one"]);
     expect(t.secrets).toEqual([]);
     expect(t.reveal).toBe("");
+  });
+
+  it("strips list padding a small model adds to the beats", () => {
+    expect(
+      tidyBeats(["&#x20;Three developments make things worse or weirder:&#x20;", "1. The meat is expired.", "2) The storm never comes.", "- Pip quits live on air."], "x"),
+    ).toEqual(["The meat is expired.", "The storm never comes.", "Pip quits live on air."]);
   });
 
   it("plans once per airing and every scene follows it", async () => {

@@ -67,6 +67,25 @@ export function phaseAt(plan: EpisodePlan, slot: Pick<ScheduledSlot, "startAt" |
   return { index, of: PHASES, label: "escalation", job: plan.beats[index - 1] ?? plan.beats[plan.beats.length - 1] ?? plan.conflict };
 }
 
+/**
+ * Small models pad lists: HTML entities, numbering, and headings like "Three developments:".
+ * Keep only real beats, cleaned, exactly three of them.
+ */
+export function tidyBeats(beats: string[], fallback: string): string[] {
+  const clean = beats
+    .map((b) =>
+      b
+        .replace(/&#x?[0-9a-f]+;|&nbsp;/gi, " ")
+        .replace(/^\s*(?:beat\s*)?(?:\d+[.):]|[-*•])\s*/i, "")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
+    .filter((b) => b.length >= 3 && !/:$/.test(b) && !/^(three|3)?\s*(escalating\s+)?(developments|beats)\b/i.test(b))
+    .slice(0, 3);
+  while (clean.length < 3) clean.push(clean[clean.length - 1] ?? fallback);
+  return clean;
+}
+
 /** Make a model's plan safe to use: known ids only, exactly three beats, no secrets on episodic shows. */
 export function tidyPlan(plan: EpisodePlan, req: Pick<PlanRequest, "show" | "cast">): EpisodePlan {
   const ids = new Set(req.cast);
@@ -76,8 +95,7 @@ export function tidyPlan(plan: EpisodePlan, req: Pick<PlanRequest, "show" | "cas
     if (c) for (const k of [id, c.name, c.name.split(" ")[0]]) byName.set(k.toLowerCase(), id);
   }
   const fix = (s: string) => byName.get(s.trim().toLowerCase()) ?? s;
-  const beats = plan.beats.map((b) => b.trim()).filter(Boolean).slice(0, 3);
-  while (beats.length < 3) beats.push(beats[beats.length - 1] ?? plan.conflict);
+  const beats = tidyBeats(plan.beats, plan.conflict);
   const serialized = Boolean(req.show.serialized);
   return {
     ...plan,
@@ -277,7 +295,10 @@ interface Row {
   writer: string;
   plan: string;
 }
-const toStored = (r: Row): StoredPlan => ({ showId: r.show_id, slotStart: r.slot_start, writer: r.writer, plan: JSON.parse(r.plan) as EpisodePlan });
+const toStored = (r: Row): StoredPlan => {
+  const plan = JSON.parse(r.plan) as EpisodePlan;
+  return { showId: r.show_id, slotStart: r.slot_start, writer: r.writer, plan: { ...plan, beats: tidyBeats(plan.beats, plan.conflict) } };
+};
 
 function hash(s: string): number {
   let h = 2166136261;
