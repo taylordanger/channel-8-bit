@@ -20,6 +20,8 @@ export interface StationDeps {
   governor: Governor;
   timeZone: string;
   onSegment?: (s: Segment) => void;
+  /** Segments pulled from the timeline before airing (a special cut in). */
+  onRetract?: (ids: string[]) => void;
   log?: (msg: string) => void;
   /** With a slow writer, air an encore when the timeline is less than this far ahead. */
   hurryBelowMs?: number;
@@ -142,8 +144,15 @@ export class Station {
    * Break into programming: air a show starting with the next segment, for `minutes`.
    * What's already on the timeline still plays (it's what viewers were promised).
    */
-  airNow(showId: string, minutes: number): Override {
+  airNow(showId: string, minutes: number, opts: { cutIn?: boolean } = {}): Override {
     getShow(showId);
+    if (opts.cutIn) {
+      // Skip everything queued after the scene that's on now; viewers' players drop it too.
+      const now = this.d.clock.now();
+      const current = this.d.timeline.at(now);
+      const dropped = this.d.timeline.removeFrom(current ? current.startAt + current.durationMs : now);
+      if (dropped.length) this.d.onRetract?.(dropped);
+    }
     const startAt = this.nextStart();
     const endAt = startAt + Math.max(5, Math.min(360, minutes)) * 60_000;
     // A new special replaces any earlier one rather than resuming it afterwards.

@@ -17,6 +17,26 @@ export class AudioDirector {
     this.master.connect(this.ctx.destination);
   }
 
+  /** Stop anything scheduled for segments that were pulled before airing. */
+  retract(ids: string[]) {
+    for (const [key, src] of this.scheduled) {
+      if (!ids.some((id) => key.startsWith(id + ":"))) continue;
+      try {
+        src?.stop();
+      } catch {
+        /* not started yet */
+      }
+      this.scheduled.delete(key);
+    }
+  }
+
+  /** A copy of everything this director plays, for broadcast capture. */
+  tap(): MediaStream {
+    const dest = this.ctx.createMediaStreamDestination();
+    this.master.connect(dest);
+    return dest.stream;
+  }
+
   setMuted(m: boolean) {
     this.master.gain.value = m ? 0 : 1;
   }

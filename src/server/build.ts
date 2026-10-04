@@ -28,6 +28,7 @@ export interface BuildOptions {
   tts?: TTSEngine;
   writers?: Writer[];
   onSegment?: (s: Segment) => void;
+  onRetract?: (ids: string[]) => void;
   log?: (msg: string) => void;
   /** Override how assignment-desk links are read (tests). */
   sourceReader?: (url: string) => Promise<Source>;
@@ -101,6 +102,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     governor,
     timeZone: config.timeZone,
     onSegment: o.onSegment,
+    onRetract: o.onRetract,
     log: o.log,
   });
   // Finish reading any links a restart interrupted.

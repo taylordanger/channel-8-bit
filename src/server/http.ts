@@ -127,7 +127,7 @@ async function handleOverride(req: http.IncomingMessage, res: http.ServerRespons
     return json(res, { override: null });
   }
   if (req.method === "POST") {
-    let body: { showId?: unknown; minutes?: unknown };
+    let body: { showId?: unknown; minutes?: unknown; cutIn?: unknown };
     try {
       body = (await readJson(req)) as typeof body;
     } catch (e) {
@@ -135,7 +135,7 @@ async function handleOverride(req: http.IncomingMessage, res: http.ServerRespons
     }
     if (typeof body.showId !== "string" || !(body.showId in SHOWS)) return json(res, { error: "unknown show" }, 400);
     const minutes = typeof body.minutes === "number" ? body.minutes : 60;
-    return json(res, { override: b.station.airNow(body.showId, minutes) }, 201);
+    return json(res, { override: b.station.airNow(body.showId, minutes, { cutIn: body.cutIn === true }) }, 201);
   }
   return json(res, { error: "unsupported" }, 405);
 }
@@ -222,6 +222,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
   return {
     server,
     pushSegment: (segment: Segment) => broadcast({ type: "segment", segment }),
+    retract: (ids: string[]) => broadcast({ type: "retract", ids }),
     close: () => {
       wss.close();
       server.close();

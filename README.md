@@ -74,9 +74,21 @@ The cast lineup (**/lineup.html**, `?ids=rex,glimmer` for close-ups) shows every
 | `STATION_TZ` | system | Time zone of the schedule grid |
 | `NETWORK_NAME` | `Channel 8-Bit` | |
 
+## Going live on YouTube / Twitch
+
+1. `cp .env.example .env` and set `STREAM_URL` to your platform's RTMP URL + stream key
+   (YouTube Studio → Go live → Stream; Twitch → Creator Dashboard → Settings → Stream).
+2. With the station running (`npm start`), in a second terminal: `npm run restream`.
+
+The restreamer opens `/broadcast.html` in a hidden Chrome; the page records its own canvas and audio mix
+and streams it to ffmpeg, which encodes H.264 (hardware) + AAC at 1280x720/30 and pushes RTMP. It runs as a
+separate process (a streaming failure never touches the station), reconnects if the ingest drops, relaunches
+the feed if it stalls, and never prints the stream key. `npm run restream -- --out test.mp4 --seconds 30`
+records to a file instead. While streaming, the feed counts as a viewer, so the station writes around the clock.
+
 ## Roadmap
 
-1. **Restream** — headless Chromium capturing the player → ffmpeg → RTMP (YouTube/Twitch).
+1. ~~**Restream**~~ — done (see above).
 2. **Better voices** — Kokoro running locally behind the `TTSEngine` interface; phoneme-level visemes.
 3. **Music** — invented bands performing real tracks: vocal-stem mouth mapping, beat-synced instruments.
 4. **Show formats** — game show with live audience voting, cooking show, call-in show reading viewer chat.

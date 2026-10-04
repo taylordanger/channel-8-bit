@@ -56,11 +56,12 @@
       </form>
       <ul id="topics"></ul>
       <h2 class="sec">SPECIAL PROGRAMMING</h2>
-      <p class="hint">Break into the schedule: put any show on air right after the segment that's playing now. The regular schedule resumes when it ends.</p>
+      <p class="hint">Break into the schedule: put any show on air. With "cut in" checked it starts right after the scene that's playing now, skipping anything already queued; unchecked, queued scenes play first. The regular schedule resumes when it ends.</p>
       <form id="special">
         <div class="row">
           <label>SHOW <select id="sp-show"></select></label>
           <label>FOR <select id="sp-min"><option value="30">30 min</option><option value="60" selected>1 hour</option><option value="120">2 hours</option><option value="240">4 hours</option></select></label>
+          <label><input type="checkbox" id="sp-cut" checked /> CUT IN AFTER THIS SCENE</label>
           <button type="submit">AIR NOW</button>
           <button type="button" class="ghost" id="sp-end" hidden>END &amp; RETURN TO SCHEDULE</button>
         </div>
@@ -172,7 +173,7 @@
         await fetch("/api/override", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ showId: $("sp-show").value, minutes: Number($("sp-min").value) }),
+          body: JSON.stringify({ showId: $("sp-show").value, minutes: Number($("sp-min").value), cutIn: $("sp-cut").checked }),
         });
         loadSpecial();
       });

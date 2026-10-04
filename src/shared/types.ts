@@ -120,6 +120,7 @@ export type ServerMessage =
   | { type: "hello"; serverNow: number; network: string }
   | { type: "pong"; c: number; s: number }
   | { type: "segment"; segment: Segment }
+  | { type: "retract"; ids: string[] }
   | { type: "viewers"; count: number };
 
 export type ClientMessage = { type: "ping"; c: number };

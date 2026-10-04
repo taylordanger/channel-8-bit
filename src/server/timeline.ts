@@ -27,6 +27,13 @@ export class Timeline {
       .run(seg.id, seg.showId, seg.startAt, end, seg.kind, JSON.stringify(seg), summary, rerunOf ?? null);
   }
 
+  /** Drop segments that haven't started by `after` (a special cutting in). Returns their ids. */
+  removeFrom(after: number): string[] {
+    const rows = this.db.prepare("SELECT id FROM segments WHERE start_at >= ?").all(after) as { id: string }[];
+    this.db.prepare("DELETE FROM segments WHERE start_at >= ?").run(after);
+    return rows.map((r) => r.id);
+  }
+
   /** Segments that overlap [from, to). */
   range(from: number, to: number): Segment[] {
     const rows = this.db

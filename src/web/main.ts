@@ -2,6 +2,13 @@ import type { GuideEntry, Segment } from "../shared/types.js";
 import { AudioDirector } from "./audio.js";
 import { Renderer } from "./render.js";
 import { StationLink } from "./sync.js";
+import { startIngest } from "./ingest.js";
+
+// Broadcast mode (/broadcast.html, or ?broadcast=1): a clean full-frame picture with sound on
+// from the start - what the restreamer captures. ?ingest=ws://... also records and sends it.
+const params = new URLSearchParams(location.search);
+const broadcast = params.has("broadcast") || location.pathname.endsWith("/broadcast.html");
+const ingestUrl = params.get("ingest");
 
 const segments = new Map<string, Segment>();
 let guide: GuideEntry[] = [];
@@ -10,13 +17,26 @@ let audio: AudioDirector | undefined;
 const addSegment = (s: Segment) => segments.set(s.id, s);
 // Station time can differ from this browser's clock (skew, or a time-shifted rehearsal),
 // so fetch the timeline again the moment we learn the server's clock.
-const link = new StationLink({ onSegment: addSegment, onSync: () => void refreshTimeline() });
+const link = new StationLink({
+  onSegment: addSegment,
+  onSync: () => void refreshTimeline(),
+  onRetract: (ids) => {
+    for (const id of ids) segments.delete(id);
+    audio?.retract(ids);
+  },
+});
 link.connect();
 
 const canvas = document.getElementById("tv") as HTMLCanvasElement;
 const renderer = new Renderer(canvas);
 
 function resize() {
+  if (broadcast) {
+    // Fixed 1280x720 (exactly 4x the 320x180 scene): crisp pixels, a standard stream size.
+    canvas.width = 1280;
+    canvas.height = 720;
+    return;
+  }
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
   canvas.width = Math.round(rect.width * dpr);
@@ -68,12 +88,20 @@ void refreshGuide();
 setInterval(refreshTimeline, 5000);
 setInterval(refreshGuide, 60_000);
 
-const overlay = document.getElementById("tunein")!;
-overlay.addEventListener("click", async () => {
+const overlay = document.getElementById("tunein");
+if (broadcast) {
+  overlay?.remove();
+  document.body.classList.add("broadcast");
   audio = new AudioDirector();
-  await audio.ctx.resume();
-  overlay.remove();
-});
+  void audio.ctx.resume();
+  if (ingestUrl) startIngest(canvas, audio.tap(), ingestUrl);
+} else {
+  overlay?.addEventListener("click", async () => {
+    audio = new AudioDirector();
+    await audio.ctx.resume();
+    overlay.remove();
+  });
+}
 
 function frame() {
   const now = link.now();

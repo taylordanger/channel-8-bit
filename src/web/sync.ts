@@ -13,7 +13,7 @@ export class StationLink {
   connected = false;
 
   constructor(
-    private handlers: { onSegment: (s: Segment) => void; onSync: () => void },
+    private handlers: { onSegment: (s: Segment) => void; onSync: () => void; onRetract?: (ids: string[]) => void },
   ) {}
 
   /** Station "now" in ms. */
@@ -45,6 +45,7 @@ export class StationLink {
         this.offsets.push(m.s - (m.c + t) / 2);
         if (this.offsets.length > 15) this.offsets.shift();
       } else if (m.type === "segment") this.handlers.onSegment(m.segment);
+      else if (m.type === "retract") this.handlers.onRetract?.(m.ids);
       else if (m.type === "viewers") this.viewers = m.count;
     };
     ws.onclose = () => {

@@ -52,6 +52,26 @@ describe("special programming", () => {
     expect(b.station.override()).toBeNull();
   });
 
+  it("cutting in drops queued segments and starts right after the current scene", async () => {
+    const clock = new ManualClock(afternoon);
+    const retracted: string[] = [];
+    const b = buildStation({ ...loadConfig({}), timeZone: TZ, tts: "silent", writer: "improv" }, {
+      clock, dbFile: ":memory:", tts: new SilentTTS(), writers: [new ImprovWriter(1)], onRetract: (ids) => retracted.push(...ids),
+    });
+    b.governor.setViewers(1, clock.now());
+    for (let i = 0; i < 4; i++) await b.station.tick(); // queue a few minutes of couch_coop
+    const queued = b.timeline.range(clock.now(), Infinity);
+    expect(queued.length).toBeGreaterThan(1);
+    clock.advance(queued[0].durationMs / 2 + 1500); // mid-way through the first one
+    const current = b.timeline.at(clock.now())!;
+    const o = b.station.airNow("nada", 30, { cutIn: true });
+    expect(o.startAt).toBe(current.startAt + current.durationMs);
+    expect(retracted.length).toBe(queued.length - 1);
+    expect(b.timeline.range(clock.now(), Infinity).map((s) => s.id)).toEqual([current.id]);
+    await b.station.tick();
+    expect(b.timeline.range(clock.now(), Infinity).at(-1)?.showId).toBe("nada");
+  });
+
   it("regular shadow runs are unaffected", async () => {
     const r = await runShadow({ startAt: afternoon, hours: 2, config: { timeZone: TZ } });
     expect(r.violations).toEqual([]);
