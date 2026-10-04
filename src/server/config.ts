@@ -17,8 +17,9 @@ export interface StationConfig {
   idleGraceMs: number;
   /** "say" (macOS built-in), or "silent" (no audio; used by tests and shadow runs). */
   tts: "say" | "silent";
-  /** "auto" uses Claude when credentials exist, else the offline improv writer. */
-  writer: "auto" | "claude" | "improv";
+  /** "auto" = Claude when credentials exist, else a local Ollama model, else the improv troupe. */
+  writer: "auto" | "claude" | "local" | "improv";
+  ollama: { url: string; model: string };
   /** Run the LLM standards pass on premium shows (deterministic checks always run). */
   llmStandards: boolean;
 }
@@ -39,7 +40,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): StationConfig 
     leadTargetMs: num(env.LEAD_TARGET_SEC, 150) * 1000,
     idleGraceMs: num(env.IDLE_GRACE_SEC, 120) * 1000,
     tts: (env.TTS as StationConfig["tts"]) ?? (process.platform === "darwin" ? "say" : "silent"),
-    writer: writer === "auto" ? (hasClaude ? "claude" : "improv") : writer,
+    writer: writer === "auto" ? (hasClaude ? "claude" : "local") : writer,
+    ollama: { url: env.OLLAMA_URL ?? "http://localhost:11434", model: env.OLLAMA_MODEL ?? "llama3.1:8b" },
     llmStandards: env.LLM_STANDARDS !== "0",
   };
 }

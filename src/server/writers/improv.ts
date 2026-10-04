@@ -161,19 +161,13 @@ export class ImprovWriter implements Writer {
 
     const script: Script = {
       title: titleCase(b.segmentType) + ": " + titleCase(b.topic),
-      summary: `${cast.map((c) => c.name.split(" ")[0]).join(", ")} did a ${b.segmentType} about ${b.topic}.`,
+      // The improv troupe fills air; it doesn't get to rewrite history. Memories, recaps and
+      // plot belong to real writers, so leave them untouched.
+      summary: "",
       beats,
-      memories: [
-        {
-          about: cast.map((c) => c.id),
-          text: `They argued about ${b.topic} during a ${b.segmentType}.`,
-          importance: 0.2,
-        },
-      ],
+      memories: [],
       relationshipChanges: [],
-      storyState: b.show.serialized
-        ? `${b.storyState ? b.storyState + " " : ""}Tension rose over ${b.topic}.`.slice(-600)
-        : "",
+      storyState: "",
     };
     return { script, writer: this.name };
   }

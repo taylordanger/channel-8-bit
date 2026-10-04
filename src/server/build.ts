@@ -11,7 +11,8 @@ import { Ledger } from "./ledger.js";
 import { MemoryBank } from "./memory.js";
 import { Producer } from "./producer.js";
 import { TopicDesk } from "./desk.js";
-import { FactChecker } from "./factcheck.js";
+import { FactChecker, LocalFactChecker } from "./factcheck.js";
+import { OllamaClient, OllamaWriter } from "./writers/ollama.js";
 import { DEFAULT_POLICY, LlmStandards, type StandardsPolicy } from "./standards.js";
 import { Station } from "./station.js";
 import { Timeline } from "./timeline.js";
@@ -59,18 +60,26 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   const tts = o.tts ?? (config.tts === "say" ? new SayTTS(path.join(config.dataDir, "media")) : new SilentTTS());
 
   const improv = new ImprovWriter();
+  const ollama = new OllamaClient(config.ollama.url, config.ollama.model);
   const writers =
     o.writers ??
     (config.writer === "claude"
       ? [new ClaudeWriter({ networkName: config.networkName, models: config.models, ledger, clock }), improv]
-      : [improv]);
+      : config.writer === "local"
+        ? [new OllamaWriter(ollama, config.networkName), improv]
+        : [improv]);
   const llmStandards =
     config.writer === "claude" && config.llmStandards && !o.writers
       ? new LlmStandards({ model: config.models.premium, ledger, clock })
       : undefined;
 
-  const factChecker =
-    config.writer === "claude" && !o.writers ? new FactChecker({ model: config.models.premium, ledger, clock }) : undefined;
+  const factChecker = o.writers
+    ? undefined
+    : config.writer === "claude"
+      ? new FactChecker({ model: config.models.premium, ledger, clock })
+      : config.writer === "local"
+        ? new LocalFactChecker(ollama)
+        : undefined;
   const producer = new Producer({
     timeline,
     memory,
@@ -96,7 +105,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   });
   // Finish reading any links a restart interrupted.
   for (const t of desk.pending()) void desk.ingest(t.id);
-  return { db, clock, timeline, memory, desk, ledger, governor, tts, writers, producer, station };
+  return { ollama, db, clock, timeline, memory, desk, ledger, governor, tts, writers, producer, station };
 }
 
 export type Built = ReturnType<typeof buildStation>;

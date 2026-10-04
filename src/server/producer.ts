@@ -5,7 +5,9 @@ import type { ScheduledSlot } from "./catalog/schedule.js";
 import { getShow, type Show } from "./catalog/shows.js";
 import type { TopicDesk } from "./desk.js";
 import type { MemoryBank } from "./memory.js";
-import { checkNumbers, type FactChecker } from "./factcheck.js";
+import { checkNames, checkNumbers, type SourceChecker } from "./factcheck.js";
+import { CHARACTERS } from "./catalog/characters.js";
+import { SHOWS } from "./catalog/shows.js";
 import {
   deterministicStandards,
   type LlmStandards,
@@ -18,6 +20,13 @@ import type { Timeline } from "./timeline.js";
 import type { TTSEngine } from "./tts.js";
 import { rng } from "./writers/improv.js";
 import type { Script, Writer, WriterBrief } from "./writers/script.js";
+
+/** Names from the network's own fictional world, which the name check must never flag. */
+const FICTIONAL_NAMES = [
+  ...Object.values(CHARACTERS).map((c) => c.name),
+  ...Object.values(SHOWS).map((s) => s.title),
+  "Sterling Tower", "Detonation Highway", "Ghost in the Fax Machine", "Probably Fine", "Channel Bit", "The Interference",
+];
 
 /** Shortest slot remainder worth writing a real segment for; anything less becomes a bumper. */
 export const MIN_SEGMENT_MS = 30_000;
@@ -46,7 +55,7 @@ export interface ProducerDeps {
   writers: Writer[];
   llmStandards?: LlmStandards;
   /** Verifies sourced segments against the submitted article. */
-  factChecker?: FactChecker;
+  factChecker?: SourceChecker;
   policy?: StandardsPolicy;
   timeZone: string;
   log?: (msg: string) => void;
@@ -60,13 +69,26 @@ export class Producer {
    * @param opts.coldStart the timeline is empty at "now" (a viewer just arrived); prefer an
    *   instant encore over making them wait for a writer
    */
-  async produce(at: number, slot: ScheduledSlot, opts: { rerun: boolean; coldStart?: boolean }): Promise<Produced> {
+  async produce(
+    at: number,
+    slot: ScheduledSlot,
+    opts: { rerun: boolean; coldStart?: boolean; hurry?: boolean },
+  ): Promise<Produced> {
     const remaining = slot.endAt - at;
     if (remaining < MIN_SEGMENT_MS) return this.bumper(slot, remaining);
 
+    // Running low on air and the main writer is slow: an encore keeps the timeline ahead.
+    if (opts.hurry) {
+      const encore = this.rerun(slot.showId, remaining, at, 3_600_000);
+      if (encore) return encore;
+      return this.live(at, slot, Math.min(MAX_SEGMENT_SEC, Math.floor((remaining - TAIL_MS) / 1000)), this.d.writers.slice(-1));
+    }
+
     if (opts.rerun || opts.coldStart || slot.mode === "rerun") {
-      const rerun = this.rerun(slot.showId, remaining, at);
+      const rerun = this.rerun(slot.showId, remaining, at, opts.coldStart ? 3_600_000 : undefined);
       if (rerun) return rerun;
+      // A viewer is waiting on an empty channel: improvise now rather than wait on a slow writer.
+      if (opts.coldStart) return this.live(at, slot, Math.min(MAX_SEGMENT_SEC, Math.floor((remaining - TAIL_MS) / 1000)), this.d.writers.slice(-1));
       // Nothing in the archive yet: fall through and improvise something fresh.
     }
     const writers = opts.rerun ? this.d.writers.slice(-1) : this.d.writers;
@@ -96,8 +118,9 @@ export class Producer {
     return { segment, summary: "", notes: [] };
   }
 
-  private rerun(showId: string, maxMs: number, at: number): Produced | undefined {
-    const recentIds = new Set(this.d.timeline.range(at - 6 * 3_600_000, at).map((s) => s.id));
+  /** An archived segment to re-air, skipping anything aired within `freshMs` (default 6 hours). */
+  private rerun(showId: string, maxMs: number, at: number, freshMs = 6 * 3_600_000): Produced | undefined {
+    const recentIds = this.d.timeline.airedIds(at - freshMs, at);
     const old = this.d.timeline.pickRerun(showId, maxMs, recentIds);
     if (!old) return undefined;
     // Characters get redesigned; encores show everyone as they look today.
@@ -149,7 +172,7 @@ export class Producer {
       previously: this.d.timeline.recentSummaries(show.id, at, 4),
       memories: this.d.memory.recall(ids, at, 12),
       relationships: this.d.memory.relationshipsAmong(ids),
-      storyState: show.serialized ? this.d.memory.storyState(show.id) : "",
+      storyState: show.serialized ? this.d.memory.storyState(show.id) || (show.storySeed ?? "") : "",
       recentLines: this.d.timeline.recentLines(show.id, at, 6),
     };
   }
@@ -202,12 +225,16 @@ export class Producer {
     if (brief.source) {
       r = step(checkNumbers(r.script, brief.source));
       if (r.rejected) return { ...r, notes };
+      r = step(checkNames(r.script, brief.source, FICTIONAL_NAMES));
+      if (r.rejected) return { ...r, notes };
       if (modelPasses && this.d.factChecker) {
         r = step(await this.d.factChecker.check(r.script, brief.source, brief.show.id));
         if (r.rejected) return { ...r, notes };
         r = step(deterministicStandards(r.script, brief, policy));
         if (r.rejected) return { ...r, notes };
         r = step(checkNumbers(r.script, brief.source));
+        if (r.rejected) return { ...r, notes };
+        r = step(checkNames(r.script, brief.source, FICTIONAL_NAMES));
         if (r.rejected) return { ...r, notes };
       }
     }

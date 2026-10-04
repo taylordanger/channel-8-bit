@@ -30,7 +30,15 @@ built.station.start();
 
 log(`${config.networkName} is on the air at http://localhost:${config.port}${offsetMin ? ` (REHEARSAL, clock shifted ${offsetMin} min)` : ""}`);
 log(`writer=${built.writers.map((w) => w.name).join(" > ")} tts=${built.tts.name} budget=$${config.dailyBudgetUsd}/day tz=${config.timeZone}`);
-if (config.writer === "improv") log("No Claude credentials found: the improv troupe is writing. Set ANTHROPIC_API_KEY to bring in the writers' room.");
+if (config.writer === "local") {
+  const ready = await built.ollama.available();
+  log(
+    ready
+      ? `Local writers' room: ${config.ollama.model} via Ollama (no API key needed). The improv troupe covers if it's slow or down.`
+      : `Ollama model ${config.ollama.model} isn't available at ${config.ollama.url}; the improv troupe is writing. Start Ollama or run: ollama pull ${config.ollama.model}`,
+  );
+}
+if (config.writer === "improv") log("The improv troupe is writing (WRITER=improv).");
 
 const shutdown = (signal: string) => {
   log(`received ${signal}: going off the air`);

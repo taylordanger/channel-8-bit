@@ -33,7 +33,7 @@ ${people
     (c) =>
       `- ${c.id} - ${c.name}: ${c.bible} | ${c.catchphrases.map((p) => `"${p}"`).join(", ")} | e.g. ${c.bits
         .slice(0, 3)
-        .map((b) => `"${b}"`)
+        .map((b) => `"${b.replaceAll("{other}", "pal").replaceAll("{topic}", "this")}"`)
         .join(" ")}`,
   )
   .join("\n")}`;

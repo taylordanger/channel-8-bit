@@ -20,6 +20,8 @@ export interface Show {
   segmentTypes: string[];
   /** Topic seeds for when the writers need a nudge (also used by the improv writer). */
   topics: string[];
+  /** Serialized shows: where the plot starts before any episode has aired. */
+  storySeed?: string;
 }
 
 export const SHOWS: Record<string, Show> = {
@@ -75,6 +77,8 @@ export const SHOWS: Record<string, Show> = {
     bible:
       "A daytime soap set in the penthouse of Sterling Tower. Every scene must advance the plot: secrets, betrayals, dramatic pauses, cliffhangers. Characters speak in heightened soap dialogue. End most scenes on a reveal or a threat. Characters may storm out (walk_off) and enter.",
     segmentTypes: ["confrontation", "secret meeting", "revelation", "cliffhanger"],
+    storySeed:
+      "Victoria Sterling is days from closing a hostile takeover that would make Sterling Tower untouchable. Dr. Marcus Kale, presumed dead in last season's yacht accident, has returned with no memory and a bandaged forehead. Lola Vance just moved into 9B and seems to know who was really on that yacht. Dante, Victoria's son and Lola's old flame, has found a will that may be forged.",
     topics: [
       "a forged will",
       "Marcus's mysterious scar",

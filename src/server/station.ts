@@ -21,6 +21,8 @@ export interface StationDeps {
   timeZone: string;
   onSegment?: (s: Segment) => void;
   log?: (msg: string) => void;
+  /** With a slow writer, air an encore when the timeline is less than this far ahead. */
+  hurryBelowMs?: number;
 }
 
 /**
@@ -30,10 +32,18 @@ export interface StationDeps {
  */
 export class Station {
   private busy = false;
+  /**
+   * Whether the last fresh segment took a large share of its own air time to write.
+   * Assume slow until proven fast: one early encore is cheaper than dead air.
+   */
+  private slowWriter = true;
+  /** How long the last fresh segment took to write and voice. */
+  private lastWriteMs = 0;
   private timer?: NodeJS.Timeout;
   lastError = "";
 
   constructor(private d: StationDeps) {
+    d.hurryBelowMs ??= 75_000;
     const now = d.clock.now();
     for (const [a, b, score, note] of SEED_RELATIONSHIPS) d.memory.seed(a, b, score, note, now);
   }
@@ -56,8 +66,18 @@ export class Station {
       const decision = this.d.governor.decide(this.d.clock.now());
       const planAt = this.nextStart();
       const slot = programAt(planAt, this.d.timeZone, this.override());
-      const coldStart = this.d.timeline.tailEnd() < this.d.clock.now();
-      const produced = await this.d.producer.produce(planAt, slot, { rerun: decision.rerunsOnly, coldStart });
+      const now = this.d.clock.now();
+      const lead = this.d.timeline.tailEnd() - now;
+      const coldStart = lead < 0;
+      // Slow writers (local models) can't always outrun the clock; when the cushion is thin, buy time.
+      // Hurry when what's already written would run out before the writer could finish another.
+      const hurry = !coldStart && this.slowWriter && lead < Math.max(this.d.hurryBelowMs!, this.lastWriteMs * 1.15 + 10_000);
+      const t0 = Date.now();
+      const produced = await this.d.producer.produce(planAt, slot, { rerun: decision.rerunsOnly, coldStart, hurry });
+      if (produced.segment.kind === "live" && produced.script) {
+        this.lastWriteMs = Date.now() - t0;
+        this.slowWriter = this.lastWriteMs > produced.segment.durationMs * 0.6;
+      }
       this.commit(produced);
       this.lastError = "";
       return produced;

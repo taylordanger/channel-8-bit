@@ -43,7 +43,7 @@ export class Timeline {
   recentSummaries(showId: string, before: number, limit: number): string[] {
     const rows = this.db
       .prepare(
-        "SELECT summary FROM segments WHERE show_id = ? AND kind = 'live' AND start_at < ? ORDER BY start_at DESC LIMIT ?",
+        "SELECT summary FROM segments WHERE show_id = ? AND kind = 'live' AND summary != '' AND start_at < ? ORDER BY start_at DESC LIMIT ?",
       )
       .all(showId, before, limit) as { summary: string }[];
     return rows.map((r) => r.summary).reverse();
@@ -57,15 +57,24 @@ export class Timeline {
     return rows.flatMap((r) => (JSON.parse(r.body) as Segment).cues.map((c) => c.text));
   }
 
+  /** Ids of originals aired in [from, to), directly or as an encore. */
+  airedIds(from: number, to: number): Set<string> {
+    const rows = this.db
+      .prepare("SELECT id, rerun_of FROM segments WHERE end_at > ? AND start_at < ?")
+      .all(from, to) as { id: string; rerun_of: string | null }[];
+    return new Set(rows.flatMap((r) => (r.rerun_of ? [r.id, r.rerun_of] : [r.id])));
+  }
+
   /** Pick an archived live segment of this show to re-air, preferring the least recently aired. */
   pickRerun(showId: string, maxDurationMs: number, excludeIds: Set<string>): Segment | undefined {
+    // Prefer encores of real writing over improv fill.
     const rows = this.db
       .prepare(
         `SELECT s.id, s.body,
                 (SELECT MAX(r.start_at) FROM segments r WHERE r.rerun_of = s.id) AS last_rerun
            FROM segments s
           WHERE s.show_id = ? AND s.kind = 'live' AND (s.end_at - s.start_at) <= ?
-          ORDER BY COALESCE(last_rerun, 0) ASC, s.start_at ASC
+          ORDER BY (json_extract(s.body, '$.writer') = 'improv') ASC, COALESCE(last_rerun, 0) ASC, s.start_at ASC
           LIMIT 20`,
       )
       .all(showId, maxDurationMs) as { id: string; body: string }[];
