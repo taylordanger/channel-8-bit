@@ -147,3 +147,29 @@ export function checkNames(script: Script, source: Source, knownNames: string[])
   const out = { ...script, beats };
   return beats.length < MIN_BEATS ? { script: out, notes, rejected: "name check cut too many lines" } : { script: out, notes };
 }
+
+const words = (t: string) => t.toLowerCase().replace(/[^a-z0-9' ]+/g, " ").split(/\s+/).filter(Boolean);
+
+/**
+ * Deterministic: lines that copy long runs of the source word for word are cut. A linked page
+ * is something to react to, not a script - and copying it (jokes, lyrics, transcripts) would air
+ * someone else's work. Short quotes (under `maxRun` words) are fine.
+ */
+export function checkVerbatim(script: Script, source: Source, maxRun = 8): StandardsResult {
+  const src = words(`${source.title} ${source.description} ${source.text}`);
+  const grams = new Set<string>();
+  for (let i = 0; i + maxRun <= src.length; i++) grams.add(src.slice(i, i + maxRun).join(" "));
+  const notes: StandardsNote[] = [];
+  const beats = script.beats.filter((b) => {
+    const w = words(b.line);
+    for (let i = 0; i + maxRun <= w.length; i++) {
+      if (grams.has(w.slice(i, i + maxRun).join(" "))) {
+        notes.push({ verdict: "cut", line: b.line, reason: `copies ${maxRun}+ words straight from the source` });
+        return false;
+      }
+    }
+    return true;
+  });
+  const out = { ...script, beats };
+  return beats.length < MIN_BEATS ? { script: out, notes, rejected: "too much copied from the source" } : { script: out, notes };
+}

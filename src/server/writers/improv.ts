@@ -116,7 +116,10 @@ export class ImprovWriter implements Writer {
   readonly name = "improv";
   constructor(private seed = Date.now()) {}
 
-  async write(b: WriterBrief): Promise<WriterResult> {
+  async write(brief: WriterBrief): Promise<WriterResult> {
+    // The troupe can't read a linked article, so it sticks to the show's own topics
+    // rather than parroting a headline (or a real person's name) into the script.
+    const b = brief.source ? { ...brief, topic: brief.show.topics[(this.seed >>> 0) % brief.show.topics.length], source: undefined } : brief;
     const r = rng(this.seed++ ^ hash(b.show.id + b.topic));
     const pick = <T>(xs: T[]) => xs[Math.floor(r() * xs.length)];
     const cast = b.cast;

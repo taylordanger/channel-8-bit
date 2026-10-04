@@ -9,6 +9,7 @@
     "start": "npm run build:web && node --env-file-if-exists=.env --import tsx src/server/main.ts",
     "build:web": "esbuild src/web/main.ts src/web/lineup.ts --bundle --format=esm --outdir=public --entry-names=[name] --sourcemap && mv public/main.js public/app.js && mv public/main.js.map public/app.js.map && sed -i '' 's/main.js.map/app.js.map/' public/app.js",
     "shadow": "tsx src/server/shadow.ts",
+    "voices:setup": "bash scripts/setup-voices.sh",
     "restream": "node --env-file-if-exists=.env --import tsx src/restream/main.ts",
     "rehearse": "npm run build:web && CLOCK_OFFSET_MIN=${OFFSET:-540} DATA_DIR=data-rehearsal PORT=8089 tsx src/server/main.ts",
     "test": "vitest run",

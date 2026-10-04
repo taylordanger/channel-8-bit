@@ -5,7 +5,7 @@ import type { ScheduledSlot } from "./catalog/schedule.js";
 import { getShow, type Show } from "./catalog/shows.js";
 import type { TopicDesk } from "./desk.js";
 import type { MemoryBank } from "./memory.js";
-import { checkNames, checkNumbers, type SourceChecker } from "./factcheck.js";
+import { checkNames, checkNumbers, checkVerbatim, type SourceChecker } from "./factcheck.js";
 import { CHARACTERS } from "./catalog/characters.js";
 import { SHOWS } from "./catalog/shows.js";
 import {
@@ -27,6 +27,12 @@ const FICTIONAL_NAMES = [
   ...Object.values(SHOWS).map((s) => s.title),
   "Sterling Tower", "Detonation Highway", "Ghost in the Fax Machine", "Probably Fine", "Channel Bit", "The Interference",
 ];
+
+/**
+ * When buying time, an encore of a real scene from 20+ minutes ago is funnier than fresh
+ * improv filler, so encores may repeat that soon (the improv troupe is the last resort).
+ */
+const ENCORE_FRESH_MS = 20 * 60_000;
 
 /** Shortest slot remainder worth writing a real segment for; anything less becomes a bumper. */
 export const MIN_SEGMENT_MS = 30_000;
@@ -81,13 +87,13 @@ export class Producer {
 
     // Running low on air and the main writer is slow: an encore keeps the timeline ahead.
     if (opts.hurry) {
-      const encore = this.rerun(slot.showId, remaining, at, 3_600_000);
+      const encore = this.rerun(slot.showId, remaining, at, ENCORE_FRESH_MS);
       if (encore) return encore;
       return this.live(at, slot, Math.min(MAX_SEGMENT_SEC, Math.floor((remaining - TAIL_MS) / 1000)), this.d.writers.slice(-1));
     }
 
     if (opts.rerun || opts.coldStart || slot.mode === "rerun") {
-      const rerun = this.rerun(slot.showId, remaining, at, opts.coldStart ? 3_600_000 : undefined);
+      const rerun = this.rerun(slot.showId, remaining, at, opts.coldStart ? ENCORE_FRESH_MS : undefined);
       if (rerun) return rerun;
       // A viewer is waiting on an empty channel: improvise now rather than wait on a slow writer.
       if (opts.coldStart) return this.live(at, slot, Math.min(MAX_SEGMENT_SEC, Math.floor((remaining - TAIL_MS) / 1000)), this.d.writers.slice(-1));
@@ -232,6 +238,8 @@ export class Producer {
     }
 
     if (brief.source) {
+      r = step(checkVerbatim(r.script, brief.source));
+      if (r.rejected) return { ...r, notes };
       r = step(checkNumbers(r.script, brief.source));
       if (r.rejected) return { ...r, notes };
       r = step(checkNames(r.script, brief.source, FICTIONAL_NAMES));

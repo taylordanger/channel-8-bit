@@ -39,8 +39,8 @@ export class Station {
    * Assume slow until proven fast: one early encore is cheaper than dead air.
    */
   private slowWriter = true;
-  /** How long the last fresh segment took to write and voice. */
-  private lastWriteMs = 0;
+  /** How long the last few fresh segments took to write and voice. */
+  private recentWritesMs: number[] = [];
   private timer?: NodeJS.Timeout;
   lastError = "";
 
@@ -57,7 +57,9 @@ export class Station {
 
   /** Below this lead, a slow writer couldn't finish in time, so the station airs an encore instead. */
   private hurryThreshold(): number {
-    return Math.max(this.d.hurryBelowMs!, this.lastWriteMs * 1.15 + 10_000);
+    // Write times swing widely (a local model: 40s to 2+ minutes), so plan for the slowest recent one.
+    const worst = Math.max(0, ...this.recentWritesMs);
+    return Math.max(this.d.hurryBelowMs!, worst * 1.2 + 15_000);
   }
 
   /**
@@ -92,8 +94,9 @@ export class Station {
       const produced = await this.d.producer.produce(planAt, slot, { rerun: decision.rerunsOnly, coldStart, hurry });
       // Measure only the primary writer: instant fallbacks would make a slow writer look fast.
       if (produced.primary) {
-        this.lastWriteMs = this.d.clock.now() - t0;
-        this.slowWriter = this.lastWriteMs > produced.segment.durationMs * 0.6;
+        const took = this.d.clock.now() - t0;
+        this.recentWritesMs = [...this.recentWritesMs.slice(-2), took];
+        this.slowWriter = took > produced.segment.durationMs * 0.6;
       }
       this.commit(produced);
       this.lastError = "";

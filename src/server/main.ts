@@ -4,13 +4,14 @@ import type { Segment } from "../shared/types.js";
 import { buildStation, checkVoices } from "./build.js";
 import { OffsetClock, systemClock } from "./clock.js";
 import { loadConfig } from "./config.js";
+import { KokoroTTS } from "./tts.js";
 import { startHttp } from "./http.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const config = loadConfig();
 const log = (m: string) => console.log(`[${new Date().toISOString()}] ${m}`);
 
-if (config.tts === "say") {
+if (config.tts === "say" || config.tts === "kokoro") {
   const missing = await checkVoices();
   if (missing.length) {
     console.error("Missing macOS voices (System Settings > Accessibility > Spoken Content > Manage Voices):");
@@ -42,8 +43,12 @@ if (config.writer === "local") {
 }
 if (config.writer === "improv") log("The improv troupe is writing (WRITER=improv).");
 
+// Load the voice model now so the first segment isn't waiting on it.
+if (built.tts instanceof KokoroTTS) void built.tts.ensure();
+
 const shutdown = (signal: string) => {
   log(`received ${signal}: going off the air`);
+  if (built.tts instanceof KokoroTTS) built.tts.stop();
   built.station.stop();
   http.close();
   built.db.close();

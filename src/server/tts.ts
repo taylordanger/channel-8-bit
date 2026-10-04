@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -134,4 +134,141 @@ export async function installedSayVoices(): Promise<Set<string>> {
     names.add(full.replace(/\s*\(.*\)$/, ""));
   }
   return names;
+}
+
+export type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
+
+export interface KokoroOptions {
+  mediaDir: string;
+  /** Python with kokoro-onnx installed (the project's .venv-tts). */
+  python: string;
+  script: string;
+  modelDir: string;
+  port: number;
+  /** Used when Kokoro is unavailable or fails on a line. */
+  fallback: TTSEngine;
+  fetcher?: Fetcher;
+  /** Start the Python server if it isn't already running (off in tests). */
+  autoStart?: boolean;
+  log?: (msg: string) => void;
+}
+
+/**
+ * Kokoro: a free, local neural TTS model with far more natural voices than macOS speech.
+ * Runs as a small Python server (tts/kokoro_server.py) that loads the model once.
+ */
+export class KokoroTTS implements TTSEngine {
+  readonly name = "kokoro";
+  private child?: ChildProcess;
+  private ready?: Promise<boolean>;
+  private hasFfmpeg: Promise<boolean>;
+  private fetcher: Fetcher;
+  private warned = false;
+
+  constructor(private o: KokoroOptions) {
+    fs.mkdirSync(o.mediaDir, { recursive: true });
+    this.fetcher = o.fetcher ?? fetch;
+    this.hasFfmpeg = run("ffmpeg", ["-version"]).then(
+      () => true,
+      () => false,
+    );
+  }
+
+  private get base() {
+    return `http://127.0.0.1:${this.o.port}`;
+  }
+
+  private async healthy(): Promise<boolean> {
+    try {
+      const res = await this.fetcher(`${this.base}/health`, { signal: AbortSignal.timeout(2000) });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Make sure the server is up, starting it once if allowed. Resolves false if it can't be. */
+  ensure(): Promise<boolean> {
+    this.ready ??= (async () => {
+      if (await this.healthy()) return true;
+      if (this.o.autoStart === false) return false;
+      this.o.log?.("starting the Kokoro voice server...");
+      this.child = spawn(this.o.python, [this.o.script], {
+        env: { ...process.env, KOKORO_DIR: this.o.modelDir, KOKORO_PORT: String(this.o.port) },
+        stdio: ["ignore", "ignore", "pipe"],
+      });
+      this.child.stderr?.on("data", (d: Buffer) => {
+        const msg = String(d).trim();
+        if (msg && !/Warning|warn/i.test(msg)) this.o.log?.(`kokoro: ${msg.slice(0, 300)}`);
+      });
+      this.child.on("exit", (code) => {
+        this.o.log?.(`Kokoro voice server exited (${code}); using macOS voices until restart`);
+        this.ready = Promise.resolve(false);
+      });
+      for (let i = 0; i < 90; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        if (await this.healthy()) {
+          this.o.log?.("Kokoro voice server ready");
+          return true;
+        }
+      }
+      return false;
+    })();
+    return this.ready;
+  }
+
+  stop(): void {
+    this.child?.kill();
+  }
+
+  async voice(text: string, ch: Character): Promise<Voiced> {
+    const { kokoro, speed } = ch.voice;
+    const key = crypto.createHash("sha1").update(`kokoro|${kokoro}|${speed}|${text}`).digest("hex").slice(0, 16);
+    const envFile = path.join(this.o.mediaDir, `${key}.env`);
+    if (fs.existsSync(envFile)) return JSON.parse(fs.readFileSync(envFile, "utf8")) as Voiced;
+
+    try {
+      if (!(await this.ensure())) throw new Error("Kokoro server unavailable");
+      const res = await this.fetcher(`${this.base}/speak`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text, voice: kokoro, speed }),
+        signal: AbortSignal.timeout(120_000),
+      });
+      if (!res.ok) throw new Error(`kokoro ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      const wavBuf = Buffer.from(await res.arrayBuffer());
+      const { sampleRate, samples } = readWav(wavBuf);
+      const wav = path.join(this.o.mediaDir, `${key}.wav`);
+      fs.writeFileSync(wav, wavBuf);
+      let file = path.basename(wav);
+      if (await this.hasFfmpeg) {
+        const mp3 = path.join(this.o.mediaDir, `${key}.mp3`);
+        await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", wav, "-ac", "1", "-b:a", "64k", mp3]);
+        fs.rmSync(wav, { force: true });
+        file = path.basename(mp3);
+      }
+      const voiced: Voiced = {
+        audio: `/media/${file}`,
+        durationMs: Math.round((samples.length / sampleRate) * 1000),
+        env: envelope(samples, sampleRate),
+      };
+      fs.writeFileSync(envFile, JSON.stringify(voiced));
+      return voiced;
+    } catch (e) {
+      if (!this.warned) {
+        this.warned = true;
+        this.o.log?.(`Kokoro failed (${(e as Error).message}); falling back to macOS voices for now`);
+      }
+      return this.o.fallback.voice(text, ch);
+    }
+  }
+}
+
+/** Whether the Kokoro model files and Python environment are present. */
+export function kokoroInstalled(root: string, modelDir: string): boolean {
+  return (
+    fs.existsSync(path.join(modelDir, "kokoro-v1.0.onnx")) &&
+    fs.existsSync(path.join(modelDir, "voices-v1.0.bin")) &&
+    fs.existsSync(path.join(root, ".venv-tts", "bin", "python"))
+  );
 }

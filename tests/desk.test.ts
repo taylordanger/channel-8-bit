@@ -51,6 +51,9 @@ describe("assignment desk", () => {
     expect(brief.topic).toBe("Have the morning crew react");
     const made = await p.produce(at, slotAt(at, "UTC"), { rerun: false });
     expect(made.segment.kind).toBe("live");
+    // The improv troupe can't read the article, so it never puts the headline on air.
+    expect(made.segment.title).not.toContain("Goat");
+    expect(made.segment.cues.some((c) => c.text.includes("Honorary Mayor"))).toBe(false);
     expect(desk.get(t.id)?.uses).toBe(1);
   });
 

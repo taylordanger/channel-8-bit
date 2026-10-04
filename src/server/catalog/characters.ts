@@ -12,7 +12,8 @@ export interface Character {
    * the improv writer airs them directly. {other} = someone on set, {topic} = the topic.
    */
   bits: string[];
-  voice: { say: string; rate: number };
+  /** macOS `say` voice (fallback) and the Kokoro voice used when it's installed. */
+  voice: { say: string; rate: number; kokoro: string; speed: number };
   look: Look;
 }
 
@@ -35,7 +36,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{other}, I'm going to pretend you didn't say that, the way I pretend the ratings don't exist.",
         "Let's talk about {topic}. My lawyer says I'm allowed to have opinions again.",
       ],
-      voice: { say: "Reed (English (US))", rate: 190 },
+      voice: { say: "Reed (English (US))", rate: 190, kokoro: "am_michael", speed: 1.05 },
       look: {
         skin: "#e7b47e", hair: "#24160b", hairStyle: "pompadour", shirt: "#7a1f3d", pants: "#1c1c2e", accent: "#ffcc33",
         outfit: "suit", build: "average", eyes: "lashes", nose: "big", facial: "none", accessories: ["bowtie"], height: 44,
@@ -55,7 +56,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "That's a really interesting point, {other}. I'm going to go stand over here now.",
         "I've been playing this same chord for six years. Nobody has noticed. That's showbiz.",
       ],
-      voice: { say: "Samantha", rate: 170 },
+      voice: { say: "Samantha", rate: 170, kokoro: "af_nicole", speed: 0.95 },
       look: {
         skin: "#8d5524", hair: "#7b2fe0", hairStyle: "bob", shirt: "#161616", pants: "#3b3b58", accent: "#ff3355",
         outfit: "hoodie", build: "slim", eyes: "sleepy", nose: "small", facial: "none", accessories: ["shades", "earrings"], height: 40,
@@ -76,7 +77,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{topic}? I once jumped a motorcycle over {topic}. Twice. The second time was for the poster.",
         "I'm going to need everyone to stay calm while I flex respectfully.",
       ],
-      voice: { say: "Ralph", rate: 175 },
+      voice: { say: "Ralph", rate: 175, kokoro: "am_fenrir", speed: 0.92 },
       look: {
         skin: "#c68642", hair: "#111111", hairStyle: "spiky", shirt: "#3d5a1e", pants: "#2e2e2e", accent: "#9aa03a",
         outfit: "tank", build: "broad", eyes: "beady", nose: "big", facial: "stubble", accessories: [], height: 47,
@@ -96,7 +97,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "I predicted {topic} three years ago. I was wrong, but I was wrong first.",
         "The tea leaves say... oh. Oh no. I used a teabag. That's on me.",
       ],
-      voice: { say: "Moira", rate: 165 },
+      voice: { say: "Moira", rate: 165, kokoro: "bf_isabella", speed: 0.92 },
       look: {
         skin: "#f1c27d", hair: "#c9c9d6", hairStyle: "long", shirt: "#2a7f62", pants: "#4b2142", accent: "#ffd84d",
         outfit: "gown", build: "round", eyes: "wide", nose: "long", facial: "blush", accessories: ["starhat", "earrings", "necklace"], height: 41,
@@ -116,7 +117,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{topic} is just loneliness with better lighting.",
         "Sometimes I hear a dial tone in my dreams. It is my mother.",
       ],
-      voice: { say: "Tessa", rate: 150 },
+      voice: { say: "Tessa", rate: 150, kokoro: "af_sky", speed: 0.85 },
       look: {
         skin: "#f2e6ee", hair: "#0d0d0d", hairStyle: "long", shirt: "#e6e6f0", pants: "#0d0d0d", accent: "#7a00ff",
         outfit: "dress", build: "slim", eyes: "wide", nose: "none", facial: "none", accessories: [], height: 44, glitch: true,
@@ -136,7 +137,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "Fun fact about {topic}: I made that up. But it felt true, and that's half of science.",
         "{other}, you have the curiosity of a scientist and the hand-eye coordination of my last intern.",
       ],
-      voice: { say: "Fred", rate: 180 },
+      voice: { say: "Fred", rate: 180, kokoro: "am_puck", speed: 1.1 },
       look: {
         skin: "#ffdbac", hair: "#ffffff", hairStyle: "wild", shirt: "#4a7bd1", pants: "#4a4a4a", accent: "#ffd84d",
         outfit: "labcoat", build: "tiny", eyes: "wide", nose: "big", facial: "mustache", accessories: ["goggles"], height: 38,
@@ -158,7 +159,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "Let's keep it sunny! Even if it's raining. Especially if it's raining.",
         "My therapist says I have toxic positivity. I told her that's wonderful news!",
       ],
-      voice: { say: "Ava (Premium)", rate: 185 },
+      voice: { say: "Ava (Premium)", rate: 185, kokoro: "af_heart", speed: 1.1 },
       look: {
         skin: "#ffe0bd", hair: "#f2c94c", hairStyle: "huge", shirt: "#ff8c42", pants: "#3e5c76", accent: "#ffffff",
         outfit: "dress", build: "average", eyes: "lashes", nose: "small", facial: "blush", accessories: ["earrings"], height: 42,
@@ -178,7 +179,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{topic}? Expect scattered disappointment with a high chance of me complaining.",
         "{other}, I respect you. I don't like you. But I respect you.",
       ],
-      voice: { say: "Rocko (English (US))", rate: 170 },
+      voice: { say: "Rocko (English (US))", rate: 170, kokoro: "am_onyx", speed: 0.92 },
       look: {
         skin: "#d2a67a", hair: "#6a6a6a", hairStyle: "short", shirt: "#3b6e8f", pants: "#2b2b2b", accent: "#a33a3a",
         outfit: "vest", build: "round", eyes: "sleepy", nose: "big", facial: "mustache", accessories: ["glasses"], height: 43,
@@ -198,7 +199,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{other}, if I do a really good job today, can I have a desk? Or a chair? Or a stool?",
         "Breaking news: the vending machine took my dollar. Developing story.",
       ],
-      voice: { say: "Junior", rate: 200 },
+      voice: { say: "Junior", rate: 200, kokoro: "am_echo", speed: 1.15 },
       look: {
         skin: "#7a4b2a", hair: "#1a1a1a", hairStyle: "short", shirt: "#ffd23f", pants: "#2d4059", accent: "#2d4059",
         outfit: "stripes", build: "tiny", eyes: "wide", nose: "small", facial: "freckles", accessories: ["headset"], height: 36,
@@ -220,7 +221,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{topic}? I had that handled before you finished your sentence.",
         "Family is everything, {other}. Which is why I've had all of you followed.",
       ],
-      voice: { say: "Shelley (English (UK))", rate: 160 },
+      voice: { say: "Shelley (English (UK))", rate: 160, kokoro: "bf_emma", speed: 0.9 },
       look: {
         skin: "#f1d1b5", hair: "#e3e3ea", hairStyle: "bun", shirt: "#4b0f2e", pants: "#1a1a1a", accent: "#c9a227",
         outfit: "gown", build: "slim", eyes: "lashes", nose: "long", facial: "none", accessories: ["necklace", "earrings"], height: 46,
@@ -240,7 +241,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{topic} haunts me. Like the rain. Like my father's portrait. Like the rain on my father's portrait.",
         "Excuse me. I need to go brood somewhere with better lighting.",
       ],
-      voice: { say: "Reed (English (UK))", rate: 165 },
+      voice: { say: "Reed (English (UK))", rate: 165, kokoro: "bm_george", speed: 0.92 },
       look: {
         skin: "#c99770", hair: "#1e130b", hairStyle: "swoop", shirt: "#1f2a44", pants: "#111111", accent: "#1f2a44",
         outfit: "turtleneck", build: "slim", eyes: "sleepy", nose: "small", facial: "stubble", accessories: [], height: 47,
@@ -260,7 +261,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{topic}? Never heard of it. I definitely don't have a file on it in my freezer.",
         "Everyone in this building has a secret. Mine just has better shoes.",
       ],
-      voice: { say: "Allison (Enhanced)", rate: 175 },
+      voice: { say: "Allison (Enhanced)", rate: 175, kokoro: "af_bella", speed: 1.0 },
       look: {
         skin: "#a86b4c", hair: "#a3201f", hairStyle: "long", shirt: "#d4a017", pants: "#2c2c54", accent: "#1a1a1a",
         outfit: "dress", build: "average", eyes: "lashes", nose: "small", facial: "none", accessories: ["shades"], height: 43,
@@ -280,7 +281,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{topic}... that rings a bell. Several bells. Possibly a concussion.",
         "Have we met? You look like someone who once pushed me off a yacht.",
       ],
-      voice: { say: "Aman", rate: 165 },
+      voice: { say: "Aman", rate: 165, kokoro: "am_adam", speed: 0.95 },
       look: {
         skin: "#8d5524", hair: "#202020", hairStyle: "short", shirt: "#5a7d9a", pants: "#34495e", accent: "#5a7d9a",
         outfit: "labcoat", build: "average", eyes: "dot", nose: "big", facial: "none", accessories: ["glasses", "bandage"], height: 45,
@@ -302,7 +303,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{topic} was better on the original hardware, {other}. Everything was better on the original hardware.",
         "My mom says I can stay down here until I find a real job. That was eleven years ago. We have a great system.",
       ],
-      voice: { say: "Eddy (English (US))", rate: 195 },
+      voice: { say: "Eddy (English (US))", rate: 195, kokoro: "am_liam", speed: 1.15 },
       look: {
         skin: "#ffdbac", hair: "#8b5a2b", hairStyle: "ponytail", shirt: "#2e8b57", pants: "#3a3a3a", accent: "#ffd23f",
         outfit: "stripes", build: "round", eyes: "dot", nose: "small", facial: "stubble", accessories: ["glasses"], height: 41,
@@ -322,7 +323,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{topic}? I've got a world record in {topic}. Any percent, glitchless, angry.",
         "{other}, I'll race you. For what? For honor. And for the last chip.",
       ],
-      voice: { say: "Flo (English (US))", rate: 205 },
+      voice: { say: "Flo (English (US))", rate: 205, kokoro: "af_jessica", speed: 1.2 },
       look: {
         skin: "#c68642", hair: "#1a1a1a", hairStyle: "mohawk", shirt: "#c0392b", pants: "#1f1f1f", accent: "#ffffff",
         outfit: "tank", build: "slim", eyes: "beady", nose: "small", facial: "none", accessories: ["headband"], height: 40,
@@ -342,7 +343,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{topic}? I don't know, {other}. Is it crunchy? Then I'm in.",
         "My cousin Kev is a genius. A genius who hasn't seen the sun since the nineties. But a genius.",
       ],
-      voice: { say: "Grandpa (English (US))", rate: 160 },
+      voice: { say: "Grandpa (English (US))", rate: 160, kokoro: "am_santa", speed: 0.9 },
       look: {
         skin: "#e0ac69", hair: "#3d2b1f", hairStyle: "short", shirt: "#6b4226", pants: "#2f4f4f", accent: "#c0392b",
         outfit: "hoodie", build: "broad", eyes: "sleepy", nose: "big", facial: "beard", accessories: ["beanie"], height: 46,
@@ -364,7 +365,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "Why does everybody need a little dish for their keys? Just put them in your pocket! That's what it's for!",
         "{other}, you are the only person I know who could make {topic} worse.",
       ],
-      voice: { say: "Eddy (English (US))", rate: 205 },
+      voice: { say: "Eddy (English (US))", rate: 205, kokoro: "am_eric", speed: 1.1 },
       look: {
         skin: "#f0c8a0", hair: "#2a1a10", hairStyle: "short", shirt: "#f2f2f2", pants: "#3a4a6a", accent: "#9fb8d8",
         outfit: "plain", build: "slim", eyes: "dot", nose: "big", facial: "none", accessories: [], height: 45,
@@ -384,7 +385,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{topic}? I'm going to handle {topic} the way I handle everything. Badly, and with a fake name.",
         "We're living in a society, people! There are rules! I don't follow them, but they're there!",
       ],
-      voice: { say: "Rocko (English (US))", rate: 215 },
+      voice: { say: "Rocko (English (US))", rate: 215, kokoro: "am_puck", speed: 1.2 },
       look: {
         skin: "#e8b88a", hair: "#3a2a1a", hairStyle: "fringe", shirt: "#c9b07a", pants: "#4a3a2a", accent: "#8a6a3a",
         outfit: "plain", build: "round", eyes: "beady", nose: "big", facial: "none", accessories: ["glasses"], height: 39,
@@ -404,7 +405,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "My boss wants me to write a memo about {topic}. I'd rather eat the memo.",
         "Oh, please. I've dated men with more charisma than this sandwich. Barely.",
       ],
-      voice: { say: "Samantha", rate: 195 },
+      voice: { say: "Samantha", rate: 195, kokoro: "af_sarah", speed: 1.1 },
       look: {
         skin: "#f2c8a8", hair: "#3a1f12", hairStyle: "huge", shirt: "#7a2e5a", pants: "#2a2a3a", accent: "#e8c56a",
         outfit: "dress", build: "average", eyes: "lashes", nose: "small", facial: "none", accessories: ["earrings"], height: 43,
@@ -424,7 +425,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{other}, you're thinking small. I'm thinking medium. Medium is the future.",
         "I don't knock. Knocking is for people with something to hide.",
       ],
-      voice: { say: "Fred", rate: 190 },
+      voice: { say: "Fred", rate: 190, kokoro: "am_adam", speed: 1.05 },
       look: {
         skin: "#f0d0b0", hair: "#4a3020", hairStyle: "wild", shirt: "#c76a2e", pants: "#3a3a2a", accent: "#e8b84a",
         outfit: "stripes", build: "slim", eyes: "wide", nose: "long", facial: "none", accessories: [], height: 49,
@@ -442,7 +443,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "You complimented the bisque before ordering. Disrespectful. Next!",
         "{topic}? In my kitchen? Never. Get out of my line.",
       ],
-      voice: { say: "Ralph", rate: 200 },
+      voice: { say: "Ralph", rate: 200, kokoro: "bm_lewis", speed: 1.05 },
       look: {
         skin: "#d8a878", hair: "#1a1a1a", hairStyle: "short", shirt: "#f4f4f4", pants: "#2a2a2a", accent: "#c0392b",
         outfit: "labcoat", build: "broad", eyes: "beady", nose: "big", facial: "mustache", accessories: [], height: 44,
@@ -460,7 +461,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "When you control the mail, you control information.",
         "{topic}? I have known about {topic} for weeks. I read everyone's postcards.",
       ],
-      voice: { say: "Albert", rate: 170 },
+      voice: { say: "Albert", rate: 170, kokoro: "bm_daniel", speed: 0.95 },
       look: {
         skin: "#f0c8a0", hair: "#5a3a1a", hairStyle: "short", shirt: "#4a6a9a", pants: "#2a3a5a", accent: "#c9a227",
         outfit: "plain", build: "round", eyes: "sleepy", nose: "small", facial: "stubble", accessories: ["hat"], height: 41,
@@ -482,7 +483,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "Midge, I'm going to fix {topic} myself. How hard can it be? Don't answer that.",
         "{other}, you are the second smartest person in this house. Behind the dog.",
       ],
-      voice: { say: "Ralph", rate: 165 },
+      voice: { say: "Ralph", rate: 165, kokoro: "am_fenrir", speed: 0.98 },
       look: {
         skin: "#f2d24a", hair: "#2a2a2a", hairStyle: "bald", shirt: "#f4f4f4", pants: "#3a5a9a", accent: "#3a5a9a",
         outfit: "plain", build: "round", eyes: "wide", nose: "big", facial: "stubble", accessories: [], height: 44,
@@ -502,7 +503,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{topic}? In this house? Over my beehive.",
         "{other}, sweetie, please put down whatever that is. Especially if it's ticking.",
       ],
-      voice: { say: "Kathy", rate: 165 },
+      voice: { say: "Kathy", rate: 165, kokoro: "af_kore", speed: 0.95 },
       look: {
         skin: "#f2d24a", hair: "#3a6ad8", hairStyle: "beehive", shirt: "#6ac46a", pants: "#6ac46a", accent: "#d84a4a",
         outfit: "gown", build: "slim", eyes: "lashes", nose: "small", facial: "none", accessories: ["necklace"], height: 41,
@@ -522,7 +523,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{other}, I'm an underachiever, and proud of it, man.",
         "I'm not saying I prank-called the mayor. I'm saying the mayor sounded very confused.",
       ],
-      voice: { say: "Junior", rate: 210 },
+      voice: { say: "Junior", rate: 210, kokoro: "am_echo", speed: 1.2 },
       look: {
         skin: "#f2d24a", hair: "#f2d24a", hairStyle: "spiky", shirt: "#e8682a", pants: "#3a6ad8", accent: "#3a6ad8",
         outfit: "plain", build: "tiny", eyes: "wide", nose: "small", facial: "none", accessories: [], height: 34,
@@ -542,7 +543,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "{other}, I love you, but you have the critical thinking skills of a lawn ornament.",
         "I wrote a twelve-page report on why we shouldn't do this. Nobody read it. As usual.",
       ],
-      voice: { say: "Sandy (English (US))", rate: 195 },
+      voice: { say: "Sandy (English (US))", rate: 195, kokoro: "af_aoede", speed: 1.1 },
       look: {
         skin: "#f2d24a", hair: "#f2d24a", hairStyle: "spiky", shirt: "#d84a4a", pants: "#d84a4a", accent: "#ffffff",
         outfit: "dress", build: "tiny", eyes: "lashes", nose: "small", facial: "none", accessories: ["necklace"], height: 33,
@@ -560,7 +561,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "In my day, a nickel bought a mansion and the servants threw in a war.",
         "{topic}? I own {topic}. I own everything. I own the concept of Tuesday.",
       ],
-      voice: { say: "Grandpa (English (US))", rate: 150 },
+      voice: { say: "Grandpa (English (US))", rate: 150, kokoro: "bm_fable", speed: 0.85 },
       look: {
         skin: "#f2d24a", hair: "#d8d8d8", hairStyle: "fringe", shirt: "#4a5a4a", pants: "#3a4a3a", accent: "#2a2a2a",
         outfit: "suit", build: "slim", eyes: "beady", nose: "long", facial: "none", accessories: [], height: 42,
@@ -578,7 +579,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "Someone called asking for a Mr. Hugh Jass again. I looked everywhere. Everywhere!",
         "{topic}? I tried {topic} once. Lost my eyebrows and my dignity. Got the eyebrows back.",
       ],
-      voice: { say: "Rocko (English (US))", rate: 160 },
+      voice: { say: "Rocko (English (US))", rate: 160, kokoro: "am_onyx", speed: 0.85 },
       look: {
         skin: "#f2d24a", hair: "#4a4a4a", hairStyle: "short", shirt: "#8a8a8a", pants: "#3a3a3a", accent: "#ffffff",
         outfit: "vest", build: "broad", eyes: "sleepy", nose: "big", facial: "stubble", accessories: [], height: 43,
@@ -596,7 +597,7 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         "I alphabetized my spice rack and then my feelings. Both went great!",
         "{topic}? Fiddle-dee-diddly, sounds like a learning opportunity!",
       ],
-      voice: { say: "Good News", rate: 180 },
+      voice: { say: "Good News", rate: 180, kokoro: "am_eric", speed: 1.15 },
       look: {
         skin: "#f2d24a", hair: "#5a3a1a", hairStyle: "short", shirt: "#7ac4a8", pants: "#4a5a7a", accent: "#ffffff",
         outfit: "vest", build: "slim", eyes: "dot", nose: "small", facial: "mustache", accessories: ["glasses"], height: 44,

@@ -28,11 +28,14 @@ export interface Show {
   topics: string[];
   /** Serialized shows: where the plot starts before any episode has aired. */
   storySeed?: string;
+  /** A short original scene showing the tone and joke density we want (writers must not reuse it). */
+  example: string;
 }
 
 export const SHOWS: Record<string, Show> = {
   late_byte: {
     id: "late_byte",
+    example: "rex: Folks, the network sent me a memo. Two words: \"less Rex.\" One of those words is my name.\ndeedee: They sent me one too. Mine says \"more Dee Dee.\" Same font.\nrex: That's a coincidence.\ndeedee: It's not a coincidence, Rex. I wrote both memos.\nrex: You can't write memos! You're the band!\ndeedee: The band has a printer now. Hit it, boys.",
     title: "The Late Byte with Rex Volta",
     format: "late_night",
     set: "late_night",
@@ -54,6 +57,7 @@ export const SHOWS: Record<string, Show> = {
   },
   rise_and_pixel: {
     id: "rise_and_pixel",
+    example: "sunny: Good morning! Today's smoothie has kale, joy, and one secret ingredient!\ngreg: Is the secret ingredient my weather segment? Because it's been missing for three weeks.\nsunny: The secret ingredient is gratitude, Greg.\ngreg: You can't blend gratitude.\nsunny: Not with that attitude.\npip: Reporting live-ish from the parking lot, where I can confirm it is also morning out here.\ngreg: Finally. Someone with a forecast.",
     title: "Rise & Pixel",
     format: "morning",
     set: "morning_couch",
@@ -74,6 +78,7 @@ export const SHOWS: Record<string, Show> = {
   },
   pixel_heights: {
     id: "pixel_heights",
+    example: "victoria: You came back, Marcus. The ocean usually keeps what I give it.\nmarcus: I don't remember the ocean. I remember a seagull. And the seagull remembers you.\nlola: Victoria, darling, your will has a typo. It says \"Lola\" where it used to say \"Dante.\"\ndante: Mother. Is that true?\nvictoria: It's not a typo. It's a negotiation.\nlola: Then I hope you brought your checkbook. I brought the yacht's black box.",
     title: "Pixel Heights",
     format: "soap",
     set: "soap_livingroom",
@@ -96,6 +101,7 @@ export const SHOWS: Record<string, Show> = {
   },
   couch_coop: {
     id: "couch_coop",
+    example: "kev: The rarest cartridge in the world has a typo on the label. Mine has two. I'm basically royalty.\nmarisol: You paid four hundred dollars for a spelling mistake.\nkev: I paid four hundred dollars for history.\ntony: I paid four dollars for these chips and honestly, I think I won.\nmarisol: Ranked: Tony, the chips, and then you, Kev.\nkev: The chips aren't even a person!\ntony: They're more of a person than that cartridge.",
     title: "Couch Co-op",
     format: "hangout",
     set: "basement",
@@ -116,6 +122,7 @@ export const SHOWS: Record<string, Show> = {
   },
   nada: {
     id: "nada",
+    example: "jerome: You can't re-gift a fruit basket back to the person who gave it to you. That's not a gift. That's a boomerang with pears. [laugh]\nlenny: She'll never know! I took the card out!\nmargo: Lenny, she put a tracking sticker on the pineapple. [laugh]\nlenny: Who tracks a pineapple?!\ndash (enters): Giddy-up! Whose pineapple is beeping? [laugh]\njerome: And there it is. The pineapple has a better social life than Lenny. [laugh]",
     title: "Much Ado About Nada",
     format: "sitcom",
     set: "sitcom_apartment",
@@ -142,6 +149,7 @@ export const SHOWS: Record<string, Show> = {
   },
   pixelsons: {
     id: "pixelsons",
+    example: "hank: Kids, I solved the plant safety inspection. I'm going to inspect myself. Woo-hoo! I passed!\nlyra: Dad, that's not how inspections work. That's not how anything works.\nmidge: Hmmmm. Hank, why is your lunchbox glowing?\nhank: That's my sandwich, Midge. It's just very... enthusiastic.\nbiff: Can I borrow it? I have a science fair tomorrow.\nlyra: If anyone cares, which they don't, the sandwich is humming.",
     title: "The Pixelsons",
     format: "cartoon",
     set: "family_couch",

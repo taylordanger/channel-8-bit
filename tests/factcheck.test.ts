@@ -26,6 +26,16 @@ const ok = [
 ];
 
 describe("fact-check", () => {
+  it("cuts lines that copy long runs of the source word for word", async () => {
+    const { checkVerbatim } = await import("../src/server/factcheck.js");
+    const copied = beat("lola", "Exampleville voted 412 to 9 on Tuesday to name a goat its honorary mayor, darling.");
+    const r = checkVerbatim(script([...ok, copied]), source);
+    expect(r.script.beats).toHaveLength(4);
+    expect(r.notes[0].reason).toMatch(/copies/);
+    // A short quote is fine.
+    expect(checkVerbatim(script([...ok, beat("lola", "They named a goat its honorary mayor? Darling.")]), source).script.beats).toHaveLength(5);
+  });
+
   it("normalizes numbers", () => {
     expect(numbersIn("It cost $1,200 and rose 40% in 2026, about 3.50 each")).toEqual(["1200", "40", "2026", "3.5"]);
   });

@@ -16,7 +16,7 @@ import { OllamaClient, OllamaWriter } from "./writers/ollama.js";
 import { DEFAULT_POLICY, LlmStandards, type StandardsPolicy } from "./standards.js";
 import { Station } from "./station.js";
 import { Timeline } from "./timeline.js";
-import { SayTTS, SilentTTS, installedSayVoices, type TTSEngine } from "./tts.js";
+import { KokoroTTS, SayTTS, SilentTTS, installedSayVoices, type TTSEngine } from "./tts.js";
 import { ClaudeWriter } from "./writers/claude.js";
 import { ImprovWriter } from "./writers/improv.js";
 import type { Writer } from "./writers/script.js";
@@ -58,7 +58,22 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   const desk = new TopicDesk(db, o.sourceReader);
   const ledger = new Ledger(db, config.timeZone);
   const governor = new Governor({ ...config, ledger });
-  const tts = o.tts ?? (config.tts === "say" ? new SayTTS(path.join(config.dataDir, "media")) : new SilentTTS());
+  const media = path.join(config.dataDir, "media");
+  const tts =
+    o.tts ??
+    (config.tts === "kokoro"
+      ? new KokoroTTS({
+          mediaDir: media,
+          python: path.resolve(".venv-tts/bin/python"),
+          script: path.resolve("tts/kokoro_server.py"),
+          modelDir: config.kokoro.dir,
+          port: config.kokoro.port,
+          fallback: new SayTTS(media),
+          log: o.log,
+        })
+      : config.tts === "say"
+        ? new SayTTS(media)
+        : new SilentTTS());
 
   const improv = new ImprovWriter();
   const ollama = new OllamaClient(config.ollama.url, config.ollama.model);
