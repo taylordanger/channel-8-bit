@@ -10,7 +10,8 @@ import { Governor } from "./governor.js";
 import { Ledger } from "./ledger.js";
 import { EpisodeBook, GameResults } from "./episodes.js";
 import { AudienceLog } from "./audience.js";
-import { ClipDesk, FunnyMeter, processRenderer, type ClipRenderer } from "./clips.js";
+import { ClipDesk, ffmpegVertical, FunnyMeter, processRenderer, type ClipRenderer } from "./clips.js";
+import { ShoutoutDesk } from "./shoutouts.js";
 import { CharacterStates, MemoryBank } from "./memory.js";
 import { Producer } from "./producer.js";
 import { TopicDesk } from "./desk.js";
@@ -164,7 +165,16 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   });
   // Finish reading any links a restart interrupted.
   for (const t of desk.pending()) void desk.ingest(t.id);
-  return { audience, clips, funny, episodes, results, ollama, mailbag, chat, tracks, products, ops, db, clock, timeline, memory, states, polls, desk, ledger, governor, tts, writers, producer, station };
+  const shoutouts = new ShoutoutDesk(db, {
+    policy,
+    moderator,
+    make: (s) => producer.shoutout(s, clock.now()),
+    render: o.clipRenderer ?? processRenderer(process.cwd(), config.port),
+    vertical: ffmpegVertical,
+    dir: path.join(config.dataDir, "shoutouts"),
+    log: o.log,
+  });
+  return { shoutouts, audience, clips, funny, episodes, results, ollama, mailbag, chat, tracks, products, ops, db, clock, timeline, memory, states, polls, desk, ledger, governor, tts, writers, producer, station };
 }
 
 export type Built = ReturnType<typeof buildStation>;

@@ -101,6 +101,8 @@ export interface WriterBrief {
   ad?: { productId: number; title: string };
   /** Recent moderated lines from the live viewer chat (untrusted text). */
   chat?: { handle: string; text: string }[];
+  /** A private personalized shoutout a viewer requested for a friend (untrusted detail). */
+  shoutout?: { recipient: string; occasion: string; detail: string };
   /** A moderated viewer message the cast answers in this segment (untrusted text). */
   viewerMessage?: { id: number; handle: string; text: string };
   /** Game shows: the state of the current game. */

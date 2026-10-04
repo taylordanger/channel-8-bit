@@ -87,6 +87,22 @@ CREATE TABLE IF NOT EXISTS archive_marks (
   at         INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS shoutouts (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  token_hash    TEXT NOT NULL UNIQUE,    -- sha256 of the requester's private pickup token
+  recipient     TEXT NOT NULL,           -- a first name only
+  occasion      TEXT NOT NULL,
+  detail        TEXT NOT NULL DEFAULT '',
+  show_id       TEXT NOT NULL,
+  status        TEXT NOT NULL,           -- pending | approved | writing | rendering | ready | rejected | failed
+  reason        TEXT NOT NULL DEFAULT '',
+  created_at    INTEGER NOT NULL,
+  segment       TEXT,                    -- the private scene (JSON Segment), never on the timeline
+  file          TEXT,
+  vertical_file TEXT,
+  sender        TEXT NOT NULL            -- hashed IP, for rate limits only
+);
+
 CREATE TABLE IF NOT EXISTS memories (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at INTEGER NOT NULL,

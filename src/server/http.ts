@@ -16,6 +16,7 @@ import { affiliateLink } from "./products.js";
 import { phaseAt, weekOf } from "./episodes.js";
 import { impactFeed, mailStatus } from "./impact.js";
 import { TwitchChat } from "./twitch.js";
+import { OCCASIONS, SHOUTOUT_CASTS, type Shoutout } from "./shoutouts.js";
 
 const TYPES: Record<string, string> = {
   ".m4a": "audio/mp4",
@@ -224,6 +225,60 @@ async function handleMail(req: http.IncomingMessage, res: http.ServerResponse, u
   return json(res, { error: "unsupported" }, 405);
 }
 
+/** What a requester sees about their shoutout. */
+function shoutoutView(s: Shoutout) {
+  const message: Record<Shoutout["status"], string> = {
+    pending: "Waiting for the producers to approve it.",
+    approved: "Approved! It's in line to be made.",
+    writing: "Approved! The cast is writing it now.",
+    rendering: "Recording it now - a couple of minutes.",
+    ready: "It's ready!",
+    rejected: "The producers passed on this one. Sorry!",
+    failed: "Something went wrong making it. The producers can try again.",
+  };
+  return {
+    recipient: s.recipient,
+    occasion: s.occasion,
+    by: SHOUTOUT_CASTS[s.showId] ?? s.showId,
+    status: s.status,
+    message: message[s.status],
+    video: s.status === "ready" && s.file ? `/shoutouts/${s.file}` : null,
+    vertical: s.status === "ready" && s.verticalFile ? `/shoutouts/${s.verticalFile}` : null,
+  };
+}
+
+async function handleShoutouts(req: http.IncomingMessage, res: http.ServerResponse, url: URL, b: Built, config: StationConfig) {
+  const [, , , part, action] = url.pathname.split("/");
+  // Public: the form's options, a request, and a private status page by token.
+  if (req.method === "GET" && part === "options")
+    return json(res, { casts: SHOUTOUT_CASTS, occasions: OCCASIONS, price: config.shoutoutPrice, paymentUrl: config.shoutoutPaymentUrl });
+  if (req.method === "GET" && part === "status") {
+    const s = b.shoutouts.lookup(String(url.searchParams.get("t") ?? ""));
+    return s ? json(res, shoutoutView(s)) : json(res, { error: "not found" }, 404);
+  }
+  if (req.method === "POST" && !part) {
+    let body: Record<string, unknown>;
+    try {
+      body = (await readJson(req, 2048)) as Record<string, unknown>;
+    } catch (e) {
+      return json(res, { error: (e as Error).message }, 400);
+    }
+    const out = await b.shoutouts.submit(
+      { recipient: String(body.recipient ?? ""), occasion: String(body.occasion ?? ""), detail: String(body.detail ?? ""), showId: String(body.showId ?? "") },
+      clientIp(req),
+      b.clock.now(),
+    );
+    if (typeof out === "string") return json(res, { error: out }, out.includes("try again") ? 429 : 400);
+    return json(res, { token: out.token, status: out.status }, 201);
+  }
+  // The desk: everything, and approve / decline.
+  if (!isLocal(req)) return json(res, { error: "shoutout requests are only visible from this machine" }, 403);
+  if (req.method === "GET" && !part) return json(res, { shoutouts: b.shoutouts.list(), casts: SHOUTOUT_CASTS });
+  const id = Number(part);
+  if (req.method === "POST" && Number.isInteger(id) && (action === "approve" || action === "reject")) return json(res, { ok: b.shoutouts.review(id, action === "approve") });
+  return json(res, { error: "unsupported" }, 405);
+}
+
 /** "That was funny": a viewer taps it during a scene that's on air (or just ended). */
 const funnyHits = new Map<string, number[]>();
 async function handleFunny(req: http.IncomingMessage, res: http.ServerResponse, b: Built) {
@@ -343,11 +398,22 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
     }
     if (url.pathname === "/api/chat") return json(res, b.chat.recent());
     if (url.pathname === "/api/impact") return json(res, impactFeed(b.db, b.mailbag, now));
-    // One aired segment, for clip rendering. Never anything that hasn't aired yet.
+    // One aired segment, for clip rendering. Never anything that hasn't aired yet. Private shoutout
+    // scenes are served too, but only to this machine (the clip renderer).
     if (url.pathname.startsWith("/api/segment/")) {
-      const seg = b.timeline.byId(decodeURIComponent(url.pathname.slice(13)));
+      const id = decodeURIComponent(url.pathname.slice(13));
+      const seg = b.timeline.byId(id) ?? (isLocal(req) ? b.shoutouts.segment(id) : undefined);
       if (!seg || seg.startAt > now) return json(res, { error: "not found" }, 404);
       return json(res, seg);
+    }
+    if (url.pathname === "/api/shoutouts" || url.pathname.startsWith("/api/shoutouts/")) {
+      void handleShoutouts(req, res, url, b, config);
+      return;
+    }
+    if (url.pathname.startsWith("/shoutouts/")) {
+      const rel = decodeURIComponent(url.pathname.slice(11));
+      if (!/^[0-9a-f]{24}(-vertical)?\.mp4$/.test(rel)) return void res.writeHead(404).end("not found");
+      return serveFile(res, path.join(config.dataDir, "shoutouts"), rel, "private, max-age=86400");
     }
     if (url.pathname === "/api/funny" && req.method === "POST") {
       void handleFunny(req, res, b);

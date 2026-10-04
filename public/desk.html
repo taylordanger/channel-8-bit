@@ -69,6 +69,9 @@
       <h2 class="sec">VIEWER MAIL</h2>
       <p class="hint">Messages viewers send from the main page. The local model screens them automatically; anything it couldn't check waits here for you. Approved mail gets read on air in The Late Byte, Rise &amp; Pixel and Couch Co-op.</p>
       <ul id="mail"></ul>
+      <h2 class="sec">SHOUTOUT REQUESTS</h2>
+      <p class="hint">Viewers request a personalized video for a friend from <a href="/shoutout.html">the shoutout page</a>. Nothing is made until you approve it. Approved requests are written, voiced and recorded privately (they never air) and the requester downloads them from their own private link.</p>
+      <ul id="shoutouts"></ul>
       <h2 class="sec">MUSICAL GUEST</h2>
       <p class="hint">Put a band on right after the current scene; whoever is hosting introduces them. Bands perform your own tracks if you add them to <b>data/music/&lt;band&gt;/</b> (add "Song.vocals.mp3" for exact lip-sync); otherwise they play an original song generated live.</p>
       <form id="music">
@@ -283,6 +286,46 @@
       }
       loadMail();
       setInterval(loadMail, 8000);
+
+      async function loadShoutouts() {
+        const { shoutouts, casts } = await (await fetch("/api/shoutouts")).json();
+        const list = $("shoutouts");
+        list.replaceChildren();
+        if (!shoutouts.length) {
+          const li = document.createElement("li");
+          li.className = "empty";
+          li.textContent = "No shoutout requests yet.";
+          list.append(li);
+        }
+        for (const s of shoutouts.slice(0, 30)) {
+          const li = document.createElement("li");
+          if (s.status === "rejected") li.className = "retired";
+          const body = document.createElement("div");
+          body.className = "text";
+          body.textContent = `For ${s.recipient} (${s.occasion}) by ${casts[s.showId] ?? s.showId}${s.detail ? ` - "${s.detail}"` : ""}`;
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = `${s.status.toUpperCase()}${s.reason ? " · " + s.reason : ""}`;
+          body.append(meta);
+          if (s.status === "ready" && s.file) {
+            const a = document.createElement("a");
+            a.href = `/shoutouts/${s.file}`;
+            a.textContent = "WATCH";
+            a.target = "_blank";
+            meta.append(" · ", a);
+          }
+          const actions = document.createElement("div");
+          actions.className = "actions";
+          if (["pending", "rejected", "failed"].includes(s.status)) {
+            actions.append(button(s.status === "failed" ? "RETRY" : "APPROVE", async () => { await fetch(`/api/shoutouts/${s.id}/approve`, { method: "POST" }); loadShoutouts(); }));
+            if (s.status !== "rejected") actions.append(button("DECLINE", async () => { await fetch(`/api/shoutouts/${s.id}/reject`, { method: "POST" }); loadShoutouts(); }));
+          }
+          li.append(body, actions);
+          list.append(li);
+        }
+      }
+      loadShoutouts();
+      setInterval(loadShoutouts, 8000);
 
       load().then(loadSpecial);
       setInterval(() => { load(); loadSpecial(); }, 4000);

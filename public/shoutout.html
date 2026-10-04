@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Get a Shoutout</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <style>
+      :root { --bg: #0b0814; --panel: #15102a; --line: #2a2140; --text: #e9e4ff; --muted: #8a82b0; --hot: #ff3355; --warm: #ffe066; --cool: #2ec4b6; }
+      [hidden] { display: none !important; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font-family: "Press Start 2P", monospace; padding: 16px; }
+      main { max-width: 760px; margin: 0 auto; }
+      header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+      h1 { font-size: 16px; margin: 0; }
+      h2 { font-size: 11px; color: var(--warm); margin: 0 0 12px; }
+      a { color: var(--warm); font-size: 10px; }
+      .card { background: var(--panel); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+      p, li { font-size: 9px; line-height: 2; color: var(--muted); }
+      form { display: grid; gap: 12px; }
+      label { font-size: 9px; display: grid; gap: 6px; }
+      input, select, textarea, button { font: inherit; font-size: 10px; color: var(--text); background: #0f0b1f; border: 2px solid var(--line); border-radius: 4px; padding: 10px; }
+      textarea { min-height: 70px; resize: vertical; }
+      button { background: var(--hot); border-color: var(--hot); cursor: pointer; }
+      button:disabled { opacity: 0.5; }
+      .note { font-size: 9px; color: var(--warm); line-height: 2; }
+      .status { font-size: 11px; line-height: 2; }
+      .status b { color: var(--cool); font-weight: normal; }
+      video { width: 100%; border-radius: 6px; margin-top: 12px; background: #000; }
+      .dl { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header><h1>GET A SHOUTOUT</h1><a href="/">← back to the broadcast</a></header>
+
+      <!-- The requester's private page (?t=...) -->
+      <section class="card" id="mine" hidden>
+        <h2 id="mine-title">YOUR SHOUTOUT</h2>
+        <div class="status" id="mine-status"></div>
+        <video id="mine-video" controls playsinline hidden></video>
+        <div class="dl" id="mine-dl" hidden>
+          <a id="dl-wide" download>DOWNLOAD (WIDESCREEN)</a>
+          <a id="dl-vert" download hidden>DOWNLOAD (VERTICAL, FOR PHONES)</a>
+        </div>
+        <p>Keep this page's link: it's the only way to get your video. Anyone with the link can watch it.</p>
+      </section>
+
+      <section class="card" id="ask">
+        <h2>THE CAST RECORDS A MESSAGE FOR YOUR FRIEND</h2>
+        <p>Pick who, the occasion, and one fun detail. The producers read every request before it's made; then the cast writes and records a short video you can download and send.</p>
+        <p class="note" id="price" hidden></p>
+        <form id="form">
+          <label>THEIR FIRST NAME <input id="recipient" maxlength="31" placeholder="Maya" required /></label>
+          <label>OCCASION <select id="occasion"></select></label>
+          <label>WHO SHOULD DO IT <select id="show"></select></label>
+          <label>ONE FUN DETAIL (OPTIONAL) <textarea id="detail" maxlength="140" placeholder="She's turning 30 and still can't parallel park."></textarea></label>
+          <button type="submit">REQUEST IT</button>
+          <span class="note" id="form-status"></span>
+        </form>
+        <p>Keep it friendly: first names only, no last names or personal details, and nothing mean. It's free while we're testing.</p>
+      </section>
+
+      <section class="card" id="history" hidden>
+        <h2>YOUR REQUESTS (THIS BROWSER)</h2>
+        <ul id="history-list"></ul>
+      </section>
+    </main>
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+      const token = params.get("t");
+      const load = () => { try { return JSON.parse(localStorage.getItem("c8b-shoutouts") || "[]"); } catch { return []; } };
+      const save = (xs) => { try { localStorage.setItem("c8b-shoutouts", JSON.stringify(xs)); } catch {} };
+
+      const opts = await (await fetch("/api/shoutouts/options")).json();
+      for (const o of opts.occasions) $("occasion").append(new Option(o, o));
+      for (const [id, label] of Object.entries(opts.casts)) $("show").append(new Option(label, id));
+      if (opts.paymentUrl) {
+        const p = $("price");
+        p.hidden = false;
+        p.replaceChildren(document.createTextNode(`Shoutouts are ${opts.price || "paid"}. `));
+        const a = document.createElement("a");
+        a.href = opts.paymentUrl;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = "Pay here first";
+        p.append(a, document.createTextNode(", then send your request. We make it once the payment comes through."));
+        document.querySelector("#ask p:last-of-type").textContent = "Keep it friendly: first names only, no last names or personal details, and nothing mean.";
+      }
+
+      $("form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = e.submitter;
+        btn.disabled = true;
+        $("form-status").textContent = "Sending...";
+        const res = await fetch("/api/shoutouts", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ recipient: $("recipient").value, occasion: $("occasion").value, showId: $("show").value, detail: $("detail").value }),
+        });
+        const d = await res.json();
+        btn.disabled = false;
+        if (!res.ok) return void ($("form-status").textContent = d.error);
+        save([{ t: d.token, name: $("recipient").value.trim(), at: Date.now() }, ...load()].slice(0, 20));
+        location.search = `?t=${encodeURIComponent(d.token)}`;
+      });
+
+      async function showMine() {
+        const res = await fetch(`/api/shoutouts/status?t=${encodeURIComponent(token)}`);
+        if (!res.ok) {
+          $("mine").hidden = false;
+          $("mine-status").textContent = "We couldn't find that shoutout. Check the link?";
+          return;
+        }
+        const s = await res.json();
+        $("mine").hidden = false;
+        $("ask").hidden = true;
+        $("mine-title").textContent = `FOR ${s.recipient.toUpperCase()} · ${s.occasion.toUpperCase()}`;
+        const by = document.createElement("b");
+        by.textContent = s.by;
+        $("mine-status").replaceChildren(document.createTextNode(s.message + " "), document.createElement("br"), document.createTextNode("Starring: "), by);
+        if (s.video) {
+          const v = $("mine-video");
+          if (v.hidden) { v.src = s.video; v.hidden = false; }
+          $("mine-dl").hidden = false;
+          $("dl-wide").href = s.video;
+          if (s.vertical) { $("dl-vert").href = s.vertical; $("dl-vert").hidden = false; }
+        } else setTimeout(showMine, 10000);
+      }
+      if (token) showMine();
+
+      const mine = load();
+      if (mine.length) {
+        $("history").hidden = false;
+        $("history-list").replaceChildren(...mine.map((m) => {
+          const li = document.createElement("li");
+          const a = document.createElement("a");
+          a.href = `?t=${encodeURIComponent(m.t)}`;
+          a.textContent = `For ${m.name}`;
+          li.append(a, document.createTextNode(` · ${new Date(m.at).toLocaleDateString()}`));
+          return li;
+        }));
+      }
+    </script>
+  </body>
+</html>

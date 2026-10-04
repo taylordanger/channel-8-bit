@@ -3,10 +3,11 @@ import path from "node:path";
 
 /**
  * Restart just the station inside a running \`npm run onair\` (new code, same public address).
- *   npm run reload
+ *   npm run reload            the station on port 8088
+ *   PORT=8099 npm run reload  another copy
  */
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
-const pidFile = path.join(root, "data", "onair.pid");
+const pidFile = path.join(root, "data", `onair-${process.env.PORT ?? "8088"}.pid`);
 const pid = fs.existsSync(pidFile) ? Number(fs.readFileSync(pidFile, "utf8")) : NaN;
 try {
   if (!Number.isInteger(pid)) throw new Error("no pid file");

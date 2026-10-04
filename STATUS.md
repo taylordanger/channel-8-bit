@@ -29,7 +29,8 @@ https://github.com/taylordanger/channel-8-bit*
 | 4 | **Add your songs** | Bands perform your real tracks | Drop files into `~/ai_network/data/music/<band>/` (`glimmer`, `rusty_spurs`, `sewer_rats`, `interference`). For exact lip-sync, add the vocals-only track as `Song Name.vocals.mp3`. Picked up within 5 minutes. ⚠️ Suno free-plan songs generally can't be used commercially, and a monetized stream counts. |
 | 5 | **(Optional) Start at login** | Survive reboots without opening a terminal | Stop the running copy (Ctrl+C), then `./scripts/install-launch-agent.sh`. |
 | 6 | **(Optional) Buy a domain** (~$10/yr) | A permanent address instead of a random one; Amazon prefers one | Buy one (Cloudflare Registrar is at cost), then ask Claude to set up a named tunnel. |
-| 7 | **(Optional) Claude API key** | Much funnier writing (the local model tops out at "mildly amusing") | Add `ANTHROPIC_API_KEY=...` and `DAILY_BUDGET_USD=1` to `.env`. The budget cap switches to reruns once it's spent. |
+| 7 | **(Optional) Charge for shoutouts** | Earn from personalized videos | Create a payment link yourself (e.g. Stripe Payment Links: stripe.com → Payment Links → New, price ~$15) → add `SHOUTOUT_PAYMENT_URL=...` and `SHOUTOUT_PRICE=$15` to `.env` → restart. Approve requests on the desk once they've paid. |
+| 8 | **(Optional) Claude API key** | Much funnier writing (the local model tops out at "mildly amusing") | Add `ANTHROPIC_API_KEY=...` and `DAILY_BUDGET_USD=1` to `.env`. The budget cap switches to reruns once it's spent. |
 
 ---
 
@@ -136,6 +137,12 @@ npm run shadow -- 24           # simulate a whole day in seconds and check for p
     - The station finds phrases repeated across recent scenes and bans them. Catchphrases, story nouns and everyday speech are exempt.
     - Because the small model ignores "never say X", sentences using a banned phrase are trimmed before air.
     - Titles must be specific, not just the scene type.
+38. **Personalized shoutouts** (the review's top idea for earning money):
+    - A viewer requests a short video for a friend at `/shoutout.html` (linked from the main page): a first name, the occasion, one fun detail, and which cast.
+    - It's screened like mail, then **you approve it** on the assignment desk.
+    - The cast writes and records a private scene. It never airs and changes nobody's memories.
+    - The requester downloads widescreen and vertical videos from their own private link. No email or account is needed, and files have unguessable names.
+    - Free by default. To charge, create a payment link yourself (for example a Stripe Payment Link) and add `SHOUTOUT_PAYMENT_URL` and `SHOUTOUT_PRICE` to `.env`; the form then shows it, and you approve requests once paid.
 
 ---
 

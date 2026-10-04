@@ -46,7 +46,8 @@ const running = new Map<string, ChildProcess>();
 let stopping = false;
 /** Services being restarted on purpose (npm run reload): come straight back, no backoff. */
 const reloading = new Set<string>();
-const pidFile = path.join(root, "data", "onair.pid");
+// One per port, so a test copy (PORT=8099) can't clobber the live station's.
+const pidFile = path.join(root, "data", `onair-${port}.pid`);
 
 function start(svc: Service, attempt = 0) {
   if (stopping) return;

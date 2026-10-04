@@ -219,6 +219,32 @@ export class Producer {
     return produced;
   }
 
+  /**
+   * A private shoutout scene: written, checked and voiced like any segment, but never committed to
+   * the timeline (it changes nobody's memories, and only its requester sees it).
+   */
+  async shoutout(s: { recipient: string; occasion: string; detail: string; showId: string }, at: number): Promise<Segment> {
+    const show = getShow(s.showId);
+    const cast = show.cast.slice(0, 3).map(getCharacter);
+    const brief: WriterBrief = {
+      show,
+      segmentType: "shoutout",
+      topic: `a ${s.occasion} message for ${s.recipient}`,
+      cast,
+      targetSeconds: 35,
+      localTime: new Intl.DateTimeFormat("en-US", { timeZone: this.d.timeZone, weekday: "long", hour: "numeric", minute: "2-digit" }).format(new Date(at)),
+      previously: [],
+      memories: [],
+      relationships: this.d.memory.relationshipsAmong(cast.map((c) => c.id)),
+      storyState: "",
+      recentLines: [],
+      shoutout: { recipient: s.recipient, occasion: s.occasion, detail: s.detail },
+    };
+    const produced = await this.fromBrief(brief, this.d.writers, at);
+    const occasion = s.occasion.replace(/\b\w/g, (c) => c.toUpperCase());
+    return { ...produced.segment, startAt: at, title: `For ${s.recipient}: ${occasion}` };
+  }
+
   /** A short card while the last votes of a game come in, before the champion is crowned. */
   countingVotes(slot: ScheduledSlot, ms: number): Produced {
     return this.bumper(slot, ms, `${slot.title}: counting your votes...`);

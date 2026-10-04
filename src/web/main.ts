@@ -246,10 +246,12 @@ async function startClip(id: string, director: AudioDirector, url: string) {
   const t0 = performance.now() + lead;
   clipNow = () => seg.startAt + (performance.now() - t0);
   segments.set(seg.id, { ...seg, poll: undefined });
+  // Start just after the scene does (its first moment is silent lead-in), so the first frame of
+  // the video is the scene itself rather than a "please stand by" card.
   window.setTimeout(() => {
     const rec = startIngest(canvas, director.tap(), url, { reconnect: false });
-    window.setTimeout(() => rec.stop(), seg.durationMs + 600);
-  }, lead - 150);
+    window.setTimeout(() => rec.stop(), seg.durationMs + 400);
+  }, lead + 120);
 }
 
 function frame() {
