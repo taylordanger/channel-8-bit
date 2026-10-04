@@ -93,6 +93,13 @@ export function deterministicStandards(
   opts: { writerChecks?: boolean } = { writerChecks: true },
 ): StandardsResult {
   const writerChecks = opts.writerChecks !== false;
+  // Everything the writers were shown as an example of tone, which must never air verbatim.
+  const examples = writerChecks
+    ? [
+        ...brief.show.example.split("\n").map((l) => l.replace(/^\w+:\s*/, "")),
+        ...brief.cast.flatMap((c) => c.bits.map((x) => x.replaceAll("{other}", "pal").replaceAll("{topic}", "this"))),
+      ].filter((ex) => ex.split(/\s+/).length >= 6) // short ones ("Sure, Rex.") are catchphrases: they're meant to repeat
+    : [];
   const notes: StandardsNote[] = [];
   const castIds = new Set(brief.cast.map((c) => c.id));
   const recent = new Set(brief.recentLines.map(normalize));
@@ -143,6 +150,11 @@ export function deterministicStandards(
     const n = normalize(b.line);
     if (recent.has(n) || seen.has(n)) {
       notes.push({ verdict: "cut", line: b.line, reason: "repeat of an aired line" });
+      continue;
+    }
+    // Copying the prompt's own examples (the show's sample scene, the characters' sample lines).
+    if (writerChecks && examples.some((ex) => normalize(ex) === n || nearDuplicate(ex, b.line))) {
+      notes.push({ verdict: "cut", line: b.line, reason: "copied an example from the writers' notes" });
       continue;
     }
     // The same joke twice in one scene: a line that mostly repeats an earlier one.

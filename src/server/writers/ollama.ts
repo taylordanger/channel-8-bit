@@ -198,10 +198,10 @@ export function tameActions(script: Script): Script {
 const LOCAL_ADDENDUM = `
 
 OUTPUT FORMAT (compact): reply with one JSON object only, matching the schema.
-- "lines": one entry per spoken line: [speaker id, emotion, action, "the words"] - shows with a laugh track add a fifth item, true when the studio audience laughs (punchlines only). Example: ["rex", "smug", "none", "I've hosted funerals with better energy."]
+- "lines": one entry per spoken line: [speaker id, emotion, action, "the words"] - shows with a laugh track add a fifth item, true when the studio audience laughs (punchlines only). Shape: ["<speaker id>", "<emotion>", "<action>", "<the words>"]
 - Speaker ids exactly as listed (lowercase ids like "rex", not names). Every line must sound like that specific character - their catchphrases and personality. Funny and specific; no generic filler. Short and punchy (under 25 words). Don't copy the sample lines.
 - Action is "none" on most lines; walk_off is rare and dramatic; enter only for someone coming back.
-- "title": specific to this scene ("The Yacht Receipt"), never just the segment type. "summary": one short sentence saying what's NEW in this scene. "remember": one short fact the characters will remember later (or ""). "feelings": up to two [from id, to id, change -25..25] (these are the relationshipChanges). "moods": up to two [character id, mood, reason in under eight words] (these are the moodChanges).
+- "title": a few words naming what happens in THIS scene, never just the segment type. "summary": one short sentence saying what's NEW in this scene. "remember": one short fact the characters will remember later (or ""). "feelings": up to two [from id, to id, change -25..25] (these are the relationshipChanges). "moods": up to two [character id, mood, reason in under eight words] (these are the moodChanges).
 - "storyState" (only when the schema asks for it): the plot so far in at most three sentences.`;
 
 /** Writes segments with a model running locally in Ollama: free, private, offline. */

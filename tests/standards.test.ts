@@ -137,4 +137,13 @@ describe("quality checks from the show review", () => {
     expect(nearDuplicate("Lenny and Dash have eaten the last good marble rye in the city.", "Seriously folks, Lenny and Dash have eaten the last good marble rye.")).toBe(true);
     expect(nearDuplicate("Lenny and Dash found the marble rye.", "I'm going to sulk about my jacket now.")).toBe(false);
   });
+
+  it("cuts lines copied from the writers' examples", async () => {
+    const { deterministicStandards } = await import("../src/server/standards.js");
+    const r = deterministicStandards(
+      scene([["rex", "My hair has a separate dressing room, pal. It has a separate agent."], ["deedee", "The band has a printer now. Hit it, boys."], ["rex", "A brand new joke about a lighthouse keeper."], ["deedee", "Sure, Rex."], ["rex", "One more line here."], ["deedee", "And another one."]]),
+      await brief(),
+    );
+    expect(r.script.beats.map((b) => b.line)).toEqual(["A brand new joke about a lighthouse keeper.", "Sure, Rex.", "One more line here.", "And another one."]);
+  });
 });
