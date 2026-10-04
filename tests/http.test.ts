@@ -23,7 +23,7 @@ beforeAll(async () => {
   fs.writeFileSync(path.join(dataDir, "secret.txt"), "nope");
   const config = { ...loadConfig({}), dataDir, port: 0, tts: "silent" as const, writer: "improv" as const, timeZone: "UTC" };
   built = buildStation(config, {
-    clock: new ManualClock(Date.UTC(2026, 9, 3, 12)),
+    clock: new ManualClock(Date.UTC(2026, 9, 3, 10, 30)),
     dbFile: ":memory:",
     tts: new SilentTTS(),
     writers: [new ImprovWriter(1)],
@@ -65,7 +65,7 @@ describe("http + ws", () => {
     expect(bad.status).toBe(400);
     const list = await (await fetch(base + "/api/topics")).json();
     expect(list.topics.map((t: { id: number }) => t.id)).toContain(topic.id);
-    expect(list.shows.length).toBe(4);
+    expect(list.shows.length).toBe(6);
     expect(await (await fetch(`${base}/api/topics/${topic.id}`, { method: "DELETE" })).json()).toEqual({ removed: true });
   });
 

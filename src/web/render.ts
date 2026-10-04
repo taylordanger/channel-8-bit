@@ -62,6 +62,178 @@ function skyline(g: Ctx, x0: number, y0: number, w: number, h: number, t: number
 }
 
 const SETS: Record<Exclude<SetId, "bumper">, SetDef> = {
+  sitcom_apartment: {
+    marks: [
+      { x: 104, y: 146, seated: false, face: 1 },
+      { x: 150, y: 148, seated: false, face: 1 },
+      { x: 198, y: 148, seated: false, face: -1 },
+      { x: 252, y: 146, seated: false, face: -1 }, // by the door: where Dash bursts in
+    ],
+    back: (g) => {
+      px(g, "#ead9b0", 0, 0, W, H);
+      px(g, "#d9c48f", 0, 0, W, 5);
+      // kitchen: fridge, cabinets, counter with cereal boxes
+      px(g, "#e9ecef", 6, 52, 30, 86);
+      px(g, "#c9ced4", 6, 92, 30, 2);
+      px(g, "#9aa1a8", 32, 66, 2, 12);
+      px(g, "#8a6240", 40, 40, 62, 26);
+      for (let x = 44; x < 100; x += 20) px(g, "#a87a50", x, 44, 16, 18);
+      px(g, "#7a5636", 40, 98, 62, 40);
+      px(g, "#cdbb94", 38, 94, 66, 5);
+      const boxes = ["#e74c3c", "#f1c40f", "#3498db", "#2ecc71", "#e67e22"];
+      boxes.forEach((c, i) => px(g, c, 46 + i * 10, 80, 8, 14));
+      // window with blinds
+      px(g, "#bfe3ff", 128, 30, 60, 52);
+      for (let y = 32; y < 82; y += 4) px(g, "#f4f4f4", 128, y, 60, 2);
+      g.strokeStyle = "#f8f8f8";
+      g.lineWidth = 2;
+      g.strokeRect(128, 30, 60, 52);
+      // the bike on the wall
+      g.strokeStyle = "#2c3e50";
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.arc(204, 64, 9, 0, Math.PI * 2);
+      g.arc(232, 64, 9, 0, Math.PI * 2);
+      g.moveTo(204, 64);
+      g.lineTo(216, 52);
+      g.lineTo(232, 64);
+      g.moveTo(216, 52);
+      g.lineTo(222, 64);
+      g.stroke();
+      // front door
+      px(g, "#5a3a22", 262, 50, 40, 90);
+      px(g, "#7a5232", 266, 56, 32, 36);
+      px(g, "#7a5232", 266, 98, 32, 36);
+      px(g, "#e8c34a", 292, 96, 3, 3);
+      px(g, "#3a2414", 258, 46, 48, 4);
+      // floor
+      px(g, "#a8743e", 0, 138, W, 42);
+      for (let x = 0; x < W; x += 22) px(g, "#956434", x, 138, 1, 42);
+    },
+  },
+  diner: {
+    marks: [
+      { x: 118, y: 124, seated: true, face: 1 },
+      { x: 150, y: 124, seated: true, face: 1 },
+      { x: 182, y: 124, seated: true, face: -1 },
+      { x: 214, y: 124, seated: true, face: -1 },
+    ],
+    back: (g, t) => {
+      px(g, "#d6c8a8", 0, 0, W, H);
+      // big street window with passing traffic
+      px(g, "#8ec5e8", 30, 18, 260, 70);
+      px(g, "#6a8a9a", 30, 70, 260, 18);
+      const cars = ["#e74c3c", "#f1c40f", "#2c3e50", "#ecf0f1"];
+      for (let i = 0; i < 4; i++) {
+        const x = ((t / (18 + i * 5) + i * 90) % 340) - 30;
+        px(g, cars[i], x, 64 + (i % 2) * 6, 26, 8);
+        px(g, "#222", x + 4, 72 + (i % 2) * 6, 5, 3);
+        px(g, "#222", x + 17, 72 + (i % 2) * 6, 5, 3);
+      }
+      px(g, "#f4f4f4", 30, 18, 260, 3);
+      for (let x = 30; x <= 290; x += 65) px(g, "#f4f4f4", x, 18, 3, 70);
+      // neon sign (mirror-backwards, seen from inside)
+      g.fillStyle = Math.floor(t / 900) % 2 ? "#ff4d6d" : "#ff8fa3";
+      g.font = "bold 9px monospace";
+      g.fillText("RENID S'YMMOT", 112, 32);
+      // booth back
+      px(g, "#a3333d", 96, 92, 140, 28);
+      px(g, "#bf3f4b", 96, 90, 140, 4);
+      // floor tiles
+      for (let x = 0; x < W; x += 12) for (let y = 140; y < H; y += 12) px(g, (x + y) % 24 ? "#2b2b2b" : "#efefef", x, y, 12, 12);
+    },
+    front: (g) => {
+      // table with coffee cups and a sad salad
+      px(g, "#e9e2d0", 100, 120, 132, 10);
+      px(g, "#b8ae96", 100, 129, 132, 3);
+      px(g, "#7a7a7a", 162, 132, 8, 22);
+      for (const x of [116, 146, 180, 210]) {
+        px(g, "#ffffff", x, 113, 7, 7);
+        px(g, "#5a3a22", x + 1, 113, 5, 2);
+      }
+      px(g, "#7fbf5f", 160, 115, 12, 4);
+      // booth front
+      px(g, "#a3333d", 92, 130, 148, 12);
+    },
+  },
+  comedy_club: {
+    marks: [{ x: 160, y: 140, seated: false, face: 1 }],
+    back: (g) => {
+      px(g, "#5a1f1a", 0, 0, W, H);
+      for (let y = 0; y < 140; y += 8)
+        for (let x = (y / 8) % 2 ? -10 : 0; x < W; x += 20) {
+          px(g, "#8a3a2c", x + 1, y + 1, 18, 6);
+          px(g, "#9c4434", x + 2, y + 1, 8, 2);
+        }
+      // spotlight
+      const grad = g.createRadialGradient(160, 110, 4, 160, 110, 80);
+      grad.addColorStop(0, "rgba(255,240,200,0.55)");
+      grad.addColorStop(1, "rgba(255,240,200,0)");
+      g.fillStyle = grad;
+      g.fillRect(60, 20, 200, 140);
+      // stage + mic stand
+      px(g, "#2a1a14", 0, 138, W, 42);
+      px(g, "#3a261c", 0, 138, W, 3);
+      px(g, "#222", 178, 104, 2, 36);
+      px(g, "#222", 172, 138, 14, 2);
+      px(g, "#555", 176, 100, 6, 6);
+    },
+    front: (g, t, ev) => {
+      for (let i = 0; i < 22; i++) {
+        const bob = ev.crowd > 0.1 ? Math.round(Math.abs(Math.sin(t / 90 + i * 1.3)) * 3 * ev.crowd) : 0;
+        const x = i * 15 - 4;
+        px(g, "#120806", x, 162 - bob, 12, 18);
+        px(g, "#120806", x + 2, 154 - bob, 8, 9);
+      }
+    },
+  },
+  family_couch: {
+    marks: [
+      { x: 122, y: 128, seated: true, face: 1 },
+      { x: 150, y: 128, seated: true, face: 1 },
+      { x: 178, y: 128, seated: true, face: -1 },
+      { x: 204, y: 128, seated: true, face: -1 },
+      { x: 258, y: 142, seated: false, face: -1 }, // guest standing by the door
+    ],
+    back: (g) => {
+      px(g, "#b49ad8", 0, 0, W, H);
+      px(g, "#9a80c0", 0, 0, W, 4);
+      // the crooked sailboat painting
+      g.save();
+      g.translate(163, 50);
+      g.rotate(-0.08);
+      px(g, "#7a5a2a", -24, -16, 48, 32);
+      px(g, "#a8d8f0", -21, -13, 42, 26);
+      px(g, "#3a6ad8", -21, 4, 42, 9);
+      px(g, "#ffffff", -2, -10, 2, 14);
+      px(g, "#ffffff", -10, -8, 8, 10);
+      px(g, "#8a4a2a", -12, 2, 20, 4);
+      g.restore();
+      // lamp and side table
+      px(g, "#8a5a3a", 92, 112, 16, 26);
+      px(g, "#e8c34a", 96, 88, 8, 24);
+      px(g, "#f4e8b0", 90, 76, 20, 14);
+      // doorway
+      px(g, "#8a6a4a", 238, 60, 44, 80);
+      px(g, "#6a4a2a", 242, 64, 36, 76);
+      // floor + rug
+      px(g, "#a87848", 0, 138, W, 42);
+      px(g, "#7a9a5a", 70, 146, 180, 22);
+      // couch back
+      px(g, "#d4765a", 104, 100, 118, 22);
+      px(g, "#e38a6c", 104, 98, 118, 4);
+    },
+    front: (g) => {
+      px(g, "#e38a6c", 104, 120, 118, 12);
+      px(g, "#c4664a", 98, 104, 8, 28);
+      px(g, "#c4664a", 220, 104, 8, 28);
+      // the back of the TV, in the foreground, where every family sitcom keeps it
+      px(g, "#3a3a3a", 136, 158, 54, 22);
+      px(g, "#555", 140, 154, 46, 6);
+      px(g, "#222", 160, 150, 2, 6);
+      px(g, "#222", 168, 148, 2, 8);
+    },
+  },
   late_night: {
     marks: [
       { x: 132, y: 120, seated: true, face: 1 }, // host behind desk
@@ -356,8 +528,10 @@ export class Renderer {
     const local = now - seg.startAt;
     const cue = seg.cues.find((c) => local >= c.t && local < c.t + c.dur);
     const crowd = seg.cues.reduce((acc, c) => {
-      if (c.action !== "applause" && c.action !== "laugh") return acc;
-      const d = local - c.t;
+      // Laugh-track punchlines get their laugh after the line; actions react immediately.
+      const start = c.laugh ? c.t + c.dur : c.action === "applause" || c.action === "laugh" ? c.t : -1;
+      if (start < 0) return acc;
+      const d = local - start;
       return d >= 0 && d < 2200 ? Math.max(acc, 1 - d / 2200) : acc;
     }, 0);
     const ev: SceneEvents = { crowd };
@@ -383,6 +557,20 @@ export class Renderer {
       const seed = st.member.id.charCodeAt(0) * 131 + st.member.id.length * 977;
       let dx = st.slide * 160;
       let dy = 0;
+      let seated = mark.seated;
+      // Couch gag: the family scrambles onto the couch at the top of every segment.
+      if (seg.set === "family_couch" && st.member.mark < 4 && local < COUCH_GAG_MS) {
+        const order = st.member.mark;
+        const p = Math.max(0, Math.min(1, (local - order * 280) / 1100));
+        const variant = hashStr(seg.id) % 2;
+        if (variant === 0) {
+          dx += (-30 - mark.x) * (1 - p); // run in from the left
+          dy -= p < 1 ? Math.abs(Math.sin(local / 60)) * 3 : 0;
+        } else {
+          dy -= (1 - p) * (1 - p) * 140; // drop in from the ceiling
+        }
+        if (p < 1) seated = false;
+      }
       if (speaking && mouth > 6) dy -= 1;
       if (action === "laugh") dy -= Math.round(Math.abs(Math.sin(now / 70)) * 2);
       if (action === "lean_in") dx += face * 3;
@@ -393,7 +581,7 @@ export class Renderer {
         dx += [0, 2, 0, -2][step];
         dy -= step % 2;
       }
-      drawSprite(g, st.member.look, mark.x + dx, mark.y + (mark.seated ? 8 : 0) + dy, {
+      drawSprite(g, st.member.look, mark.x + dx, mark.y + (seated ? 8 : 0) + dy, {
         mouth,
         // Listeners keep the expression from their own last line for a few seconds.
         emotion: speaking?.emotion ?? (own && local - own.t < own.dur + 4000 ? own.emotion : "neutral"),
@@ -518,6 +706,8 @@ function wrap(text: string, width: number): string[] {
   return out.slice(-3);
 }
 
+const COUCH_GAG_MS = 2600;
+
 // ---------------------------------------------------------------------------
 // The director: picks a camera shot for every moment. Shots are derived purely
 // from the segment data, so every viewer sees the same cuts.
@@ -537,7 +727,13 @@ function hashStr(s: string): number {
 }
 
 function shotFor(seg: Segment, local: number, marks: Mark[]): Shot {
-  if (local < 2500) return WIDE; // establishing shot
+  if (local < (seg.set === "family_couch" ? COUCH_GAG_MS + 400 : 2500)) return WIDE; // establishing shot / couch gag
+  if (seg.set === "comedy_club" && seg.cast.length === 1) {
+    // Stand-up: alternate a medium shot and a tighter one, never cut to an empty room.
+    const m = seg.cast[0];
+    const head = { x: marks[0].x, y: marks[0].y - m.look.height * 0.72 };
+    return Math.floor(local / 9000) % 2 ? { x: head.x, y: head.y + 8, zoom: 1.8 } : { x: head.x, y: head.y + 22, zoom: 1.35 };
+  }
   // The shot follows the most recent line (holds through pauses).
   let i = -1;
   for (let k = 0; k < seg.cues.length; k++) if (seg.cues[k].t <= local) i = k;

@@ -10,7 +10,7 @@ export type Action = (typeof ACTIONS)[number];
 
 export const HAIR_STYLES = [
   "short", "long", "bald", "mohawk", "bun", "afro", "spiky", "bob",
-  "pompadour", "swoop", "wild", "ponytail", "huge",
+  "pompadour", "swoop", "wild", "ponytail", "huge", "beehive", "fringe",
 ] as const;
 export type HairStyle = (typeof HAIR_STYLES)[number];
 
@@ -48,7 +48,16 @@ export interface Look {
   glitch?: boolean;
 }
 
-export type SetId = "late_night" | "morning_couch" | "soap_livingroom" | "basement" | "bumper";
+export type SetId =
+  | "late_night"
+  | "morning_couch"
+  | "soap_livingroom"
+  | "basement"
+  | "sitcom_apartment"
+  | "diner"
+  | "comedy_club"
+  | "family_couch"
+  | "bumper";
 
 export interface CastMember {
   id: string;
@@ -71,6 +80,8 @@ export interface Cue {
   action: Action;
   /** Who the line is aimed at: a cast id, "camera", or "audience". */
   target: string;
+  /** Sitcoms: the studio audience laughs after this line. */
+  laugh?: boolean;
   /** URL of the voiced line, or null when the line is silent (silent TTS / shadow runs). */
   audio: string | null;
   /** Mouth-openness envelope, one digit 0-9 per ENVELOPE_STEP_MS. */

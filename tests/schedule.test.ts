@@ -14,13 +14,13 @@ describe("schedule", () => {
 
   it("finds the slot airing at an instant, with absolute boundaries", () => {
     const s = slotAt(t, TZ);
-    expect(s.showId).toBe("couch_coop"); // 14-18 local
+    expect(s.showId).toBe("couch_coop"); // 14-17 local
     expect(s.startAt).toBe(Date.UTC(2026, 9, 3, 18, 0));
-    expect(s.endAt).toBe(Date.UTC(2026, 9, 3, 22, 0));
+    expect(s.endAt).toBe(Date.UTC(2026, 9, 3, 21, 0));
   });
 
   it("slot boundaries are half-open", () => {
-    const boundary = Date.UTC(2026, 9, 3, 22, 0); // 18:00 local
+    const boundary = Date.UTC(2026, 9, 3, 21, 0); // 17:00 local
     expect(slotAt(boundary - 1, TZ).showId).toBe("couch_coop");
     expect(slotAt(boundary, TZ).showId).toBe("pixel_heights");
   });
@@ -35,6 +35,6 @@ describe("schedule", () => {
     const g = guide(Date.UTC(2026, 9, 4, 2, 30), 6, TZ); // 22:30 local
     expect(g[0].showId).toBe("late_byte");
     expect(g[0].endAt - g[0].startAt).toBe(4 * 3_600_000);
-    expect(g[1]).toMatchObject({ showId: "pixel_heights", mode: "rerun" });
+    expect(g[1]).toMatchObject({ showId: "nada", mode: "rerun" });
   });
 });

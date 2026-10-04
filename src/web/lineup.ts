@@ -1,5 +1,13 @@
 import { EMOTIONS, type Look } from "../shared/types.js";
 import { drawSprite } from "./sprite.js";
+import { Renderer } from "./render.js";
+import type { Segment } from "../shared/types.js";
+
+/** "Mr. Grimsworth" -> GRIMSWORTH, "Hank Pixelson" -> HANK. */
+const label = (name: string) => {
+  const words = name.split(" ");
+  return (words[0].endsWith(".") || words[0] === "The" ? words[words.length - 1] : words[0]).toUpperCase().slice(0, 9);
+};
 
 /** Cast lineup: every character, talking and cycling emotions. Handy when designing looks. */
 interface CastCard {
@@ -22,6 +30,46 @@ scene.width = W;
 scene.height = H;
 const g = scene.getContext("2d")!;
 const emotionEl = document.getElementById("emotion")!;
+
+// ?set=diner&ids=jerome,lenny,margo,dash plays a looping fake scene on that set, with the director's cuts.
+const previewSet = new URLSearchParams(location.search).get("set");
+if (previewSet) {
+  const renderer = new Renderer(canvas);
+  const t0 = performance.now();
+  const lines = ["What is the deal with this?", "I don't know, but I hate it.", "Get OUT!", "Giddy-up!", "Mmm, donuts.", "Hmmmm."];
+  const seg: Segment = {
+    id: "preview-" + previewSet,
+    showId: "preview",
+    showTitle: "Set Preview",
+    title: previewSet,
+    set: previewSet as Segment["set"],
+    startAt: 0,
+    durationMs: 60_000,
+    cast: cast.map((c, i) => ({ id: c.id, name: c.name, look: c.look, mark: i, onSetAtStart: true })),
+    cues: Array.from({ length: 24 }, (_, i) => ({
+      t: 1000 + i * 2400,
+      dur: 2000,
+      speaker: cast[i % cast.length].id,
+      text: lines[i % lines.length],
+      emotion: (["happy", "smug", "surprised", "angry"] as const)[i % 4],
+      action: "none" as const,
+      target: cast[(i + 1) % cast.length].id,
+      laugh: i % 3 === 1,
+      audio: null,
+      env: "3579753135797531357975313579753135797531",
+    })),
+    kind: "live",
+    writer: "preview",
+  };
+  const loop = () => {
+    canvas.width = canvas.clientWidth * devicePixelRatio;
+    canvas.height = canvas.clientHeight * devicePixelRatio;
+    const now = (performance.now() - t0) % 60_000;
+    renderer.draw({ now, segment: seg, guide: [], network: "Channel 8-Bit", viewers: 0, tunedIn: false });
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+} else requestAnimationFrame(frame);
 
 function frame(t: number) {
   const emotion = EMOTIONS[Math.floor(t / 2500) % EMOTIONS.length];
@@ -61,8 +109,7 @@ function frame(t: number) {
   cast.forEach((c, i) => {
     const col = i % PER_ROW;
     const row = Math.floor(i / PER_ROW);
-    o.fillText(c.name.split(" ").slice(-1)[0].toUpperCase().slice(0, 9), ox + (26 + col * 50) * s, (97 + row * 100) * s);
+    o.fillText(label(c.name), ox + (26 + col * 50) * s, (97 + row * 100) * s);
   });
   requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);

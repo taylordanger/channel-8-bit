@@ -13,11 +13,17 @@ export interface Slot {
 /** The daily grid. Slots must tile 0..24 with no gaps. */
 export const GRID: Slot[] = [
   { startHour: 0, endHour: 2, showId: "late_byte", mode: "live" },
-  { startHour: 2, endHour: 6, showId: "pixel_heights", mode: "rerun" },
+  { startHour: 2, endHour: 4, showId: "nada", mode: "rerun" },
+  { startHour: 4, endHour: 6, showId: "pixelsons", mode: "rerun" },
   { startHour: 6, endHour: 10, showId: "rise_and_pixel", mode: "live" },
-  { startHour: 10, endHour: 14, showId: "pixel_heights", mode: "live" },
-  { startHour: 14, endHour: 18, showId: "couch_coop", mode: "live" },
-  { startHour: 18, endHour: 22, showId: "pixel_heights", mode: "live" },
+  { startHour: 10, endHour: 12, showId: "pixel_heights", mode: "live" },
+  { startHour: 12, endHour: 13, showId: "nada", mode: "live" },
+  { startHour: 13, endHour: 14, showId: "pixelsons", mode: "live" },
+  { startHour: 14, endHour: 17, showId: "couch_coop", mode: "live" },
+  { startHour: 17, endHour: 19, showId: "pixel_heights", mode: "live" },
+  { startHour: 19, endHour: 20, showId: "pixelsons", mode: "live" },
+  { startHour: 20, endHour: 21, showId: "nada", mode: "live" },
+  { startHour: 21, endHour: 22, showId: "pixel_heights", mode: "live" },
   { startHour: 22, endHour: 24, showId: "late_byte", mode: "live" },
 ];
 

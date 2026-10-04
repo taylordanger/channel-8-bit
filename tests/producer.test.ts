@@ -10,7 +10,7 @@ import type { Writer } from "../src/server/writers/script.js";
 import { beat, script } from "./helpers.js";
 
 const TZ = "UTC";
-const noon = Date.UTC(2026, 9, 3, 12, 0); // pixel_heights, live
+const noon = Date.UTC(2026, 9, 3, 10, 30); // pixel_heights, live
 
 function producer(writers: Writer[]) {
   const db = openDb(":memory:");

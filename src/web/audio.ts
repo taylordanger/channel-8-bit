@@ -37,7 +37,12 @@ export class AudioDirector {
   update(segments: Segment[], stationNow: number): void {
     for (const seg of segments) {
       if (seg.startAt > stationNow + LOOKAHEAD_MS || seg.startAt + seg.durationMs < stationNow) continue;
+      // Scene stings: slap bass into sitcom scenes, a jingle for the cartoon.
+      if (seg.set === "sitcom_apartment" || seg.set === "diner") this.sting(seg.id, seg.startAt, stationNow, "slapbass");
+      if (seg.set === "family_couch") this.sting(seg.id, seg.startAt, stationNow, "jingle");
       seg.cues.forEach((cue, i) => {
+        const laughAt = seg.startAt + cue.t + cue.dur;
+        if (cue.laugh && laughAt > stationNow - 300 && laughAt < stationNow + LOOKAHEAD_MS) this.crowd(`${seg.id}:${i}:lt`, laughAt, stationNow, "laugh");
         const start = seg.startAt + cue.t;
         if (start > stationNow + LOOKAHEAD_MS || start + cue.dur < stationNow) return;
         if ((cue.action === "applause" || cue.action === "laugh") && seg.set === "late_night") this.crowd(seg.id + i, start, stationNow, cue.action);
@@ -69,6 +74,38 @@ export class AudioDirector {
   private lastCtxTime = 0;
   private stationNowAtCtx(): number {
     return this.lastStationNow + (this.ctx.currentTime - this.lastCtxTime) * 1000;
+  }
+
+  private stung = new Set<string>();
+
+  /** Synthesized transition music, scheduled at a segment's start. */
+  private sting(key: string, start: number, now: number, kind: "slapbass" | "jingle") {
+    if (this.stung.has(key) || start < now - 500) return;
+    this.stung.add(key);
+    const t0 = this.ctx.currentTime + Math.max(0, (start - now) / 1000);
+    // [semitones above the root, beat offset in eighths, length in eighths]
+    const riff: [number, number, number][] =
+      kind === "slapbass"
+        ? [[0, 0, 1], [12, 1, 1], [7, 2, 1], [10, 3, 1], [12, 4, 1], [0, 5, 0.5], [3, 5.5, 0.5], [5, 6, 2]]
+        : [[0, 0, 1], [4, 1, 1], [7, 2, 1], [12, 3, 1], [11, 4, 1], [12, 5, 3]];
+    const root = kind === "slapbass" ? 41.2 : 523.25; // E1 thump, C5 chime
+    const eighth = kind === "slapbass" ? 0.11 : 0.09;
+    for (const [semi, at, len] of riff) {
+      const osc = this.ctx.createOscillator();
+      const amp = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+      osc.type = kind === "slapbass" ? "sawtooth" : "triangle";
+      osc.frequency.value = root * Math.pow(2, semi / 12) * (kind === "slapbass" ? 2 : 1);
+      filter.type = "lowpass";
+      filter.frequency.value = kind === "slapbass" ? 900 : 4000;
+      const s0 = t0 + at * eighth;
+      amp.gain.setValueAtTime(0, s0);
+      amp.gain.linearRampToValueAtTime(kind === "slapbass" ? 0.35 : 0.12, s0 + 0.005);
+      amp.gain.exponentialRampToValueAtTime(0.001, s0 + len * eighth * 1.6);
+      osc.connect(filter).connect(amp).connect(this.master);
+      osc.start(s0);
+      osc.stop(s0 + len * eighth * 1.8);
+    }
   }
 
   /** A synthesized studio audience: filtered noise swells. */

@@ -20,6 +20,7 @@ export const ScriptSchema = z.object({
         emotion: z.enum(EMOTIONS),
         action: z.enum(ACTIONS),
         target: z.string().describe("Character id, 'camera', or 'audience'"),
+        laugh: z.boolean().describe("Shows with a laugh track: true if the studio audience laughs after this line (punchlines only). Otherwise false."),
       }),
     )
     .describe("The spoken lines in order"),

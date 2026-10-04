@@ -80,6 +80,15 @@ const SOAP_MIDDLE: Line[] = [
 const SOAP_LEADINS = ["", "Darling, ", "Oh, please. ", "Enough. ", "Listen to me. ", "No. ", "How dare you. ", "Careful. "];
 const SOAP_TAGS = ["", " And you know it.", " This isn't over.", " Mark my words.", " Not tonight.", " For the family.", " Choose wisely."];
 
+OPENERS.sitcom = [
+  { text: "What is the deal with {topic}? Who are these people?", emotion: "smug", action: "gesture", target: "audience" },
+  { text: "Okay, okay, you are not going to believe what happened with {topic}.", emotion: "surprised", target: "other" },
+];
+OPENERS.cartoon = [
+  { text: "Family meeting! It's about {topic}. And also dinner.", emotion: "happy", action: "gesture", target: "other" },
+  { text: "Kids, your father has a brilliant idea involving {topic}.", emotion: "nervous", target: "other" },
+];
+
 const CLOSERS: Record<string, Line[]> = {
   late_night: [{ text: "We'll be right back, {catch}!", emotion: "happy", action: "gesture", target: "camera" }],
   morning: [{ text: "Stay with us, we've got more after the break. {catch}!", emotion: "happy", target: "camera" }],
@@ -88,6 +97,14 @@ const CLOSERS: Record<string, Line[]> = {
     { text: "Then you leave me no choice.", emotion: "smug", target: "other" },
   ],
   hangout: [{ text: "Alright, that's the segment. Somebody pass the chips.", emotion: "happy", target: "camera" }],
+  sitcom: [
+    { text: "That's it. I'm done. I'm out. I'm going to the diner.", emotion: "angry", action: "walk_off", target: "other" },
+    { text: "Well, that's a {topic} I'll never get back.", emotion: "smug", target: "other" },
+  ],
+  cartoon: [
+    { text: "Kids, let this be a lesson. About... something. Let's eat.", emotion: "happy", target: "other" },
+    { text: "Well, at least nobody got hurt. Much.", emotion: "nervous", target: "other" },
+  ],
 };
 
 /**
@@ -114,6 +131,8 @@ export class ImprovWriter implements Writer {
       emotion: l.emotion,
       action: l.action ?? "none",
       target: l.target === "other" ? other.id : (l.target ?? other.id),
+      // Laugh-track shows: the audience laughs at the punchier lines.
+      laugh: b.show.format === "sitcom" && (l.emotion === "smug" || l.emotion === "surprised" || r() < 0.25),
     });
 
     const soap = b.show.format === "soap";
@@ -151,7 +170,7 @@ export class ImprovWriter implements Writer {
       if (usedCores.has(core) && usedCores.size < middle.length) continue;
       usedCores.add(core);
       const beat = fill(compose(core), who, otherThan(who));
-      if (beat.speaker === beats[beats.length - 1].speaker) continue;
+      if (cast.length > 1 && beat.speaker === beats[beats.length - 1].speaker) continue;
       if (recent.has(beat.line) || beats.some((x) => x.line === beat.line)) continue;
       beats.push(beat);
       ms += estimateSpeechMs(beat.line) + 350;

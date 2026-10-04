@@ -102,6 +102,7 @@ export function localScriptSchema(castIds: string[], minBeats: number, maxBeats:
           emotion: z.enum(EMOTIONS),
           action: z.enum(ACTIONS),
           target: z.enum([...castIds, "camera", "audience"] as unknown as [string, ...string[]]),
+          laugh: z.boolean(),
         }),
       )
       .min(minBeats)
@@ -133,6 +134,14 @@ export function tameActions(script: Script): Script {
     } else if (action === "stand" && ++stands > 1) action = "none";
     return { ...b, action };
   });
+  // They also mark nearly every line as a punchline. A laugh track that never stops isn't funny:
+  // no back-to-back laughs, and never more than about half the lines.
+  let laughs = 0;
+  for (let i = 0; i < beats.length; i++) {
+    if (!beats[i].laugh) continue;
+    if ((i > 0 && beats[i - 1].laugh) || laughs >= Math.ceil(beats.length / 2)) beats[i] = { ...beats[i], laugh: false };
+    else laughs++;
+  }
   return { ...script, beats };
 }
 

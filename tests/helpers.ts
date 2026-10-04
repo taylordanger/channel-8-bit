@@ -26,6 +26,7 @@ export const beat = (speaker: string, line: string, action: Script["beats"][numb
   emotion: "neutral" as const,
   action,
   target: "camera",
+  laugh: false,
 });
 
 export const script = (beats: Script["beats"], over: Partial<Script> = {}): Script => ({

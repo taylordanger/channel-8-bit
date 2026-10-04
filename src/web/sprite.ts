@@ -71,6 +71,16 @@ function hairBack(g: G, look: Look, hx: number, hy: number) {
       px(g, c, hx - 5, hy + 1, 5, 4);
       px(g, c, hx - 7, hy + 4, 4, 12);
       break;
+    case "beehive":
+      // A towering column of hair, slightly narrower at the top.
+      px(g, c, hx, hy - 20, 15, 22);
+      px(g, c, hx + 2, hy - 24, 11, 5);
+      px(g, shade(look.hair, 0.12), hx + 4, hy - 22, 3, 18);
+      break;
+    case "fringe":
+      px(g, c, hx - 1, hy + 2, 3, 7);
+      px(g, c, hx - 2, hy + 4, 2, 6);
+      break;
     case "wild":
       for (let i = 0; i < 9; i++) {
         const a = (i / 9) * Math.PI * 2;
@@ -87,6 +97,19 @@ function hairFront(g: G, look: Look, hx: number, hy: number) {
   switch (look.hairStyle) {
     case "bald":
       px(g, "#ffffff55", hx + 8, hy + 1, 3, 1);
+      // A couple of stray hairs, for the cartoon dads of the world.
+      if (look.facial === "stubble") {
+        px(g, c, hx + 5, hy - 3, 1, 3);
+        px(g, c, hx + 8, hy - 3, 1, 3);
+      }
+      break;
+    case "beehive":
+      px(g, look.hair, hx - 1, hy - 2, 17, 5);
+      px(g, look.hair, hx - 1, hy + 2, 3, 5);
+      break;
+    case "fringe":
+      px(g, "#ffffff44", hx + 7, hy + 1, 3, 1);
+      px(g, look.hair, hx + 13, hy + 3, 2, 4);
       break;
     case "short":
       px(g, c, hx - 1, hy - 2, 16, 4);

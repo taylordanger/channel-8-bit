@@ -348,6 +348,260 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         outfit: "hoodie", build: "broad", eyes: "sleepy", nose: "big", facial: "beard", accessories: ["beanie"], height: 46,
       },
     }),
+
+    // --- Much Ado About Nada (a sitcom about nothing) -------------------------
+    c({
+      id: "jerome",
+      name: "Jerome Finkel",
+      bible:
+        "Observational stand-up comic who lives in a tidy apartment and judges everyone's tiny habits. Breaks up with people over trivial flaws (they eat peas one at a time, they have man hands). Detached, smug, a little fussy. Opens episodes with stand-up.",
+      catchphrases: ["what is the deal with", "that's a shame", "not that there's anything wrong with that"],
+      bits: [
+        "What is the deal with airplane peanuts? Who is that hungry? It's ninety minutes. Eat before.",
+        "I can't date her, {other}. She says 'expresso.' With an X. There's no X.",
+        "You know what the problem with {topic} is? Nobody asked. Nobody ever asked.",
+        "I'm not saying it's a crime. I'm saying it's adjacent to a crime.",
+        "Why does everybody need a little dish for their keys? Just put them in your pocket! That's what it's for!",
+        "{other}, you are the only person I know who could make {topic} worse.",
+      ],
+      voice: { say: "Eddy (English (US))", rate: 205 },
+      look: {
+        skin: "#f0c8a0", hair: "#2a1a10", hairStyle: "short", shirt: "#f2f2f2", pants: "#3a4a6a", accent: "#9fb8d8",
+        outfit: "plain", build: "slim", eyes: "dot", nose: "big", facial: "none", accessories: [], height: 45,
+      },
+    }),
+    c({
+      id: "lenny",
+      name: "Lenny Castellano",
+      bible:
+        "Jerome's oldest friend: short, balding, cheap, neurotic, and a compulsive liar who builds elaborate schemes to avoid minor embarrassment. Pretends to be an architect. Everything goes wrong and it's always someone else's fault.",
+      catchphrases: ["it's not a lie if you believe it", "I was in the pool!", "we're living in a society!"],
+      bits: [
+        "It's not a lie if you believe it, {other}. And I believe it. Mostly.",
+        "I told them I was an architect. Now they want me to design a library. A whole library!",
+        "Why is it always me? Why can't it be somebody else? Pick somebody else!",
+        "I double-dipped. Fine. I double-dipped. It's a free country. It's a free chip.",
+        "{topic}? I'm going to handle {topic} the way I handle everything. Badly, and with a fake name.",
+        "We're living in a society, people! There are rules! I don't follow them, but they're there!",
+      ],
+      voice: { say: "Rocko (English (US))", rate: 215 },
+      look: {
+        skin: "#e8b88a", hair: "#3a2a1a", hairStyle: "fringe", shirt: "#c9b07a", pants: "#4a3a2a", accent: "#8a6a3a",
+        outfit: "plain", build: "round", eyes: "beady", nose: "big", facial: "none", accessories: ["glasses"], height: 39,
+      },
+    }),
+    c({
+      id: "margo",
+      name: "Margo Wexler",
+      bible:
+        "Jerome's ex, now friend. Sharp, confident, publishing assistant with a terrible boss. Shoves people when surprised ('Get OUT!'). Dances horribly - all elbows and thumbs - and doesn't know it.",
+      catchphrases: ["get OUT!", "yada yada yada", "oh, please"],
+      bits: [
+        "Get OUT! No. Get out. Are you serious?",
+        "So I met him at the coffee shop, we went to dinner, yada yada yada, I'm banned from Delaware.",
+        "{other}, you have the emotional range of a parking meter.",
+        "I'm going to dance now and nobody is allowed to say anything.",
+        "My boss wants me to write a memo about {topic}. I'd rather eat the memo.",
+        "Oh, please. I've dated men with more charisma than this sandwich. Barely.",
+      ],
+      voice: { say: "Samantha", rate: 195 },
+      look: {
+        skin: "#f2c8a8", hair: "#3a1f12", hairStyle: "huge", shirt: "#7a2e5a", pants: "#2a2a3a", accent: "#e8c56a",
+        outfit: "dress", build: "average", eyes: "lashes", nose: "small", facial: "none", accessories: ["earrings"], height: 43,
+      },
+    }),
+    c({
+      id: "dash",
+      name: "Dash Kowalski",
+      bible:
+        "Jerome's tall, wild-haired neighbor who bursts in without knocking (always 'enter' with flair). Has bizarre business schemes (a coffee-table book about coffee tables, a pizza place where you make your own pie). Physical, confident, inexplicably successful with everything except money.",
+      catchphrases: ["giddy-up!", "oh, I'm out there, Jerome", "these are real, and they're spectacular"],
+      bits: [
+        "Giddy-up! Jerome, I've got an idea. A cologne that smells like the beach. Nobody's thought of this.",
+        "Oh, I'm out there, Jerome. I'm loving every minute of it.",
+        "I've been taking baths with my clothes on. Saves time. Laundry and hygiene. One step.",
+        "{topic}? I know a guy. He's got a van. Don't ask about the van.",
+        "{other}, you're thinking small. I'm thinking medium. Medium is the future.",
+        "I don't knock. Knocking is for people with something to hide.",
+      ],
+      voice: { say: "Fred", rate: 190 },
+      look: {
+        skin: "#f0d0b0", hair: "#4a3020", hairStyle: "wild", shirt: "#c76a2e", pants: "#3a3a2a", accent: "#e8b84a",
+        outfit: "stripes", build: "slim", eyes: "wide", nose: "long", facial: "none", accessories: [], height: 49,
+      },
+    }),
+    c({
+      id: "brothmaster",
+      name: "The Broth Tyrant",
+      bible:
+        "Owner of a tiny, legendary soup counter with draconian ordering rules. Will refuse soup to anyone who breaks protocol. Speaks in clipped commands. Deeply proud of his bisque.",
+      catchphrases: ["no broth for you!", "next!", "you want bread? Three dollars"],
+      bits: [
+        "No broth for you! Come back one month!",
+        "Step to the left. Order. Pay. Step to the left again. Why are you not stepping?",
+        "You complimented the bisque before ordering. Disrespectful. Next!",
+        "{topic}? In my kitchen? Never. Get out of my line.",
+      ],
+      voice: { say: "Ralph", rate: 200 },
+      look: {
+        skin: "#d8a878", hair: "#1a1a1a", hairStyle: "short", shirt: "#f4f4f4", pants: "#2a2a2a", accent: "#c0392b",
+        outfit: "labcoat", build: "broad", eyes: "beady", nose: "big", facial: "mustache", accessories: [], height: 44,
+      },
+    }),
+    c({
+      id: "pemberton",
+      name: "Neville Pemberton",
+      bible:
+        "Jerome's smug, scheming neighbor and arch-nemesis; a mail carrier who believes the mail never stops and loves telling people that. Greets Jerome with icy contempt. Allied with Dash in disastrous schemes.",
+      catchphrases: ["hello, Jerome", "the mail never stops", "oh, the humanity"],
+      bits: [
+        "Hello, Jerome.",
+        "The mail never stops, {other}. It just keeps coming. Like a tide. A tide of envelopes.",
+        "When you control the mail, you control information.",
+        "{topic}? I have known about {topic} for weeks. I read everyone's postcards.",
+      ],
+      voice: { say: "Albert", rate: 170 },
+      look: {
+        skin: "#f0c8a0", hair: "#5a3a1a", hairStyle: "short", shirt: "#4a6a9a", pants: "#2a3a5a", accent: "#c9a227",
+        outfit: "plain", build: "round", eyes: "sleepy", nose: "small", facial: "stubble", accessories: ["hat"], height: 41,
+      },
+    }),
+
+    // --- The Pixelsons (animated family sitcom) ------------------------------
+    c({
+      id: "hank",
+      name: "Hank Pixelson",
+      bible:
+        "Lazy, lovable, impulsive dad and the worst safety inspector at the Pleasantburg Nuclear Plant. Loves donuts, root beer, and napping. Yells 'why you little-!' at his son and never finishes the sentence. Catastrophically confident.",
+      catchphrases: ["aw, nuts!", "mmm... donuts", "woo-hoo!"],
+      bits: [
+        "Aw, nuts! I mean, I meant to do that. That was the plan.",
+        "Mmm... {topic}. Is it edible? Can it be made edible?",
+        "Kids, I've learned something today: trying is the first step toward failure. So never try.",
+        "Woo-hoo! Wait. Why did I woo-hoo? What happened? Did I win something?",
+        "Midge, I'm going to fix {topic} myself. How hard can it be? Don't answer that.",
+        "{other}, you are the second smartest person in this house. Behind the dog.",
+      ],
+      voice: { say: "Ralph", rate: 165 },
+      look: {
+        skin: "#f2d24a", hair: "#2a2a2a", hairStyle: "bald", shirt: "#f4f4f4", pants: "#3a5a9a", accent: "#3a5a9a",
+        outfit: "plain", build: "round", eyes: "wide", nose: "big", facial: "stubble", accessories: [], height: 44,
+      },
+    }),
+    c({
+      id: "midge",
+      name: "Midge Pixelson",
+      bible:
+        "Patient, kind, quietly exasperated mom with a towering blue beehive. The family's moral center. Makes a disapproving 'hmmmm' sound. Secretly has wild hidden talents that come out at exactly the wrong moment.",
+      catchphrases: ["hmmmm", "Hank, no", "oh, I don't like this"],
+      bits: [
+        "Hmmmm. Hank, no.",
+        "Oh, I don't like this. I don't like this one bit. I'll make a casserole.",
+        "Kids, your father is doing his best. That's what worries me.",
+        "I used to be a champion bowler, you know. Nobody ever asks about that.",
+        "{topic}? In this house? Over my beehive.",
+        "{other}, sweetie, please put down whatever that is. Especially if it's ticking.",
+      ],
+      voice: { say: "Kathy", rate: 165 },
+      look: {
+        skin: "#f2d24a", hair: "#3a6ad8", hairStyle: "beehive", shirt: "#6ac46a", pants: "#6ac46a", accent: "#d84a4a",
+        outfit: "gown", build: "slim", eyes: "lashes", nose: "small", facial: "none", accessories: ["necklace"], height: 41,
+      },
+    }),
+    c({
+      id: "biff",
+      name: "Biff Pixelson",
+      bible:
+        "Ten-year-old troublemaker: skateboard, slingshot, prank phone calls, detention regular. Underachiever and proud of it. Secretly has a good heart. Antagonizes his dad and sister constantly.",
+      catchphrases: ["eat my pixels!", "I didn't do it", "cowabunga, man"],
+      bits: [
+        "I didn't do it. Nobody saw me do it. You can't prove anything.",
+        "Eat my pixels!",
+        "Dad, can I borrow a dollar? Okay, how about twenty? Fine, a hundred.",
+        "{topic}? Sounds boring. Can I set it on fire?",
+        "{other}, I'm an underachiever, and proud of it, man.",
+        "I'm not saying I prank-called the mayor. I'm saying the mayor sounded very confused.",
+      ],
+      voice: { say: "Junior", rate: 210 },
+      look: {
+        skin: "#f2d24a", hair: "#f2d24a", hairStyle: "spiky", shirt: "#e8682a", pants: "#3a6ad8", accent: "#3a6ad8",
+        outfit: "plain", build: "tiny", eyes: "wide", nose: "small", facial: "none", accessories: [], height: 34,
+      },
+    }),
+    c({
+      id: "lyra",
+      name: "Lyra Pixelson",
+      bible:
+        "Eight-year-old genius, activist, vegetarian, and theremin player. The only sane person in the family and painfully aware of it. Gives impassioned speeches nobody listens to.",
+      catchphrases: ["if anyone cares, which they don't", "that's not how science works", "I'm going to go play my theremin"],
+      bits: [
+        "If anyone cares, which they don't, that's not how science works.",
+        "I'm going to go play my theremin in my room. Sadly. Loudly.",
+        "Dad, I need you to listen to me very carefully. Put. Down. The. Uranium.",
+        "{topic} is a symptom of a much bigger systemic problem. Also it smells.",
+        "{other}, I love you, but you have the critical thinking skills of a lawn ornament.",
+        "I wrote a twelve-page report on why we shouldn't do this. Nobody read it. As usual.",
+      ],
+      voice: { say: "Sandy (English (US))", rate: 195 },
+      look: {
+        skin: "#f2d24a", hair: "#f2d24a", hairStyle: "spiky", shirt: "#d84a4a", pants: "#d84a4a", accent: "#ffffff",
+        outfit: "dress", build: "tiny", eyes: "lashes", nose: "small", facial: "none", accessories: ["necklace"], height: 33,
+      },
+    }),
+    c({
+      id: "grimsworth",
+      name: "Mr. Grimsworth",
+      bible:
+        "The impossibly old, impossibly rich, villainous owner of the Pleasantburg Nuclear Plant. Frail, cruel, and out of touch (thinks a dollar buys a house). Never remembers Hank's name despite decades.",
+      catchphrases: ["excellent", "release the hounds", "who is that man?"],
+      bits: [
+        "Excellent. Excellent. Mostly excellent.",
+        "Who is that man? He's worked for me for twenty years? Fire him. No, promote him. No, fire him.",
+        "In my day, a nickel bought a mansion and the servants threw in a war.",
+        "{topic}? I own {topic}. I own everything. I own the concept of Tuesday.",
+      ],
+      voice: { say: "Grandpa (English (US))", rate: 150 },
+      look: {
+        skin: "#f2d24a", hair: "#d8d8d8", hairStyle: "fringe", shirt: "#4a5a4a", pants: "#3a4a3a", accent: "#2a2a2a",
+        outfit: "suit", build: "slim", eyes: "beady", nose: "long", facial: "none", accessories: [], height: 42,
+      },
+    }),
+    c({
+      id: "gus",
+      name: "Gus the Bartender",
+      bible:
+        "Gravel-voiced, perpetually miserable owner of Gus's Tavern (serves only root beer, legally). Lonely, schemes to get rich, has a face 'for radio'. Secretly sensitive. Takes prank calls from Biff every day and falls for them every day.",
+      catchphrases: ["what do you want", "hey, that's my line", "I got feelings too, you know"],
+      bits: [
+        "What do you want? I'm busy. I'm busy being sad.",
+        "I got feelings too, you know. I keep them in a jar behind the bar.",
+        "Someone called asking for a Mr. Hugh Jass again. I looked everywhere. Everywhere!",
+        "{topic}? I tried {topic} once. Lost my eyebrows and my dignity. Got the eyebrows back.",
+      ],
+      voice: { say: "Rocko (English (US))", rate: 160 },
+      look: {
+        skin: "#f2d24a", hair: "#4a4a4a", hairStyle: "short", shirt: "#8a8a8a", pants: "#3a3a3a", accent: "#ffffff",
+        outfit: "vest", build: "broad", eyes: "sleepy", nose: "big", facial: "stubble", accessories: [], height: 43,
+      },
+    }),
+    c({
+      id: "todd",
+      name: "Todd Neighborino",
+      bible:
+        "The Pixelsons' relentlessly cheerful, wholesome next-door neighbor. Everything is 'okily-dokily' adjacent but his own invented word: 'hi-dee-ho-dee'. Hank resents him for being better at everything; Todd is oblivious.",
+      catchphrases: ["hi-dee-ho-dee, neighbor!", "golly gosh", "fiddle-dee-diddly"],
+      bits: [
+        "Hi-dee-ho-dee, neighbor! I baked you a pie. And a backup pie, in case you drop the pie.",
+        "Golly gosh, Hank, that's a lot of smoke coming from your garage. Need a hand-a-roo?",
+        "I alphabetized my spice rack and then my feelings. Both went great!",
+        "{topic}? Fiddle-dee-diddly, sounds like a learning opportunity!",
+      ],
+      voice: { say: "Good News", rate: 180 },
+      look: {
+        skin: "#f2d24a", hair: "#5a3a1a", hairStyle: "short", shirt: "#7ac4a8", pants: "#4a5a7a", accent: "#ffffff",
+        outfit: "vest", build: "slim", eyes: "dot", nose: "small", facial: "mustache", accessories: ["glasses"], height: 44,
+      },
+    }),
   ].map((ch) => [ch.id, ch]),
 );
 

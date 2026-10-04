@@ -1,12 +1,18 @@
 import type { SetId } from "../../shared/types.js";
 
-export type ShowFormat = "late_night" | "morning" | "soap" | "hangout";
+export type ShowFormat = "late_night" | "morning" | "soap" | "hangout" | "sitcom" | "cartoon";
 
 export interface Show {
   id: string;
   title: string;
   format: ShowFormat;
   set: SetId;
+  /** Segment types that play on a different set (e.g. the diner scenes of a sitcom). */
+  setFor?: Record<string, SetId>;
+  /** Segment types performed by one cast member alone (e.g. a stand-up cold open). */
+  soloFor?: Record<string, string>;
+  /** Studio audience laughs on punchlines (lines the writers mark with laugh: true). */
+  laughTrack?: boolean;
   /** "standard" shows are written by the cheaper model, "premium" by the bigger one. */
   tier: "standard" | "premium";
   /** Regular cast in mark order (mark 0 is the leftmost position on the set). */
@@ -106,6 +112,56 @@ export const SHOWS: Record<string, Show> = {
       "games that were scarier as a kid",
       "the ideal couch-co-op snack",
       "the worst licensed movie game",
+    ],
+  },
+  nada: {
+    id: "nada",
+    title: "Much Ado About Nada",
+    format: "sitcom",
+    set: "sitcom_apartment",
+    setFor: { "stand-up cold open": "comedy_club", "diner scene": "diner" },
+    soloFor: { "stand-up cold open": "jerome" },
+    laughTrack: true,
+    tier: "premium",
+    cast: ["jerome", "lenny", "margo", "dash"],
+    guestPool: ["brothmaster", "pemberton"],
+    serialized: false,
+    bible:
+      "A multi-camera sitcom about nothing, taped before a live studio audience. Four self-absorbed friends obsess over trivial social rules and petty grievances (double-dipping, re-gifting, the etiquette of the 'close talker'), and each episode's tiny problems collide absurdly. Nobody learns anything. Mark punchlines with laugh: true - roughly every second or third line in a good scene. Stand-up cold opens are Jerome alone at the comedy club doing observational material ('what is the deal with...'). Dash always bursts in (action enter) rather than walking in calmly.",
+    segmentTypes: ["stand-up cold open", "apartment scene", "diner scene", "apartment scene", "the scheme collapses"],
+    topics: [
+      "the etiquette of splitting a check to the penny",
+      "a coworker who won't stop close-talking",
+      "re-gifting a fruit basket back to the original giver",
+      "being banned from the soup counter",
+      "a parking space standoff that lasts all day",
+      "pretending to like a friend's terrible band",
+      "a man who returns a jacket because he doesn't like its personality",
+      "the last good marble rye in the city",
+    ],
+  },
+  pixelsons: {
+    id: "pixelsons",
+    title: "The Pixelsons",
+    format: "cartoon",
+    set: "family_couch",
+    laughTrack: false,
+    tier: "standard",
+    cast: ["hank", "midge", "biff", "lyra"],
+    guestPool: ["grimsworth", "gus", "todd"],
+    serialized: false,
+    bible:
+      "An animated family sitcom in the town of Pleasantburg. Hank's impulsive schemes, Biff's pranks, Lyra's activism and Midge's patience collide; the town's oddballs drop by. Fast, joke-dense, satirical but warm - every episode ends with the family back together on the couch, nothing changed. Cartoon logic is allowed (absurd escalation, sight-gag descriptions in dialogue). No laugh track: laugh is always false.",
+    segmentTypes: ["family scheme", "dinner table argument", "guest drops by", "Hank's terrible idea", "the moral of the story"],
+    topics: [
+      "Hank tries to get out of the plant safety inspection",
+      "Biff starts a business selling homework",
+      "Lyra protests the school cafeteria",
+      "the family's car breaks down on the way to a theme park",
+      "Hank enters a donut-eating competition",
+      "Midge discovers she's secretly great at something",
+      "a mysterious mascot appears in Pleasantburg",
+      "Grimsworth wants the family's house for a parking lot",
     ],
   },
 };

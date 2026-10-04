@@ -96,6 +96,8 @@ describe("local writer (Ollama)", () => {
       ]),
     );
     expect(t.beats.map((b) => b.action)).toEqual(["walk_off", "enter", "none", "none", "stand", "none"]);
+    const laughs = tameActions(script(Array.from({ length: 8 }, (_, i) => ({ ...beat("rex", `l${i}`), laugh: true }))));
+    expect(laughs.beats.map((b) => b.laugh)).toEqual([true, false, true, false, true, false, true, false]);
   });
 
   it("normalizes targets and memory ids too", () => {

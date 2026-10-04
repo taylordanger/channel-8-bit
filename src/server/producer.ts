@@ -153,7 +153,8 @@ export class Producer {
     if (show.guestPool?.length && /guest/.test(segmentType)) {
       guest = getCharacter(show.guestPool[Math.floor(slot.startAt / 3_600_000) % show.guestPool.length]);
     }
-    const cast = [...show.cast.map(getCharacter), ...(guest ? [guest] : [])];
+    const solo = show.soloFor?.[segmentType];
+    const cast = solo ? [getCharacter(solo)] : [...show.cast.map(getCharacter), ...(guest ? [guest] : [])];
     const ids = cast.map((c) => c.id);
     const desk = this.d.desk?.nextFor(show.id);
     return {
@@ -192,7 +193,7 @@ export class Producer {
           this.d.log?.(`standards rejected a ${brief.show.id} script from ${writer.name}: ${checked.rejected}`);
           continue;
         }
-        const segment = await this.assemble(brief.show, brief.cast, checked.script, writerName);
+        const segment = await this.assemble(brief.show, brief.cast, checked.script, writerName, brief.segmentType);
         if (brief.deskTopicId) this.d.desk?.markUsed(brief.deskTopicId, at);
         return {
           segment,
@@ -250,7 +251,7 @@ export class Producer {
   }
 
   /** Voice every line and lay the cues end to end. Durations come from the real audio. */
-  async assemble(show: Show, cast: Character[], script: Script, writer: string): Promise<Segment> {
+  async assemble(show: Show, cast: Character[], script: Script, writer: string, segmentType = ""): Promise<Segment> {
     const byId = new Map(cast.map((c) => [c.id, c]));
     // Voice lines a few at a time; timing is laid out afterwards from the real durations.
     const voices = await mapLimit(script.beats, 4, (b) => this.d.tts.voice(b.line, byId.get(b.speaker)!));
@@ -266,10 +267,11 @@ export class Producer {
         emotion: b.emotion,
         action: b.action,
         target: b.target,
+        laugh: Boolean(show.laughTrack && b.laugh),
         audio: voiced.audio,
         env: voiced.env,
       });
-      t += voiced.durationMs + GAP_MS + (b.action === "walk_off" || b.action === "enter" ? 900 : 0) + (b.action === "laugh" || b.action === "applause" ? 500 : 0);
+      t += voiced.durationMs + GAP_MS + (b.action === "walk_off" || b.action === "enter" ? 900 : 0) + (b.action === "laugh" || b.action === "applause" ? 500 : 0) + (show.laughTrack && b.laugh ? 1100 : 0);
     }
     const firstAction = new Map<string, string>();
     for (const b of script.beats) if (!firstAction.has(b.speaker)) firstAction.set(b.speaker, b.action);
@@ -285,7 +287,7 @@ export class Producer {
       showId: show.id,
       showTitle: show.title,
       title: script.title,
-      set: show.set,
+      set: show.setFor?.[segmentType] ?? show.set,
       startAt: 0,
       durationMs: t - GAP_MS + TAIL_MS,
       cast: castMembers,
