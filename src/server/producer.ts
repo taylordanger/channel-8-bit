@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { CastMember, Cue, Segment } from "../shared/types.js";
 import { getCharacter, type Character } from "./catalog/characters.js";
-import { slotAt, type ScheduledSlot } from "./catalog/schedule.js";
+import { flagshipAt, slotAt, type ScheduledSlot } from "./catalog/schedule.js";
 import { AD_SHOW, getShow, type Show } from "./catalog/shows.js";
 import type { TopicDesk } from "./desk.js";
 import type { PollBox } from "./polls.js";
@@ -59,6 +59,9 @@ export function checkNoPrices(script: Script): StandardsResult {
 
 /** Formats whose casts talk to the audience (and so may read the live chat). */
 const FOURTH_WALL = new Set(["late_night", "morning", "hangout", "gameshow"]);
+
+/** Finished commercials kept per product; once there are this many, breaks rotate them. */
+export const ADS_PER_PRODUCT = 3;
 
 /** Shortest slot remainder worth writing a real segment for; anything less becomes a bumper. */
 export const MIN_SEGMENT_MS = 30_000;
@@ -175,6 +178,19 @@ export class Producer {
   async commercial(at: number): Promise<Produced | undefined> {
     const product = this.d.products?.next();
     if (!product) return undefined;
+    // A finished ad costs a writer call and a fact-check; once a product has a few current ones,
+    // rotate them. New facts (a re-read listing) make the old ads stale.
+    const stock = this.d.timeline.adsFor(product.id, product.factsAt);
+    if (stock.length >= ADS_PER_PRODUCT) {
+      const old = stock[0];
+      this.d.products!.aired(product.id, at);
+      return {
+        segment: { ...old, id: crypto.randomUUID(), startAt: 0, kind: "rerun", poll: undefined },
+        summary: "",
+        notes: [],
+        rerunOf: old.id,
+      };
+    }
     const r = rng(Math.floor(at / 1000) ^ 0xad);
     const regulars = [...new Set(Object.values(SHOWS).flatMap((sh) => sh.cast))].filter((id) => id !== "vance" && id !== "chet");
     const customer = getCharacter(regulars[Math.floor(r() * regulars.length)]);
@@ -217,7 +233,7 @@ export class Producer {
     return this.rerun(slot.showId, remaining, at, ENCORE_FRESH_MS) ?? this.rerun(slot.showId, remaining, at, 0) ?? this.bumper(slot, STANDBY_MS, "We'll be right back");
   }
 
-  private bumper(slot: ScheduledSlot, remaining: number, title = `Coming up: ${slotAt(slot.endAt, this.d.timeZone).title}`): Produced {
+  private bumper(slot: ScheduledSlot, remaining: number, title = this.comingUp(slot)): Produced {
     const segment: Segment = {
       id: crypto.randomUUID(),
       showId: "station_id",
@@ -232,6 +248,16 @@ export class Producer {
       writer: "station",
     };
     return { segment, summary: "", notes: [] };
+  }
+
+  /** Station-break card: tonight's flagship in the hours before it, otherwise the next show. */
+  private comingUp(slot: ScheduledSlot): string {
+    const f = flagshipAt(slot.endAt, this.d.timeZone);
+    if (!f.live && f.startAt - slot.endAt < 4 * 3_600_000) {
+      const when = new Intl.DateTimeFormat("en-US", { timeZone: this.d.timeZone, hour: "numeric", timeZoneName: "short" }).format(new Date(f.startAt));
+      return `Tonight ${when}: Hot Seat - the loser faces Rex`;
+    }
+    return `Coming up: ${slotAt(slot.endAt, this.d.timeZone).title}`;
   }
 
   /** An archived segment to re-air, skipping anything aired within `freshMs` (default 6 hours). */

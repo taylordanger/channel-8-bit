@@ -38,3 +38,14 @@ describe("schedule", () => {
     expect(g[1]).toMatchObject({ showId: "nada", mode: "rerun" });
   });
 });
+
+describe("the nightly flagship", () => {
+  it("is tonight at 9 until it ends, then tomorrow", async () => {
+    const { flagshipAt } = await import("../src/server/catalog/schedule.js");
+    const tz = "America/Los_Angeles";
+    const at = (h: number, m = 0) => Date.UTC(2026, 9, 4, h + 7, m); // Oct 4 2026, PDT = UTC-7
+    expect(flagshipAt(at(15), tz)).toMatchObject({ startAt: at(21), endAt: at(24), live: false });
+    expect(flagshipAt(at(22, 30), tz)).toMatchObject({ startAt: at(21), live: true });
+    expect(flagshipAt(at(1) + 24 * 3_600_000, tz).startAt).toBe(at(21) + 24 * 3_600_000); // 1am: tonight's is next
+  });
+});

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { slotAt } from "../src/server/catalog/schedule.js";
 import { openDb } from "../src/server/db.js";
 import { MemoryBank } from "../src/server/memory.js";
-import { checkNoPrices, Producer } from "../src/server/producer.js";
+import { ADS_PER_PRODUCT, checkNoPrices, Producer } from "../src/server/producer.js";
 import { affiliateLink, asinOf, isAmazonUrl, ProductShelf } from "../src/server/products.js";
 import { checkInvariants } from "../src/server/shadow.js";
 import { Timeline } from "../src/server/timeline.js";
@@ -97,5 +97,45 @@ describe("commercials", () => {
     // Never during a game show.
     const game = Date.UTC(2026, 9, 3, 13, 30);
     expect(p.adDue(game, slotAt(game, "UTC"))).toBe(false);
+  });
+
+  it("keeps a few finished ads per product and rotates them, until the facts change", async () => {
+    const db = openDb(":memory:");
+    const products = new ProductShelf(db, blocked);
+    const timeline = new Timeline(db);
+    let writes = 0;
+    const counting = {
+      name: "improv",
+      write: async (b: Parameters<ImprovWriter["write"]>[0]) => {
+        writes++;
+        const [host, fan] = b.cast.map((c) => c.id);
+        const lines = ["it stands on one leg on your desk.", "i talk to it every morning.", "it is pink and plastic.", "it never judges me.", "find it at the link below.", "i bought four."];
+        return { script: script(lines.map((l, i) => beat(i % 2 ? fan : host, `${l} take ${["one", "two", "three", "four", "five"][writes - 1]}`))), writer: "improv" };
+      },
+    };
+    const p = new Producer({ timeline, memory: new MemoryBank(db), products, adEveryMin: 10, tts: new SilentTTS(), writers: [counting], timeZone: "UTC" });
+    const prod = products.add(URL1, "Tiny Desk Flamingo", "A pink plastic flamingo that stands on one leg on your desk.", 0) as { id: number };
+    await products.ingest(prod.id);
+    let t = Date.UTC(2026, 9, 3, 15, 20);
+    const air = async () => {
+      const made = (await p.commercial(t))!;
+      made.segment.startAt = t;
+      timeline.append(made.segment, "", made.rerunOf);
+      t += made.segment.durationMs + 600_000;
+      return made;
+    };
+    for (let i = 0; i < ADS_PER_PRODUCT; i++) expect((await air()).segment.kind).toBe("live");
+    expect(writes).toBe(ADS_PER_PRODUCT);
+    const encore = await air();
+    expect(encore.segment.kind).toBe("rerun");
+    expect(encore.segment.ad).toMatchObject({ productId: prod.id, link: `/go/${prod.id}` });
+    const second = await air();
+    expect(second.rerunOf).not.toBe(encore.rerunOf); // rotates through the stock
+    expect(writes).toBe(ADS_PER_PRODUCT);
+    expect(products.get(prod.id)?.airs).toBe(ADS_PER_PRODUCT + 2);
+    // New facts make the stock stale: the next break gets a fresh ad.
+    db.prepare("UPDATE products SET facts_at = ? WHERE id = ?").run(t - 1, prod.id);
+    expect((await air()).segment.kind).toBe("live");
+    expect(writes).toBe(ADS_PER_PRODUCT + 1);
   });
 });

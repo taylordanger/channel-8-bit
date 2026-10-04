@@ -5,7 +5,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import type { ClientMessage, PollResult, ServerMessage, Segment } from "../shared/types.js";
 import type { Built } from "./build.js";
 import { CHARACTERS } from "./catalog/characters.js";
-import { guideWith, programAt } from "./catalog/schedule.js";
+import { flagshipAt, guideWith, programAt } from "./catalog/schedule.js";
 import { SHOWS } from "./catalog/shows.js";
 import { ARTISTS } from "./catalog/music.js";
 import type { StationConfig } from "./config.js";
@@ -356,13 +356,23 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
       }
       // Clip candidates: recent scenes, the ones viewers found funniest first.
       const funny = b.funny.counts(now - 6 * 3_600_000);
+      const marks = b.timeline.marks();
       const candidates = b.timeline
         .range(now - 6 * 3_600_000, now)
         .filter((s) => s.startAt + s.durationMs <= now && s.kind !== "bumper" && !s.ad)
-        .map((s) => ({ id: s.id, title: s.title, show: s.showTitle, startAt: s.startAt, durationMs: s.durationMs, kind: s.kind, funny: funny.get(s.id) ?? 0 }))
+        .map((s) => ({ id: s.id, title: s.title, show: s.showTitle, startAt: s.startAt, durationMs: s.durationMs, kind: s.kind, funny: funny.get(s.id) ?? 0, mark: marks.get(b.timeline.originalOf(s.id)) ?? null }))
         .sort((x, y) => y.funny - x.funny || y.startAt - x.startAt)
         .slice(0, 40);
       return json(res, { clips: b.clips.list(), candidates, publicUrl: config.publicUrl });
+    }
+    // Curate the encore archive: star the best scenes, retire the duds.
+    if (url.pathname.startsWith("/api/archive/")) {
+      if (!isLocal(req)) return json(res, { error: "the archive is only editable from this machine" }, 403);
+      const [, , , id, action] = url.pathname.split("/");
+      const mark = action === "star" ? "star" : action === "retire" ? "retired" : action === "clear" ? null : undefined;
+      if (req.method !== "POST" || mark === undefined || !b.timeline.byId(decodeURIComponent(id))) return json(res, { error: "unsupported" }, 400);
+      b.timeline.mark(decodeURIComponent(id), mark, now);
+      return json(res, { ok: true });
     }
     if (url.pathname.startsWith("/clips/")) {
       const rel = decodeURIComponent(url.pathname.slice(7));
@@ -403,7 +413,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
     }
     switch (url.pathname) {
       case "/api/now":
-        return json(res, { serverNow: now, network: config.networkName, ads: config.adEveryMin > 0 && b.products.list().some((p) => p.active), voteUrl: config.publicUrl.replace(/^https?:\/\//, ""), onNow: programAt(now, config.timeZone, b.station.override()), override: b.station.override() });
+        return json(res, { serverNow: now, network: config.networkName, ads: config.adEveryMin > 0 && b.products.list().some((p) => p.active), voteUrl: config.publicUrl.replace(/^https?:\/\//, ""), flagship: flagshipAt(now, config.timeZone), onNow: programAt(now, config.timeZone, b.station.override()), override: b.station.override() });
       case "/api/timeline": {
         const from = Number(url.searchParams.get("from") ?? now - 60_000);
         const to = Math.min(Number(url.searchParams.get("to") ?? now + 600_000), from + 3_600_000);

@@ -79,6 +79,10 @@
       .mine { list-style: none; padding: 0; margin: 12px 0 0; }
       .mine li { font-size: 9px; line-height: 1.9; color: var(--muted, #8a82b0); }
       .mine li b { color: var(--text); font-weight: normal; }
+      [hidden] { display: none !important; }
+      .flagship { width: min(100%, 1600px); margin: 0 auto 12px; padding: 10px 14px; border: 2px solid #ff3355; border-radius: 6px; font-size: 10px; line-height: 1.8; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+      .flagship b { color: #ff3355; font-weight: normal; }
+      .flagship span { color: #8a82b0; }
       .funny-row { max-width: 1400px; margin: 10px auto 0; display: flex; align-items: center; gap: 12px; padding: 0 16px; }
       #funny { font: inherit; font-size: 10px; padding: 10px 14px; background: #15102a; color: var(--text); border: 2px solid #ffd23f; border-radius: 4px; cursor: pointer; }
       #funny:disabled { opacity: 0.5; cursor: default; }
@@ -98,6 +102,7 @@
     </style>
   </head>
   <body>
+    <div class="flagship" id="flagship" hidden></div>
     <div class="stage">
       <div class="tv-wrap">
         <canvas id="tv"></canvas>
@@ -183,6 +188,22 @@
           return li;
         }));
       }
+      // Tonight's flagship: the one event worth showing up for.
+      async function refreshFlagship() {
+        const { flagship: f } = await (await fetch("/api/now")).json();
+        if (!f) return;
+        const box = $("flagship");
+        const mins = Math.max(0, Math.round((f.startAt - Date.now()) / 60000));
+        const when = f.live ? "ON NOW" : mins < 60 ? `IN ${mins} MIN` : new Date(f.startAt).toDateString() === new Date().toDateString() ? `TONIGHT ${new Date(f.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : `TOMORROW ${new Date(f.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+        const tag = document.createElement("b");
+        tag.textContent = when;
+        const note = document.createElement("span");
+        note.textContent = f.live ? "voting buttons appear under the picture" : "";
+        box.replaceChildren(tag, document.createTextNode(f.pitch), note);
+        box.hidden = false;
+      }
+      refreshFlagship();
+      setInterval(refreshFlagship, 60000);
       refreshMine();
       refreshImpact();
       setInterval(() => { refreshMine(); refreshImpact(); }, 30000);

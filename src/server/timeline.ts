@@ -42,6 +42,37 @@ export class Timeline {
     return rows.map((r) => JSON.parse(r.body) as Segment);
   }
 
+  /** The original a segment re-airs (itself, if it's an original). */
+  originalOf(id: string): string {
+    const row = this.db.prepare("SELECT rerun_of FROM segments WHERE id = ?").get(id) as { rerun_of: string | null } | undefined;
+    return row?.rerun_of ?? id;
+  }
+
+  /** Star a scene for more encores, retire it from encores, or clear the mark. Marks always land on the original. */
+  mark(id: string, mark: "star" | "retired" | null, at: number): void {
+    const original = this.originalOf(id);
+    if (mark) this.db.prepare("INSERT OR REPLACE INTO archive_marks (segment_id, mark, at) VALUES (?,?,?)").run(original, mark, at);
+    else this.db.prepare("DELETE FROM archive_marks WHERE segment_id = ?").run(original);
+  }
+
+  /** Marks keyed by original id. */
+  marks(): Map<string, "star" | "retired"> {
+    const rows = this.db.prepare("SELECT segment_id, mark FROM archive_marks").all() as { segment_id: string; mark: "star" | "retired" }[];
+    return new Map(rows.map((r) => [r.segment_id, r.mark]));
+  }
+
+  /** Original commercials for a product written since `since`, least recently aired first. */
+  adsFor(productId: number, since: number): Segment[] {
+    const rows = this.db
+      .prepare(
+        `SELECT s.body FROM segments s
+          WHERE s.kind = 'live' AND s.show_id = 'ad_break' AND s.start_at >= ? AND json_extract(s.body, '$.ad.productId') = ?
+          ORDER BY COALESCE((SELECT MAX(r.start_at) FROM segments r WHERE r.rerun_of = s.id), s.start_at) ASC`,
+      )
+      .all(since, productId) as { body: string }[];
+    return rows.map((r) => JSON.parse(r.body) as Segment);
+  }
+
   byId(id: string): Segment | undefined {
     const row = this.db.prepare("SELECT body FROM segments WHERE id = ?").get(id) as { body: string } | undefined;
     return row ? (JSON.parse(row.body) as Segment) : undefined;
@@ -77,16 +108,25 @@ export class Timeline {
     return new Set(rows.flatMap((r) => (r.rerun_of ? [r.id, r.rerun_of] : [r.id])));
   }
 
-  /** Pick an archived live segment of this show to re-air, preferring the least recently aired. */
+  /**
+   * Pick an archived live segment of this show to re-air. Least recently aired goes first, but
+   * the archive is curated: retired scenes never come back, and starred or laughed-at scenes
+   * count as if they last aired a while earlier (stars 3h, each "that was funny" 30 min, up
+   * to 2h), so the best material comes around more often without looping.
+   */
   pickRerun(showId: string, maxDurationMs: number, excludeIds: Set<string>): Segment | undefined {
-    // Prefer encores of real writing over improv fill.
     const rows = this.db
       .prepare(
-        `SELECT s.id, s.body,
-                (SELECT MAX(r.start_at) FROM segments r WHERE r.rerun_of = s.id) AS last_rerun
-           FROM segments s
-          WHERE s.show_id = ? AND s.kind = 'live' AND (s.end_at - s.start_at) <= ?
-          ORDER BY (json_extract(s.body, '$.writer') = 'improv') ASC, COALESCE(last_rerun, 0) ASC, s.start_at ASC
+        `SELECT id, body FROM (
+           SELECT s.id, s.body, s.start_at,
+                  json_extract(s.body, '$.writer') = 'improv' AS improv,
+                  COALESCE((SELECT MAX(r.start_at) FROM segments r WHERE r.rerun_of = s.id), 0)
+                    - CASE WHEN m.mark = 'star' THEN 10800000 ELSE 0 END
+                    - MIN(7200000, 1800000 * (SELECT COUNT(*) FROM funny f
+                        WHERE f.segment_id = s.id OR f.segment_id IN (SELECT r.id FROM segments r WHERE r.rerun_of = s.id))) AS due
+             FROM segments s LEFT JOIN archive_marks m ON m.segment_id = s.id
+            WHERE s.show_id = ? AND s.kind = 'live' AND (s.end_at - s.start_at) <= ? AND COALESCE(m.mark, '') != 'retired')
+          ORDER BY improv ASC, due ASC, start_at ASC
           LIMIT 20`,
       )
       .all(showId, maxDurationMs) as { id: string; body: string }[];

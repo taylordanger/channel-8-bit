@@ -69,7 +69,7 @@
         <div class="card"><h2>RECENT WRITER PROBLEMS</h2><ul class="list" id="errors"></ul></div>
         <div class="card"><h2>LIVE CHAT MODERATION</h2><ul class="list" id="chatlog"></ul></div>
         <div class="card"><h2>AUDIENCE, LAST 24 HOURS</h2><div class="legend" id="aud"></div><table id="aud-leave" style="margin-top:12px"></table><div class="legend" id="aud-clips" style="margin-top:12px"></div></div>
-        <div class="card"><h2>CLIPS</h2><div class="legend"><span style="--c:var(--gold)">Pick a scene; it renders in real time with captions. 😂 = viewers who tapped "that was funny".</span></div><ul class="list" id="clips" style="margin-top:12px"></ul><h2 style="margin-top:16px">RECENT SCENES</h2><ul class="list" id="candidates"></ul></div>
+        <div class="card"><h2>CLIPS</h2><div class="legend"><span style="--c:var(--gold)">Pick a scene; it renders in real time with captions. 😂 = viewers who tapped "that was funny".</span></div><ul class="list" id="clips" style="margin-top:12px"></ul><h2 style="margin-top:16px">RECENT SCENES · ☆ STAR = MORE ENCORES · RETIRE = NO MORE ENCORES</h2><ul class="list" id="candidates"></ul></div>
         <div class="card"><h2>COMMERCIALS, LAST 24 HOURS</h2><div class="legend" id="ads-note"></div><table id="ads" style="margin-top:10px"></table></div>
       </section>
     </main>
@@ -199,7 +199,15 @@
           li.append(el("b", null, `${s.funny ? "😂" + s.funny + " " : ""}${s.title}`), document.createTextNode(` · ${s.show}${s.kind === "rerun" ? " (encore)" : ""} · ${time(s.startAt)} · ${dur(s.durationMs)}`));
           const btn = el("button", null, "CLIP IT");
           btn.onclick = async () => { btn.disabled = true; const r = await fetch("/api/clips", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ segmentId: s.id }) }); if (!r.ok) btn.textContent = (await r.json()).error; loadClips(); };
-          li.append(btn);
+          const mark = (action) => async () => { await fetch(`/api/archive/${s.id}/${action}`, { method: "POST" }); loadClips(); };
+          const star = el("button", null, s.mark === "star" ? "★ STARRED" : "☆ STAR");
+          star.title = "Starred scenes come back as encores more often";
+          star.onclick = mark(s.mark === "star" ? "clear" : "star");
+          const retire = el("button", null, s.mark === "retired" ? "RETIRED" : "RETIRE");
+          retire.title = "Retired scenes never air as encores again";
+          retire.onclick = mark(s.mark === "retired" ? "clear" : "retire");
+          li.append(btn, star, retire);
+          if (s.mark === "retired") li.classList.add("gone");
           return li;
         }));
       }

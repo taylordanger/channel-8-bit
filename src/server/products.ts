@@ -14,6 +14,8 @@ export interface Product {
   createdAt: number;
   airs: number;
   lastAired: number | null;
+  /** When the facts last changed: ads written before this are stale. */
+  factsAt: number;
 }
 
 interface Row {
@@ -29,6 +31,7 @@ interface Row {
   created_at: number;
   airs: number;
   last_aired: number | null;
+  facts_at: number;
 }
 
 const toProduct = (r: Row): Product => ({
@@ -44,6 +47,7 @@ const toProduct = (r: Row): Product => ({
   createdAt: r.created_at,
   airs: r.airs,
   lastAired: r.last_aired,
+  factsAt: Math.max(r.facts_at ?? 0, r.created_at),
 });
 
 export const AMAZON_DISCLOSURE = "As an Amazon Associate, Channel 8-Bit earns from qualifying purchases.";
@@ -106,8 +110,8 @@ export class ProductShelf {
       if (/robot|captcha|enter the characters/i.test(src.title + src.text.slice(0, 400))) throw new SourceError("Amazon asked for a captcha");
       const cleanTitle = src.title.replace(/^Amazon\.com\s*:\s*/i, "").replace(/\s*:\s*[^:]+$/, "").slice(0, 120);
       this.db
-        .prepare("UPDATE products SET source = ?, fetch_status = 'ok', fetch_error = NULL, title = CASE WHEN title = '' THEN ? ELSE title END WHERE id = ?")
-        .run(JSON.stringify(src), cleanTitle, id);
+        .prepare("UPDATE products SET source = ?, fetch_status = 'ok', fetch_error = NULL, facts_at = ?, title = CASE WHEN title = '' THEN ? ELSE title END WHERE id = ?")
+        .run(JSON.stringify(src), Date.now(), cleanTitle, id);
     } catch (e) {
       this.db.prepare("UPDATE products SET fetch_status = 'failed', fetch_error = ? WHERE id = ?").run((e as Error).message.slice(0, 200), id);
     }

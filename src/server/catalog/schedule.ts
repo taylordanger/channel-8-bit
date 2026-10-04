@@ -137,3 +137,19 @@ export function guideWith(from: number, hours: number, timeZone: string, overrid
   }
   return merged;
 }
+
+/**
+ * The nightly flagship: the one event worth showing up for. Hot Seat, where viewers vote every
+ * round, and then the loser has to face Rex on The Late Byte.
+ */
+export const FLAGSHIP = { startHour: 21, endHour: 24, pitch: "Hot Seat, where you vote on every round - then the loser has to face Rex on The Late Byte" };
+
+/** Tonight's flagship (or the one on now): when it starts and ends, and whether it's live. */
+export function flagshipAt(t: number, timeZone: string): { startAt: number; endAt: number; live: boolean; pitch: string } {
+  const hour = zonedParts(t, timeZone).hour;
+  const thisHour = hourStart(t, timeZone);
+  let startAt = thisHour + (FLAGSHIP.startHour - hour) * 3_600_000;
+  if (hour >= FLAGSHIP.endHour || startAt + (FLAGSHIP.endHour - FLAGSHIP.startHour) * 3_600_000 <= t) startAt += 24 * 3_600_000;
+  const endAt = startAt + (FLAGSHIP.endHour - FLAGSHIP.startHour) * 3_600_000;
+  return { startAt, endAt, live: t >= startAt && t < endAt, pitch: FLAGSHIP.pitch };
+}

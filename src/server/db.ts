@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS segments (
 );
 CREATE INDEX IF NOT EXISTS segments_start ON segments(start_at);
 CREATE INDEX IF NOT EXISTS segments_show ON segments(show_id, start_at);
+CREATE INDEX IF NOT EXISTS segments_rerun ON segments(rerun_of);
 
 CREATE TABLE IF NOT EXISTS episode_plans (
   show_id    TEXT NOT NULL,
@@ -69,6 +70,12 @@ CREATE TABLE IF NOT EXISTS viewer_sessions (
 );
 CREATE INDEX IF NOT EXISTS viewer_sessions_started ON viewer_sessions(started_at);
 CREATE INDEX IF NOT EXISTS viewer_sessions_viewer ON viewer_sessions(viewer, started_at);
+
+CREATE TABLE IF NOT EXISTS archive_marks (
+  segment_id TEXT PRIMARY KEY,       -- an original (never an encore's id)
+  mark       TEXT NOT NULL,          -- star | retired
+  at         INTEGER NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS memories (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -142,7 +149,8 @@ CREATE TABLE IF NOT EXISTS products (
   active       INTEGER NOT NULL DEFAULT 1,
   created_at   INTEGER NOT NULL,
   airs         INTEGER NOT NULL DEFAULT 0,
-  last_aired   INTEGER
+  last_aired   INTEGER,
+  facts_at     INTEGER NOT NULL DEFAULT 0  -- when the facts last changed (older ads are stale)
 );
 
 CREATE TABLE IF NOT EXISTS ad_clicks (
@@ -261,5 +269,6 @@ function migrate(db: DB) {
   for (const [name, type] of add) if (!topics.has(name)) db.exec(`ALTER TABLE topics ADD COLUMN ${name} ${type}`);
   const cs = cols("character_state");
   if (!cs.has("off_at")) db.exec("ALTER TABLE character_state ADD COLUMN off_at INTEGER NOT NULL DEFAULT 0");
+  if (!cols("products").has("facts_at")) db.exec("ALTER TABLE products ADD COLUMN facts_at INTEGER NOT NULL DEFAULT 0");
   if (!cols("viewer_messages").has("aired_show")) db.exec("ALTER TABLE viewer_messages ADD COLUMN aired_show TEXT");
 }

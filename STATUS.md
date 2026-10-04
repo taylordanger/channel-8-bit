@@ -119,6 +119,9 @@ npm run shadow -- 24           # simulate a whole day in seconds and check for p
 23. **"Your votes did this":** a panel on the broadcast page listing recent verdicts, champions, bookings and answered mail. People who write in can see their place in line and when their letter can air.
 24. **Clips:** in the control room, pick a scene → "CLIP IT" → an MP4 with captions, rendered in real time. Viewers have a "😂 THAT WAS FUNNY" button, and the funniest scenes rise to the top of the list. Each clip gets a `?ref=clip-N` link to post with it.
 25. **Audience stats** in the control room: visits, who pressed play, median watch time, returning viewers, which shows people leave during, votes/mail/laughs per viewer, and visits from clip links. Your own Mac isn't counted, and no IP addresses are stored.
+26. **A curated encore archive:** in the control room's scene list, ☆ STAR puts a scene into rotation more often, and RETIRE keeps a dud off the air for good. Scenes viewers tapped "that was funny" on also come back sooner. Nothing loops, because the freshness window still applies.
+27. **Commercials are reused:** each product keeps up to 3 finished ads and rotates them, so a break doesn't wait on the local AI. If a listing is re-read with new facts, fresh ads get written.
+28. **The nightly flagship is promoted:** a banner on the broadcast page ("TONIGHT 9:00 PM: Hot Seat… then the loser has to face Rex") shows the start in each viewer's own time. Station breaks in the hours before it say "Tonight 9 PM PDT: Hot Seat - the loser faces Rex".
 
 ---
 
