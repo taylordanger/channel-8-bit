@@ -183,14 +183,14 @@ export class Producer {
     const pick = <T>(xs: T[]) => xs[Math.floor(r() * xs.length)];
     const game = show.gameSteps ? this.gameFor(show, slot, at) : undefined;
     let segmentType = game ? game.step : pick(show.segmentTypes);
+    // Viewer mail only happens when there's approved mail to read.
+    const mail = segmentType === show.mailSegment ? this.d.mailbag?.nextFor(show.id) : undefined;
+    if (segmentType === show.mailSegment && !mail) segmentType = pick(show.segmentTypes.filter((t) => t !== show.mailSegment));
     // Performances are instant, so a hurried station could chain them; keep music spaced out.
     if (show.musicFor?.[segmentType]) {
       const lastTwo = this.d.timeline.range(at - 15 * 60_000, at).filter((x) => x.showId === show.id).slice(-2);
       if (lastTwo.some((x) => x.song)) segmentType = pick(show.segmentTypes.filter((t) => !show.musicFor![t] && t !== show.mailSegment));
     }
-    // Viewer mail only happens when there's approved mail to read.
-    const mail = segmentType === show.mailSegment ? this.d.mailbag?.nextFor(show.id) : undefined;
-    if (segmentType === show.mailSegment && !mail) segmentType = pick(show.segmentTypes.filter((t) => t !== show.mailSegment));
 
     // One guest per slot, so the whole night has a consistent booking.
     let guest: Character | undefined;
