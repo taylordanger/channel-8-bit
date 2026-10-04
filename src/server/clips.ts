@@ -63,7 +63,7 @@ export function processRenderer(root: string, port: number): ClipRenderer {
  * a two-minute scene takes about two minutes), and the MP4 is ready to post anywhere.
  */
 export class ClipDesk {
-  private busy = false;
+  private running?: Promise<void>;
 
   constructor(
     private db: DB,
@@ -75,7 +75,8 @@ export class ClipDesk {
     // Renders interrupted by a restart go back in the queue.
     this.db.prepare("UPDATE clips SET status = 'queued' WHERE status = 'rendering'").run();
     // ...and pick back up once the station is serving pages again.
-    setTimeout(() => void this.pump(), 10_000).unref();
+    const waiting = (this.db.prepare("SELECT COUNT(*) AS n FROM clips WHERE status = 'queued'").get() as { n: number }).n;
+    if (waiting) setTimeout(() => void this.pump().catch((e: Error) => this.log?.(`clip queue: ${e.message}`)), 10_000).unref();
   }
 
   /** Queue a clip of an aired segment. Returns an error string for the operator. */
@@ -101,27 +102,26 @@ export class ClipDesk {
     return (this.db.prepare("SELECT * FROM clips ORDER BY created_at DESC LIMIT ?").all(limit) as Row[]).map(toClip);
   }
 
-  /** Render queued clips one at a time. */
-  async pump(): Promise<void> {
-    if (this.busy) return;
-    this.busy = true;
-    try {
-      for (;;) {
-        const row = this.db.prepare("SELECT * FROM clips WHERE status = 'queued' ORDER BY created_at LIMIT 1").get() as Row | undefined;
-        if (!row) break;
-        this.db.prepare("UPDATE clips SET status = 'rendering' WHERE id = ?").run(row.id);
-        const file = `${row.id}-${row.show_id}.mp4`;
-        const error = await this.render(row.segment_id, path.join(this.dir, file), row.duration_ms + 60_000);
-        if (error) {
-          this.db.prepare("UPDATE clips SET status = 'failed', error = ? WHERE id = ?").run(error, row.id);
-          this.log?.(`clip ${row.id} failed: ${error}`);
-        } else {
-          this.db.prepare("UPDATE clips SET status = 'ready', file = ? WHERE id = ?").run(file, row.id);
-          this.log?.(`clip ready: ${file}`);
-        }
+  /** Render queued clips one at a time. While busy, returns the run already in progress. */
+  pump(): Promise<void> {
+    if (!this.running) this.running = this.drain().finally(() => (this.running = undefined));
+    return this.running;
+  }
+
+  private async drain(): Promise<void> {
+    for (;;) {
+      const row = this.db.prepare("SELECT * FROM clips WHERE status = 'queued' ORDER BY created_at LIMIT 1").get() as Row | undefined;
+      if (!row) break;
+      this.db.prepare("UPDATE clips SET status = 'rendering' WHERE id = ?").run(row.id);
+      const file = `${row.id}-${row.show_id}.mp4`;
+      const error = await this.render(row.segment_id, path.join(this.dir, file), row.duration_ms + 60_000);
+      if (error) {
+        this.db.prepare("UPDATE clips SET status = 'failed', error = ? WHERE id = ?").run(error, row.id);
+        this.log?.(`clip ${row.id} failed: ${error}`);
+      } else {
+        this.db.prepare("UPDATE clips SET status = 'ready', file = ? WHERE id = ?").run(file, row.id);
+        this.log?.(`clip ready: ${file}`);
       }
-    } finally {
-      this.busy = false;
     }
   }
 

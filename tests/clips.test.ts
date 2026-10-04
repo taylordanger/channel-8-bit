@@ -39,7 +39,6 @@ describe("clip desk", () => {
     expect(typeof a).toBe("object");
     expect(typeof b).toBe("object");
     await desk.pump();
-    await new Promise((r) => setTimeout(r, 30));
     expect(rendered).toEqual(["a", "b"]);
     const ca = desk.list().find((c) => c.segmentId === "a")!;
     const cb = desk.list().find((c) => c.segmentId === "b")!;
