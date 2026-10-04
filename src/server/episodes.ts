@@ -160,8 +160,11 @@ export function tidyPlan(plan: EpisodePlan, req: Pick<PlanRequest, "show" | "cas
   const fix = (s: string) => byName.get(s.trim().toLowerCase()) ?? s;
   const beats = tidyBeats(plan.beats, plan.conflict);
   const serialized = Boolean(req.show.serialized);
+  // Small models sometimes echo the request instead of writing a logline ("Sunday 4:01 PM episode plan").
+  const echoed = /episode plan|^\s*(mon|tues|wednes|thurs|fri|satur|sun)day\b[^.]*\d{1,2}:\d{2}/i.test(plan.logline) || plan.logline.trim().length < 12;
   return {
     ...plan,
+    logline: echoed ? plan.conflict : plan.logline,
     wants: plan.wants.map((w) => ({ ...w, character: fix(w.character) })).filter((w) => ids.has(w.character) && w.want.trim()),
     beats,
     secrets: serialized
@@ -187,7 +190,7 @@ ${req.show.serialized ? "This show is SERIALIZED: build on the story so far and 
 
 CAST (use these ids): ${req.cast.map((id) => `${id} (${name(id)}: ${CHARACTERS[id]?.bible ?? ""})`).join("; ")}`;
 
-  const parts = [`Plan the episode airing ${req.localTime}.`];
+  const parts = [`Plan today's episode (it airs ${req.localTime}). The logline says what happens, in one sentence.`];
   if (req.guest) parts.push(`TONIGHT'S GUEST: ${name(req.guest)} (${req.guest}): ${CHARACTERS[req.guest]?.bible ?? ""}`);
   if (req.headlines.length) parts.push(`JUST HAPPENED ON THE NETWORK (use what fits):\n${req.headlines.map((h) => `- ${h}`).join("\n")}`);
   if (req.season) {

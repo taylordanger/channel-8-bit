@@ -82,6 +82,12 @@ describe("episode plans", () => {
     ).toEqual(["The meat is expired.", "The storm never comes.", "Pip quits live on air."]);
   });
 
+  it("replaces a logline that just echoes the request", () => {
+    const req = { show: getShow("cooking"), cast: ["remy", "pepper"] };
+    expect(tidyPlan(plan({ logline: "Sunday 4:01 PM episode plan" }), req).logline).toBe("The will is gone.");
+    expect(tidyPlan(plan(), req).logline).toBe("Victoria's will goes missing.");
+  });
+
   it("plans once per airing and every scene follows it", async () => {
     const { w, asked } = planner(plan());
     const { producer, briefs } = setup([w, new ImprovWriter(1)]);
