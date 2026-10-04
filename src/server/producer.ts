@@ -2,13 +2,14 @@ import crypto from "node:crypto";
 import type { CastMember, Cue, Segment } from "../shared/types.js";
 import { getCharacter, type Character } from "./catalog/characters.js";
 import { slotAt, type ScheduledSlot } from "./catalog/schedule.js";
-import { getShow, type Show } from "./catalog/shows.js";
+import { AD_SHOW, getShow, type Show } from "./catalog/shows.js";
 import type { TopicDesk } from "./desk.js";
 import type { PollBox } from "./polls.js";
 import type { MailBag } from "./mailbag.js";
 import type { OpsLog } from "./ops.js";
 import type { ChatRoom } from "./chat.js";
 import type { TrackLibrary } from "./tracks.js";
+import { AMAZON_DISCLOSURE, type ProductShelf } from "./products.js";
 import type { CharacterStates, MemoryBank } from "./memory.js";
 import { checkNames, checkNumbers, checkVerbatim, type SourceChecker } from "./factcheck.js";
 import { CHARACTERS } from "./catalog/characters.js";
@@ -40,6 +41,20 @@ const FICTIONAL_NAMES = [
  * improv filler, so encores may repeat that soon (the improv troupe is the last resort).
  */
 const ENCORE_FRESH_MS = 20 * 60_000;
+
+/** Prices, discounts and delivery promises: never in a commercial (they go stale and break the store's rules). */
+const PRICE_TALK =
+  /\$\s?\d|\b\d+(\.\d+)?\s*(dollars?|bucks|cents|usd)\b|\b(percent|%)\s*off\b|\bon sale\b|\bdiscount|\bfree shipping\b|\blimited[- ]time\b|\bships? free\b|\bprime delivery\b|\bcheapest\b|\blowest price\b/i;
+
+export function checkNoPrices(script: Script): StandardsResult {
+  const notes: StandardsNote[] = [];
+  const beats = script.beats.filter((b) => {
+    if (!PRICE_TALK.test(b.line)) return true;
+    notes.push({ verdict: "cut", line: b.line, reason: "commercials never mention prices or deals" });
+    return false;
+  });
+  return beats.length < 3 ? { script: { ...script, beats }, notes, rejected: "too much price talk" } : { script: { ...script, beats }, notes };
+}
 
 /** Formats whose casts talk to the audience (and so may read the live chat). */
 const FOURTH_WALL = new Set(["late_night", "morning", "hangout", "gameshow"]);
@@ -73,6 +88,9 @@ export interface ProducerDeps {
   ops?: OpsLog;
   chat?: ChatRoom;
   tracks?: TrackLibrary;
+  products?: ProductShelf;
+  /** Minutes of airtime between commercial breaks (0 = none). */
+  adEveryMin?: number;
   desk?: TopicDesk;
   tts: TTSEngine;
   /** Tried in order; the last one should never fail (the improv writer). */
@@ -101,6 +119,15 @@ export class Producer {
     const remaining = slot.endAt - at;
     if (remaining < MIN_SEGMENT_MS) return this.bumper(slot, remaining);
 
+    // Commercial break, when one is due and there's something on the shelf.
+    if (!opts.rerun && !opts.coldStart && !opts.hurry && slot.mode === "live" && this.adDue(at, slot)) {
+      const ad = await this.commercial(at).catch((e) => {
+        this.d.log?.(`commercial skipped: ${(e as Error).message}`);
+        return undefined;
+      });
+      if (ad) return ad;
+    }
+
     // Running low on air and the main writer is slow: an encore keeps the timeline ahead.
     if (opts.hurry) {
       const encore = this.rerun(slot.showId, remaining, at, ENCORE_FRESH_MS);
@@ -123,6 +150,51 @@ export class Producer {
       this.d.log?.(`standing by: ${(err as Error).message}`);
       return this.bumper(slot, STANDBY_MS, "We'll be right back");
     }
+  }
+
+  /** An ad break is due if ads are on, there's a product, and none aired in the last stretch. */
+  adDue(at: number, slot: ScheduledSlot): boolean {
+    const every = (this.d.adEveryMin ?? 0) * 60_000;
+    if (!every || !this.d.products?.next()) return false;
+    if (getShow(slot.showId).gameSteps) return false; // don't break into a game mid-round
+    const recent = this.d.timeline.range(at - every, at);
+    if (recent.some((s) => s.ad)) return false;
+    // Wait until the show has been on for a bit before the first break.
+    return at - slot.startAt > Math.min(every, 5 * 60_000);
+  }
+
+  /**
+   * A commercial: the pitchman and a "satisfied customer" from elsewhere on the network sell a
+   * real product. Facts come from the listing (fact-checked like any source); no prices, ever.
+   */
+  async commercial(at: number): Promise<Produced | undefined> {
+    const product = this.d.products?.next();
+    if (!product) return undefined;
+    const r = rng(Math.floor(at / 1000) ^ 0xad);
+    const regulars = [...new Set(Object.values(SHOWS).flatMap((sh) => sh.cast))].filter((id) => id !== "vance" && id !== "chet");
+    const customer = getCharacter(regulars[Math.floor(r() * regulars.length)]);
+    const cast = [getCharacter("vance"), customer];
+    const brief: WriterBrief = {
+      show: AD_SHOW,
+      segmentType: "infomercial",
+      topic: product.title,
+      cast,
+      targetSeconds: 25,
+      localTime: new Intl.DateTimeFormat("en-US", { timeZone: this.d.timeZone, weekday: "long", hour: "numeric", minute: "2-digit" }).format(new Date(at)),
+      previously: [],
+      memories: this.d.memory.recall([customer.id], at, 3),
+      relationships: [],
+      storyState: "",
+      recentLines: this.d.timeline.recentLines(AD_SHOW.id, at, 6),
+      source: this.d.products!.factsFor(product),
+      ad: { productId: product.id, title: product.title },
+    };
+    const produced = await this.fromBrief(brief, this.d.writers, at);
+    produced.segment.ad = { productId: product.id, title: product.title, link: `/go/${product.id}`, disclosure: AMAZON_DISCLOSURE };
+    produced.segment.title = `Commercial: ${product.title}`.slice(0, 80);
+    produced.summary = "";
+    this.d.products!.aired(product.id, at);
+    return produced;
   }
 
   /** A short card while the last votes of a game come in, before the champion is crowned. */
@@ -250,6 +322,11 @@ export class Producer {
     const brief = this.brief(at, slot, targetSeconds);
     const music = brief.show.musicFor?.[brief.segmentType];
     if (music) return this.music(at, brief.show, music, targetSeconds);
+    return this.fromBrief(brief, writers, at);
+  }
+
+  /** Write, check, voice and assemble a segment from a finished brief, trying writers in order. */
+  private async fromBrief(brief: WriterBrief, writers: Writer[], at: number): Promise<Produced> {
     let lastError = "";
 
     for (const writer of writers) {
@@ -436,6 +513,11 @@ export class Producer {
       r = step(await this.d.llmStandards.review(r.script, brief.show.id, Boolean(brief.source)));
       if (r.rejected) return { ...r, notes };
       r = step(deterministicStandards(r.script, brief, policy));
+      if (r.rejected) return { ...r, notes };
+    }
+
+    if (brief.ad) {
+      r = step(checkNoPrices(r.script));
       if (r.rejected) return { ...r, notes };
     }
 

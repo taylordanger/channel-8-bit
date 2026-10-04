@@ -5,6 +5,10 @@ const num = (v: string | undefined, d: number) => (v === undefined || v === "" ?
 
 export interface StationConfig {
   networkName: string;
+  /** Amazon Associates tracking ID, added to every product link (e.g. "yourname-20"). */
+  amazonTag: string;
+  /** Minutes of airtime between commercial breaks (0 = no ads). */
+  adEveryMin: number;
   /** Public address viewers can vote at, shown on the broadcast feed (e.g. a tunnel or domain). */
   publicUrl: string;
   port: number;
@@ -34,6 +38,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): StationConfig 
   return {
     networkName: env.NETWORK_NAME ?? "Channel 8-Bit",
     publicUrl: env.PUBLIC_URL ?? "",
+    amazonTag: (env.AMAZON_TAG ?? "").trim(),
+    adEveryMin: num(env.AD_EVERY_MIN, 10),
     port: num(env.PORT, 8088),
     dataDir: path.resolve(env.DATA_DIR ?? "data"),
     timeZone: env.STATION_TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone,

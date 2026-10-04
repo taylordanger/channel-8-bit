@@ -88,6 +88,11 @@ export function userPrompt(b: WriterBrief): string {
     sections.push(`BACK ON SET: ${b.returning.map(name).join(", ")} returns after storming off. Give them an entrance: their FIRST line uses action "enter", and the room should feel it.`);
   if (b.feuds?.length)
     sections.push(`FEUD: ${b.feuds.map((f) => `${name(f.a)} vs ${name(f.b)}`).join("; ")} - a full-blown feud. Escalate it with a petty new front, or stage a messy, short-lived reconciliation. Report the shift in relationshipChanges.`);
+  if (b.ad) {
+    sections.push(
+      `COMMERCIAL for "${b.ad.title}": the pitchman sells it, the customer is weirdly devoted to it. Real facts about it come only from SOURCE MATERIAL. Absolutely no prices, discounts, sales, shipping or "limited time" claims. End by telling viewers to find it at the link (don't read out a web address).`,
+    );
+  }
   if (b.chat?.length) {
     const safe = (x: string) => x.replace(/<\/?chat/gi, "[chat");
     sections.push(

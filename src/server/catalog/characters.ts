@@ -722,6 +722,26 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         outfit: "suit", build: "average", eyes: "wide", nose: "small", facial: "none", accessories: ["bowtie"], height: 46,
       },
     }),
+
+    // --- Commercials ------------------------------------------------------------
+    c({
+      id: "vance",
+      name: "Vance Dazzle",
+      bible:
+        "The network's infomercial pitchman. Shouts every sentence like it's breaking news, treats mundane objects as life-changing miracles, sweats under the studio lights, and keeps getting distracted by his own enthusiasm. Never quotes prices - he just points at the link.",
+      catchphrases: ["but wait, there's more", "operators are probably standing by", "this changes everything"],
+      bits: [
+        "Are you tired of having hands with nothing in them? I was. Then this happened.",
+        "I'm not saying it changed my life. I'm saying I cried in a parking lot.",
+        "Order now and receive... the same thing, but with my blessing.",
+        "Folks, I've been doing this for twenty years and I have never been this excited about an object.",
+      ],
+      voice: { say: "Fred", rate: 215, kokoro: "am_puck", speed: 1.25 },
+      look: {
+        skin: "#f0c090", hair: "#e8b84a", hairStyle: "pompadour", shirt: "#ff3fa4", pants: "#2a2a3a", accent: "#ffe066",
+        outfit: "suit", build: "average", eyes: "wide", nose: "big", facial: "none", accessories: ["headset"], height: 45,
+      },
+    }),
   ].map((ch) => [ch.id, ch]),
 );
 

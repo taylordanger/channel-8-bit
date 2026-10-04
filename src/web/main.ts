@@ -155,6 +155,37 @@ function renderVote() {
   box.replaceChildren(title, row);
 }
 
+/** "Shop this ad" under the TV while a commercial airs. */
+function renderShop() {
+  const box = document.getElementById("shop");
+  if (!box) return;
+  const now = link.now();
+  const seg = [...segments.values()].find((s) => s.ad && now >= s.startAt && now < s.startAt + s.durationMs + 15_000);
+  if (!seg?.ad) {
+    box.hidden = true;
+    return;
+  }
+  if (box.dataset.id === seg.id && !box.hidden) return;
+  box.dataset.id = seg.id;
+  box.hidden = false;
+  const a = document.createElement("a");
+  a.href = seg.ad.link;
+  a.target = "_blank";
+  a.rel = "sponsored noopener";
+  a.textContent = `SHOP THIS AD: ${seg.ad.title} →`;
+  const small = document.createElement("small");
+  small.textContent = `Paid link. ${seg.ad.disclosure}`;
+  box.replaceChildren(a, small);
+}
+setInterval(renderShop, 1000);
+fetch("/api/now")
+  .then((r) => r.json())
+  .then((d: { ads?: boolean }) => {
+    const foot = document.getElementById("disclosure");
+    if (foot && d.ads) foot.hidden = false;
+  })
+  .catch(() => {});
+
 void refreshTimeline();
 void refreshGuide();
 void refreshPolls();

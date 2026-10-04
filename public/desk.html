@@ -55,6 +55,17 @@
         <div id="error"></div>
       </form>
       <ul id="topics"></ul>
+      <h2 class="sec">COMMERCIALS</h2>
+      <p class="hint">Paste an Amazon product link; Vance Dazzle will sell it in a weird little infomercial every few minutes, with a "Shop this ad" link (your Associates tag from <b>AMAZON_TAG</b> in .env is added automatically). Amazon often blocks automated reads, so add a name and a few true facts about the product as a backup. The cast never mentions prices.</p>
+      <form id="prod">
+        <input id="pr-url" type="url" placeholder="https://www.amazon.com/dp/..." required />
+        <div class="row">
+          <input id="pr-title" placeholder="Product name (if Amazon won't let us read it)" style="flex:1" />
+        </div>
+        <textarea id="pr-notes" maxlength="600" placeholder="A few true facts from the listing: what it is, what it does, what it's made of"></textarea>
+        <div class="row"><button type="submit">ADD TO THE SHELF</button><span id="pr-status" class="meta"></span></div>
+      </form>
+      <ul id="products"></ul>
       <h2 class="sec">VIEWER MAIL</h2>
       <p class="hint">Messages viewers send from the main page. The local model screens them automatically; anything it couldn't check waits here for you. Approved mail gets read on air in The Late Byte, Rise &amp; Pixel and Couch Co-op.</p>
       <ul id="mail"></ul>
@@ -203,6 +214,42 @@
           ? `${data.title} goes on at ${new Date(data.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}.`
           : data.error ?? "Couldn't book the band.";
       });
+
+      async function loadProducts() {
+        const { products, stats } = await (await fetch("/api/products")).json();
+        const clicks = Object.fromEntries(stats.map((x) => [x.id, x.clicks]));
+        const list = $("products");
+        list.replaceChildren();
+        if (!products.length) { const li = document.createElement("li"); li.className = "empty"; li.textContent = "No products yet - no commercials will air."; list.append(li); }
+        for (const p of products) {
+          const li = document.createElement("li");
+          if (!p.active) li.className = "retired";
+          const body = document.createElement("div");
+          body.className = "text";
+          body.textContent = p.title || p.url;
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          const read = p.fetchStatus === "ok" ? "listing read" : p.fetchStatus === "pending" ? "reading listing…" : p.notes ? "using your notes" : "can't read listing - add a name and notes";
+          meta.textContent = `${read} · aired ${p.airs}× · ${clicks[p.id] ?? 0} clicks (7 days)${p.active ? "" : " · paused"}`;
+          body.append(meta);
+          const actions = document.createElement("div");
+          actions.className = "actions";
+          actions.append(button(p.active ? "PAUSE" : "RESUME", async () => { await fetch(`/api/products/${p.id}/${p.active ? "pause" : "resume"}`, { method: "POST" }); loadProducts(); }));
+          actions.append(button("REMOVE", async () => { await fetch(`/api/products/${p.id}`, { method: "DELETE" }); loadProducts(); }));
+          li.append(body, actions);
+          list.append(li);
+        }
+      }
+      $("prod").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const res = await fetch("/api/products", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: $("pr-url").value, title: $("pr-title").value, notes: $("pr-notes").value }) });
+        const d = await res.json();
+        $("pr-status").textContent = res.ok ? "Added - reading the listing…" : d.error;
+        if (res.ok) { $("pr-url").value = ""; $("pr-title").value = ""; $("pr-notes").value = ""; }
+        loadProducts();
+      });
+      loadProducts();
+      setInterval(loadProducts, 6000);
 
       async function loadMail() {
         const { messages } = await (await fetch("/api/mail")).json();

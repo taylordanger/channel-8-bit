@@ -94,7 +94,7 @@ export function checkInvariants(segments: Segment[], timeZone: string): string[]
       if (prev.startAt + prev.durationMs > s.startAt) v.push(`overlap: ${label}`);
     }
     if (s.durationMs <= 0) v.push(`non-positive duration: ${label}`);
-    if (s.kind !== "bumper") {
+    if (s.kind !== "bumper" && !s.ad) {
       const scheduled = slotAt(s.startAt, timeZone).showId;
       // A segment may start a hair after its slot ends (production latency); allow 3 minutes of spill.
       const spill = slotAt(s.startAt - 180_000, timeZone).showId;

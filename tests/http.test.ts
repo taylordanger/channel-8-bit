@@ -137,6 +137,18 @@ describe("http + ws", () => {
     await fetch(base + "/api/override", { method: "DELETE" });
   });
 
+  it("counts commercial clicks and redirects only to shelf products", async () => {
+    const add = await fetch(base + "/api/products", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: "https://www.amazon.com/dp/B0ABCDEF12", title: "Tiny Desk Flamingo", notes: "Pink. Stands on one leg." }) });
+    expect(add.status).toBe(201);
+    const { id } = await add.json();
+    const go = await fetch(`${base}/go/${id}`, { redirect: "manual" });
+    expect(go.status).toBe(302);
+    expect(go.headers.get("location")).toBe("https://www.amazon.com/dp/B0ABCDEF12");
+    expect((await fetch(`${base}/go/99999`, { redirect: "manual" })).status).toBe(404);
+    expect(built.products.stats(0).find((x) => x.id === id)?.clicks).toBe(1);
+    expect((await fetch(base + "/api/products", { headers: { "cf-connecting-ip": "203.0.113.9" } })).status).toBe(403);
+  });
+
   it("refuses path traversal out of the media and public dirs", async () => {
     expect((await fetch(base + "/media/..%2Fsecret.txt")).status).toBe(404);
     expect((await fetch(base + "/media/../secret.txt")).status).toBe(404);

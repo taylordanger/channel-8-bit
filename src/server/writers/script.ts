@@ -88,6 +88,8 @@ export interface WriterBrief {
   returning?: string[];
   /** Pairs of characters on set who are in a full-blown feud. */
   feuds?: { a: string; b: string }[];
+  /** Commercials: the product being advertised. */
+  ad?: { productId: number; title: string };
   /** Recent moderated lines from the live viewer chat (untrusted text). */
   chat?: { handle: string; text: string }[];
   /** A moderated viewer message the cast answers in this segment (untrusted text). */

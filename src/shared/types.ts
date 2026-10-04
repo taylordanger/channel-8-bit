@@ -65,6 +65,7 @@ export type SetId =
   | "family_couch"
   | "music_stage"
   | "game_show"
+  | "commercial"
   | "bumper";
 
 export interface CastMember {
@@ -125,6 +126,17 @@ export interface Segment {
   game?: GameState;
   /** A viewer poll that opens with this segment. */
   poll?: Poll;
+  /** Commercials: what's being sold and where to buy it. */
+  ad?: AdInfo;
+}
+
+export interface AdInfo {
+  productId: number;
+  title: string;
+  /** The station's click-through link (/go/<id>), which redirects to the store. */
+  link: string;
+  /** Required disclosure, shown with the ad. */
+  disclosure: string;
 }
 
 export interface GameState {

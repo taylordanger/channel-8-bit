@@ -78,6 +78,27 @@ CREATE TABLE IF NOT EXISTS character_state (
   owed_entrance   INTEGER NOT NULL DEFAULT 0   -- 1 = owed an entrance in their next scene
 );
 
+CREATE TABLE IF NOT EXISTS products (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  url          TEXT NOT NULL,          -- the link as pasted
+  asin         TEXT,
+  title        TEXT NOT NULL DEFAULT '',
+  notes        TEXT NOT NULL DEFAULT '',  -- operator's facts, used if the listing can't be read
+  source       TEXT,                   -- what was read from the listing (JSON)
+  fetch_status TEXT NOT NULL DEFAULT 'pending', -- pending | ok | failed
+  fetch_error  TEXT,
+  active       INTEGER NOT NULL DEFAULT 1,
+  created_at   INTEGER NOT NULL,
+  airs         INTEGER NOT NULL DEFAULT 0,
+  last_aired   INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS ad_clicks (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER NOT NULL,
+  at         INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS production_log (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   at         INTEGER NOT NULL,

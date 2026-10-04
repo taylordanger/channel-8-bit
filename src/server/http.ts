@@ -12,6 +12,7 @@ import type { StationConfig } from "./config.js";
 import type { Topic } from "./desk.js";
 import { assertPublicUrl, URL_PATTERN } from "./sources.js";
 import { senderId } from "./chat.js";
+import { affiliateLink } from "./products.js";
 
 const TYPES: Record<string, string> = {
   ".m4a": "audio/mp4",
@@ -162,6 +163,31 @@ async function handleTopics(req: http.IncomingMessage, res: http.ServerResponse,
  * Viewer mail: anyone can write in (the mailbag cleans, rate-limits and moderates it), but
  * only this machine can see the queue or approve and reject messages.
  */
+/** The commercial shelf - this machine only. */
+async function handleProducts(req: http.IncomingMessage, res: http.ServerResponse, url: URL, b: Built) {
+  if (!isLocal(req)) return json(res, { error: "the product shelf is only available from this machine" }, 403);
+  const now = b.clock.now();
+  const [, , , idPart, action] = url.pathname.split("/");
+  if (req.method === "GET") return json(res, { products: b.products.list().map(({ source, ...p }) => ({ ...p, readTitle: source?.title ?? null })), stats: b.products.stats(now - 7 * 86_400_000) });
+  if (req.method === "POST" && !idPart) {
+    let body: { url?: unknown; title?: unknown; notes?: unknown };
+    try {
+      body = (await readJson(req, 4096)) as typeof body;
+    } catch (e) {
+      return json(res, { error: (e as Error).message }, 400);
+    }
+    const out = b.products.add(String(body.url ?? ""), String(body.title ?? ""), String(body.notes ?? ""), now);
+    if (typeof out === "string") return json(res, { error: out }, 400);
+    void b.products.ingest(out.id);
+    return json(res, out, 201);
+  }
+  const id = Number(idPart);
+  if (!Number.isInteger(id)) return json(res, { error: "unsupported" }, 405);
+  if (req.method === "POST" && (action === "pause" || action === "resume")) return json(res, { ok: b.products.setActive(id, action === "resume") });
+  if (req.method === "DELETE") return json(res, { removed: b.products.remove(id) });
+  return json(res, { error: "unsupported" }, 405);
+}
+
 async function handleMail(req: http.IncomingMessage, res: http.ServerResponse, url: URL, b: Built) {
   const [, , , idPart, action] = url.pathname.split("/");
   if (req.method === "POST" && !idPart) {
@@ -260,6 +286,19 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
       void handleMail(req, res, url, b);
       return;
     }
+    // Commercial click-through: count it, then send the viewer to the store with the
+    // Associates tag. Only ever redirects to a product the operator added (no open redirect).
+    if (url.pathname.startsWith("/go/")) {
+      const product = b.products.get(Number(url.pathname.slice(4)));
+      if (!product) return void res.writeHead(404).end("not found");
+      b.products.click(product.id, now);
+      res.writeHead(302, { location: affiliateLink(product, config.amazonTag), "cache-control": "no-store", "referrer-policy": "no-referrer-when-downgrade" });
+      return void res.end();
+    }
+    if (url.pathname === "/api/products" || url.pathname.startsWith("/api/products/")) {
+      void handleProducts(req, res, url, b);
+      return;
+    }
     if (url.pathname === "/api/chat") return json(res, b.chat.recent());
     if (url.pathname.startsWith("/api/chat/")) {
       if (!isLocal(req)) return json(res, { error: "chat moderation is only available from this machine" }, 403);
@@ -295,7 +334,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
     }
     switch (url.pathname) {
       case "/api/now":
-        return json(res, { serverNow: now, network: config.networkName, voteUrl: config.publicUrl.replace(/^https?:\/\//, ""), onNow: programAt(now, config.timeZone, b.station.override()), override: b.station.override() });
+        return json(res, { serverNow: now, network: config.networkName, ads: config.adEveryMin > 0 && b.products.list().some((p) => p.active), voteUrl: config.publicUrl.replace(/^https?:\/\//, ""), onNow: programAt(now, config.timeZone, b.station.override()), override: b.station.override() });
       case "/api/timeline": {
         const from = Number(url.searchParams.get("from") ?? now - 60_000);
         const to = Math.min(Number(url.searchParams.get("to") ?? now + 600_000), from + 3_600_000);
@@ -356,6 +395,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
           writerChain: b.writers.map((w) => w.name),
           model: config.writer === "local" ? config.ollama.model : config.writer === "claude" ? `${config.models.standard} / ${config.models.premium}` : "improv",
           tts: b.tts.name,
+          ads: { everyMin: config.adEveryMin, tagged: Boolean(config.amazonTag), stats: b.products.stats(now - 86_400_000) },
           onNow: programAt(now, config.timeZone, b.station.override()).title,
         });
       }

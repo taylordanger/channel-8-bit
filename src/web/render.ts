@@ -42,6 +42,8 @@ interface SceneEvents {
   crowd: number;
   /** Music segments: where the song is right now (drives lights, crowd and the band). */
   music?: MusicState;
+  /** Commercials: the product being sold. */
+  ad?: { title: string };
   /** Game shows: contestants, scores, and how the current vote is going. */
   game?: { names: Record<string, string>; contestants: string[]; scores: Record<string, number>; leading?: string; champion?: string };
 }
@@ -200,6 +202,58 @@ function skyline(g: Ctx, x0: number, y0: number, w: number, h: number, t: number
 }
 
 const SETS: Record<Exclude<SetId, "bumper">, SetDef> = {
+  commercial: {
+    marks: [
+      { x: 84, y: 146, seated: false, face: 1 }, // the pitchman
+      { x: 238, y: 146, seated: false, face: -1 }, // the satisfied customer
+    ],
+    back: (g, t, ev) => {
+      // a loud infomercial gradient with a spinning starburst
+      for (let y = 0; y < H; y += 4) {
+        const k = y / H;
+        g.fillStyle = `rgb(${Math.round(255 - 60 * k)},${Math.round(70 + 90 * k)},${Math.round(160 - 100 * k)})`;
+        g.fillRect(0, y, W, 4);
+      }
+      g.save();
+      g.translate(160, 70);
+      g.rotate(t / 4000);
+      for (let i = 0; i < 12; i++) {
+        g.rotate((Math.PI * 2) / 12);
+        g.fillStyle = i % 2 ? "rgba(255,255,255,0.10)" : "rgba(255,230,102,0.12)";
+        g.beginPath();
+        g.moveTo(0, 0);
+        g.lineTo(200, -18);
+        g.lineTo(200, 18);
+        g.fill();
+      }
+      g.restore();
+      // banner
+      px(g, "#1a1033", 40, 8, 240, 18);
+      g.fillStyle = "#ffe066";
+      g.font = "bold 9px monospace";
+      g.textAlign = "center";
+      g.fillText("AS SEEN ON CHANNEL 8-BIT", W / 2, 20);
+      // the product on a glowing pedestal, with its name
+      const pulse = Math.abs(Math.sin(t / 300));
+      g.fillStyle = `rgba(255,255,255,${0.15 + 0.15 * pulse})`;
+      g.beginPath();
+      g.ellipse(160, 96, 30, 30, 0, 0, Math.PI * 2);
+      g.fill();
+      px(g, "#ffffff", 146, 82, 28, 26);
+      px(g, "#ff3fa4", 146, 82, 28, 4);
+      px(g, "#3a86ff", 152, 92, 16, 10);
+      for (let i = 0; i < 4; i++) if ((Math.floor(t / 150) + i) % 4 === 0) px(g, "#fff6b0", 140 + i * 12, 76 - (i % 2) * 6, 2, 2);
+      px(g, "#d8d0f0", 136, 108, 48, 30);
+      px(g, "#b8a8e0", 136, 108, 48, 3);
+      px(g, "#1a1033", 108, 118, 104, 12);
+      g.fillStyle = "#fff";
+      g.font = "6px monospace";
+      g.fillText((ev.ad?.title ?? "").toUpperCase().slice(0, 30), W / 2, 126);
+      g.textAlign = "left";
+      // floor
+      px(g, "#3a1f5a", 0, 146, W, 34);
+    },
+  },
   game_show: {
     marks: [
       { x: 58, y: 146, seated: false, face: 1 }, // the host at his lectern
@@ -796,6 +850,7 @@ export class Renderer {
     const ev: SceneEvents = {
       crowd,
       music,
+      ad: seg.ad ? { title: seg.ad.title } : undefined,
       game: seg.game
         ? {
             names: Object.fromEntries(seg.cast.map((c) => [c.id, c.name.split(" ")[0]])),
@@ -924,7 +979,7 @@ export class Renderer {
     o.fillStyle = "#fff";
     o.font = font(4.5);
     o.fillText(f.network.toUpperCase(), ox + 7 * s, oy + 8 * s);
-    const tag = !seg ? "OFF AIR" : seg.kind === "rerun" ? "ENCORE" : seg.kind === "bumper" ? "" : "LIVE";
+    const tag = !seg ? "OFF AIR" : seg.ad ? "AD" : seg.kind === "rerun" ? "ENCORE" : seg.kind === "bumper" ? "" : "LIVE";
     if (tag) {
       o.fillStyle = seg?.kind === "live" ? "#ff3355" : "#3a86ff";
       o.fillRect(ox + 104 * s, oy + 4 * s, 34 * s, 12 * s);
@@ -954,6 +1009,15 @@ export class Renderer {
       o.fillStyle = "#fff";
       o.font = font(5);
       o.fillText(clip(upNext ? `${f.next!.showTitle}: ${f.next!.title}` : seg.title, 40), ox + 18 * s, oy + 131 * s);
+    }
+
+    // Commercial: always labeled, and where to find it.
+    if (seg.ad) {
+      o.fillStyle = "#000000d9";
+      o.fillRect(ox + 10 * s, oy + 20 * s, (W - 20) * s, 11 * s);
+      o.fillStyle = "#ffe066";
+      o.font = font(3.6);
+      o.fillText(`PAID LINK · ${clip(seg.ad.title, 34)} · SHOP IT AT ${f.voteUrl || "THE LINK BELOW THE TV"}`, ox + 14 * s, oy + 24 * s);
     }
 
     // Viewer poll: question, options with live bars, then the result.

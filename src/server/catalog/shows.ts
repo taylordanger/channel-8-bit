@@ -1,6 +1,6 @@
 import type { SetId } from "../../shared/types.js";
 
-export type ShowFormat = "late_night" | "morning" | "soap" | "hangout" | "sitcom" | "cartoon" | "gameshow";
+export type ShowFormat = "late_night" | "morning" | "soap" | "hangout" | "sitcom" | "cartoon" | "gameshow" | "commercial";
 
 export interface Show {
   id: string;
@@ -209,7 +209,24 @@ export const SHOWS: Record<string, Show> = {
   },
 };
 
+/** Commercial breaks: not on the schedule; slotted between segments when there's something to sell. */
+export const AD_SHOW: Show = {
+  id: "ad_break",
+  title: "Commercial Break",
+  format: "commercial",
+  set: "commercial",
+  tier: "standard",
+  cast: ["vance"],
+  serialized: false,
+  example: "vance: Are you tired of your desk looking like a desk? I WAS.\ngreg: My desk was a war zone, Vance. Papers. Despair.\nvance: Then meet the Tiny Desk Flamingo! It stands on one leg so you don't have to!\ngreg: It's... very pink.\nvance: It's PINK, Greg! Pink is a lifestyle!\ngreg: I think I love it. I think it's looking at me.\nvance: It is. Find it at the link!",
+  bible:
+    "A 25-second infomercial, absurd and weirdly earnest. The pitchman presents a real product while a 'satisfied customer' from elsewhere on the network vouches for it. The COMEDY is in the over-the-top situations and reactions - obviously jokes. Any real claim about what the product is or does must come from the product listing in SOURCE MATERIAL. Never say a price, a discount, a sale, or a delivery promise. Never read out a URL; end by pointing viewers to 'the link'.",
+  segmentTypes: ["infomercial"],
+  topics: ["the product"],
+};
+
 export function getShow(id: string): Show {
+  if (id === AD_SHOW.id) return AD_SHOW;
   const s = SHOWS[id];
   if (!s) throw new Error(`unknown show: ${id}`);
   return s;
