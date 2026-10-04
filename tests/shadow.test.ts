@@ -90,3 +90,48 @@ describe("slow writers", () => {
     expect(deadAir).toBeLessThanOrEqual(130_000); // only the very first write, before any archive exists
   }, 60_000);
 });
+
+describe("dead-air guard", () => {
+  it("airs filler while a slow write is still in progress, then appends the fresh segment after it", async () => {
+    const { ManualClock } = await import("../src/server/clock.js");
+    const { buildStation } = await import("../src/server/build.js");
+    const { loadConfig } = await import("../src/server/config.js");
+    const { SilentTTS } = await import("../src/server/tts.js");
+    const { ImprovWriter } = await import("../src/server/writers/improv.js");
+    const clock = new ManualClock(Date.UTC(2026, 9, 3, 11, 0));
+    const improv = new ImprovWriter(5);
+    let release: () => void = () => {};
+    const stuck = {
+      name: "stuck",
+      write: async (b: Parameters<InstanceType<typeof ImprovWriter>["write"]>[0]) => {
+        await new Promise<void>((r) => (release = r));
+        return improv.write(b);
+      },
+    };
+    const b = buildStation({ ...loadConfig({}), timeZone: "UTC", tts: "silent", writer: "improv" }, { clock, dbFile: ":memory:", tts: new SilentTTS(), writers: [stuck, improv] });
+    // Queue a bit over 3 minutes: enough that the station starts a fresh (slow) write.
+    const { Producer } = await import("../src/server/producer.js");
+    const { slotAt } = await import("../src/server/catalog/schedule.js");
+    const filler = new Producer({ timeline: b.timeline, memory: b.memory, tts: new SilentTTS(), writers: [improv], timeZone: "UTC" });
+    let t = clock.now() + 1500;
+    while (t - clock.now() < 200_000) {
+      const p = await filler.produce(t, slotAt(t, "UTC"), { rerun: false });
+      p.segment.startAt = t;
+      b.timeline.append(p.segment, "");
+      t += p.segment.durationMs;
+    }
+    b.governor.setViewers(1, clock.now());
+    const writing2 = b.station.tick(); // a fresh write that hangs
+    await new Promise((r) => setTimeout(r, 10));
+    expect(b.station.watchdog()).toBeNull(); // plenty queued still
+    clock.set(b.timeline.tailEnd() - 2000); // almost out of air
+    const emergency = b.station.watchdog();
+    expect(emergency).not.toBeNull();
+    const tailAfterFiller = b.timeline.tailEnd();
+    release();
+    await writing2;
+    const segs = b.timeline.range(0, Infinity);
+    expect(segs.at(-1)!.startAt).toBeGreaterThanOrEqual(tailAfterFiller);
+    for (let i = 1; i < segs.length; i++) expect(segs[i].startAt).toBeGreaterThanOrEqual(segs[i - 1].startAt + segs[i - 1].durationMs);
+  });
+});

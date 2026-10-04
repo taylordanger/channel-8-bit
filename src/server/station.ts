@@ -10,6 +10,8 @@ import type { Timeline } from "./timeline.js";
 
 /** Lead time added when a segment is committed into a gap, so viewers can fetch audio first. */
 export const COMMIT_DELAY_MS = 1500;
+/** The watchdog airs filler when less than this much is queued and a write is still running. */
+export const EMERGENCY_BELOW_MS = 4000;
 
 export interface StationDeps {
   db: DB;
@@ -40,8 +42,10 @@ export class Station {
    */
   private slowWriter = true;
   /** How long the last few fresh segments took to write and voice. */
-  private recentWritesMs: number[] = [];
+  // Until measured, assume a slow (local-model) writer: ~2.5 minutes per segment.
+  private recentWritesMs: number[] = [150_000];
   private timer?: NodeJS.Timeout;
+  private guard?: NodeJS.Timeout;
   lastError = "";
 
   constructor(private d: StationDeps) {
@@ -170,15 +174,34 @@ export class Station {
     this.d.db.prepare("UPDATE overrides SET end_at = ? WHERE end_at > ?").run(this.nextStart(), this.d.clock.now());
   }
 
+  /**
+   * Dead-air guard. Production is serial, so a slow write can outlast what's queued. If the
+   * timeline is about to run out while a write is in progress, air instant filler now; the
+   * fresh segment is appended after it when it's ready.
+   */
+  watchdog(): Produced | null {
+    if (!this.busy) return null;
+    const now = this.d.clock.now();
+    if (this.d.governor.decide(now).leadTargetMs === 0) return null;
+    if (this.d.timeline.tailEnd() - now > EMERGENCY_BELOW_MS) return null;
+    const at = this.nextStart();
+    const filler = this.d.producer.emergency(at, programAt(at, this.d.timeZone, this.override()));
+    this.d.log?.(`writer still busy and the timeline is running out: airing "${filler.segment.title}"`);
+    this.commit(filler);
+    return filler;
+  }
+
   start(intervalMs = 1000): void {
     const loop = async () => {
       await this.tick();
       this.timer = setTimeout(loop, intervalMs);
     };
     void loop();
+    this.guard = setInterval(() => this.watchdog(), 1000);
   }
 
   stop(): void {
     clearTimeout(this.timer);
+    clearInterval(this.guard);
   }
 }

@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { CastMember, Cue, Segment } from "../shared/types.js";
 import { getCharacter, type Character } from "./catalog/characters.js";
-import type { ScheduledSlot } from "./catalog/schedule.js";
+import { slotAt, type ScheduledSlot } from "./catalog/schedule.js";
 import { getShow, type Show } from "./catalog/shows.js";
 import type { TopicDesk } from "./desk.js";
 import type { MemoryBank } from "./memory.js";
@@ -109,7 +109,17 @@ export class Producer {
     }
   }
 
-  private bumper(slot: ScheduledSlot, remaining: number, title = `Coming up: ${slot.title}`): Produced {
+  /**
+   * Instant filler for when the timeline is about to run dry while a slow write is still in
+   * progress: an encore if there is anything at all to re-air, otherwise a short standby card.
+   * Never calls a writer or TTS, so it can't be slow.
+   */
+  emergency(at: number, slot: ScheduledSlot): Produced {
+    const remaining = Math.max(MIN_SEGMENT_MS, slot.endAt - at);
+    return this.rerun(slot.showId, remaining, at, ENCORE_FRESH_MS) ?? this.rerun(slot.showId, remaining, at, 0) ?? this.bumper(slot, STANDBY_MS, "We'll be right back");
+  }
+
+  private bumper(slot: ScheduledSlot, remaining: number, title = `Coming up: ${slotAt(slot.endAt, this.d.timeZone).title}`): Produced {
     const segment: Segment = {
       id: crypto.randomUUID(),
       showId: "station_id",

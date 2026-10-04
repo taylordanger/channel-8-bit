@@ -12,7 +12,7 @@ export class OllamaClient {
     readonly baseUrl: string,
     readonly model: string,
     private fetcher: Fetcher = fetch,
-    private timeoutMs = 180_000,
+    private timeoutMs = 360_000,
   ) {}
 
   /** Whether the server is up and has the model pulled. */
