@@ -11,6 +11,8 @@ import { CHARACTERS } from "./catalog/characters.js";
 import type { Produced, Producer } from "./producer.js";
 import type { Timeline } from "./timeline.js";
 import type { GameResults } from "./episodes.js";
+import type { SceneBank } from "./bank.js";
+import { SHOWS } from "./catalog/shows.js";
 
 /** Lead time added when a segment is committed into a gap, so viewers can fetch audio first. */
 export const COMMIT_DELAY_MS = 1500;
@@ -32,6 +34,7 @@ export interface StationDeps {
   producer: Producer;
   governor: Governor;
   results?: GameResults;
+  bank?: SceneBank;
   timeZone: string;
   onSegment?: (s: Segment) => void;
   /** Segments pulled from the timeline before airing (a special cut in). */
@@ -59,6 +62,7 @@ export class Station {
   // Until measured, assume a slow (local-model) writer: ~2.5 minutes per segment.
   private recentWritesMs: number[] = [150_000];
   private timer?: NodeJS.Timeout;
+  private banking = false;
   private guard?: NodeJS.Timeout;
   lastError = "";
 
@@ -300,9 +304,32 @@ export class Station {
     return filler;
   }
 
+  /**
+   * The overnight writers' room: while nobody is watching, write a standalone scene for the show
+   * whose bank is emptiest. Runs beside live production (a viewer arriving never waits on it).
+   */
+  async bankTick(perShow = 10): Promise<boolean> {
+    if (this.banking || this.busy) return false;
+    if (this.d.governor.decide(this.d.clock.now()).leadTargetMs !== 0) return false; // someone's watching
+    const counts = this.d.bank?.counts() ?? {};
+    const show = Object.values(SHOWS)
+      .filter((s) => this.d.producer.bankable(s) && (counts[s.id] ?? 0) < perShow)
+      .sort((a, b) => (counts[a.id] ?? 0) - (counts[b.id] ?? 0))[0];
+    if (!show) return false;
+    this.banking = true;
+    try {
+      const ok = await this.d.producer.bankScene(show.id, this.d.clock.now());
+      if (ok) this.d.log?.(`banked a ${show.title} scene for later (${(counts[show.id] ?? 0) + 1} waiting)`);
+      return ok;
+    } finally {
+      this.banking = false;
+    }
+  }
+
   start(intervalMs = 1000): void {
     const loop = async () => {
-      await this.tick();
+      const aired = await this.tick();
+      if (!aired) void this.bankTick();
       this.timer = setTimeout(loop, intervalMs);
     };
     void loop();

@@ -61,6 +61,7 @@
       <section class="kpis" id="kpis"></section>
       <section class="grid">
         <div class="card"><h2>AIRTIME, LAST 24 HOURS</h2><div class="stack" id="mix"></div><div class="legend" id="mix-legend"></div></div>
+        <div class="card"><h2>SCENE BANK (WRITTEN AHEAD, NOT YET AIRED)</h2><div class="legend" id="bank"></div></div>
         <div class="card"><h2>WRITING TIME, LAST 30 FRESH SEGMENTS</h2><div class="cols" id="writes"></div><div class="axis"><span id="w-first"></span><span id="w-max"></span><span id="w-last"></span></div></div>
         <div class="card"><h2>WRITERS, LAST 24 HOURS</h2><table id="writers"></table></div>
         <div class="card"><h2>STANDARDS DESK, LAST 24 HOURS</h2><table id="standards"></table><ul class="list" id="standards-recent" style="margin-top:12px"></ul></div>
@@ -153,6 +154,10 @@
           d.spendToday.map((x) => [x.model, x.input.toLocaleString(), x.output.toLocaleString(), usd(x.usd)]));
         $("spend-week").replaceChildren(...(d.spendWeek.length ? d.spendWeek.map((x) => { const s = el("span"); s.append(document.createTextNode(x.day.slice(5) + " "), el("b", null, usd(x.usd))); return s; }) : [el("span", null, "No paid model usage this week - the local model is free.")]));
 
+        const bank = Object.entries(d.bank ?? {});
+        $("bank").replaceChildren(...(bank.length
+          ? bank.map(([show, n]) => { const s = el("span"); s.style.setProperty("--c", "var(--s3)"); s.append(document.createTextNode(show + " "), el("b", null, String(n))); return s; })
+          : [el("span", null, "Empty. While nobody's watching, the station writes scenes ahead; they air when the live writer falls behind.")]));
         const a = d.audience;
         const stat = (label, value) => { const s = el("span"); s.style.setProperty("--c", "var(--s1)"); s.append(document.createTextNode(label + " "), el("b", null, String(value))); return s; };
         $("aud").replaceChildren(

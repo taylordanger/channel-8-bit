@@ -13,6 +13,7 @@ import { AudienceLog } from "./audience.js";
 import { ClipDesk, ffmpegVertical, FunnyMeter, processRenderer, type ClipRenderer } from "./clips.js";
 import { ShoutoutDesk } from "./shoutouts.js";
 import { NewsFeeds } from "./newsfeeds.js";
+import { SceneBank } from "./bank.js";
 import { CharacterStates, MemoryBank } from "./memory.js";
 import { Producer } from "./producer.js";
 import { TopicDesk } from "./desk.js";
@@ -44,6 +45,8 @@ export interface BuildOptions {
   log?: (msg: string) => void;
   /** Override how assignment-desk links are read (tests). */
   sourceReader?: (url: string) => Promise<Source>;
+  /** Writes banked scenes (tests pass one; the default is the BANK_OLLAMA server). */
+  bankWriter?: import("./writers/script.js").Writer;
   /** Renders clips (tests pass a fake; the default spawns Chrome + ffmpeg). */
   clipRenderer?: ClipRenderer;
 }
@@ -75,6 +78,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   const desk = new TopicDesk(db, o.sourceReader);
   const episodes = new EpisodeBook(db, memory, states, o.log, config.timeZone);
   const results = new GameResults(db);
+  const bank = new SceneBank(db);
   const clips = new ClipDesk(db, path.join(config.dataDir, "clips"), o.clipRenderer ?? processRenderer(process.cwd(), config.port), o.log);
   const funny = new FunnyMeter(db);
   const audience = new AudienceLog(db);
@@ -133,6 +137,8 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     desk,
     episodes,
     results,
+    bank,
+    bankWriter: o.bankWriter ?? (config.bank && !o.writers ? new OllamaWriter(new OllamaClient(config.bank.url, config.bank.model), config.networkName) : undefined),
     tts,
     writers,
     llmStandards,
@@ -158,6 +164,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     producer,
     governor,
     results,
+    bank,
     timeZone: config.timeZone,
     onSegment: o.onSegment,
     onRetract: o.onRetract,
@@ -177,7 +184,7 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
   });
   // Real news only reaches the news desk when there's a local model to screen it (not in tests).
   const newsFeeds = new NewsFeeds(db, { desk, feeds: o.writers ? [] : config.newsFeeds, ollama: o.writers ? undefined : ollama, perDay: config.newsPerDay, log: o.log });
-  return { newsFeeds, shoutouts, audience, clips, funny, episodes, results, ollama, mailbag, chat, tracks, products, ops, db, clock, timeline, memory, states, polls, desk, ledger, governor, tts, writers, producer, station };
+  return { bank, newsFeeds, shoutouts, audience, clips, funny, episodes, results, ollama, mailbag, chat, tracks, products, ops, db, clock, timeline, memory, states, polls, desk, ledger, governor, tts, writers, producer, station };
 }
 
 export type Built = ReturnType<typeof buildStation>;

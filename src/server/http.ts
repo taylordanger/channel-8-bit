@@ -559,6 +559,7 @@ export function startHttp(config: StationConfig, b: Built, publicDir: string) {
           network: config.networkName,
           viewers: b.governor.viewerCount,
           audience: b.audience.report(now),
+          bank: b.bank.counts(),
           leadMs: Math.max(0, b.timeline.tailEnd() - now),
           decision: b.governor.decide(now),
           spentTodayUsd: b.governor.spentToday(now),

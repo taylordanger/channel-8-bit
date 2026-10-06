@@ -170,6 +170,8 @@ npm run shadow -- 24           # simulate a whole day in seconds and check for p
     - The fact-checker leaves the cast's own antics alone.
 43. **Storm Brewster, the 8-Bit Report's weatherman:** a weather segment with Storm and Lance at a new weather-map set. Forecasts are for Pixel City, the network's fictional hometown ("an eighty percent chance of Rex complaining"), never real weather.
 44. **Always-on hours for the flagship:** from 9 PM to midnight the station writes fresh scenes even with nobody watching, so the advertised Hot Seat → Late Byte handoff always happens and joins the encore library. With nobody waiting, it doesn't fill with instant encores or improv. It's the free local writer, so there's no cost. With a Claude key it defaults to off. Set `ALWAYS_ON_HOURS` in `.env` to change the hours.
+45. **Running threads stay in the background** on the newscast, talk shows and other audience-facing shows. Tonight's 8-Bit Report spent most scenes on Lance's "Reporter of the Year" award; now the thread gets a line or two while each segment does its own job. Sitcoms and the soap keep the arc as the plot.
+46. **The overnight writers' room (scene bank):** while nobody is watching, the station writes complete, voiced, standalone scenes, up to 10 per show, games excluded. When the live writer falls behind, it airs a never-seen banked scene before reaching for an encore or improv filler. The control room shows what's in the bank. **For your R720:** run Ollama there with a bigger model and set `BANK_OLLAMA_URL` / `BANK_OLLAMA_MODEL` in `.env`; the bank then fills with better writing while the Mac keeps doing the live shows.
 
 ---
 

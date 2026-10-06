@@ -110,6 +110,17 @@ CREATE TABLE IF NOT EXISTS news_seen (
   reason   TEXT NOT NULL DEFAULT ''
 );
 
+CREATE TABLE IF NOT EXISTS scene_bank (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  show_id     TEXT NOT NULL,
+  created_at  INTEGER NOT NULL,
+  duration_ms INTEGER NOT NULL,
+  summary     TEXT NOT NULL DEFAULT '',
+  segment     TEXT NOT NULL,          -- a voiced, standalone scene (JSON Segment), not yet on the timeline
+  aired_at    INTEGER
+);
+CREATE INDEX IF NOT EXISTS scene_bank_show ON scene_bank(show_id, aired_at, created_at);
+
 CREATE TABLE IF NOT EXISTS memories (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at INTEGER NOT NULL,

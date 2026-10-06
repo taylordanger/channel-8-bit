@@ -24,6 +24,8 @@ export interface StationConfig {
   feedFreshHours: Set<number>;
   /** Hours (local) the station writes fresh scenes with nobody watching: the flagship, by default with the free local writer. */
   alwaysOnHours: Set<number>;
+  /** The overnight writers' room: which Ollama server and model write banked scenes (null = off). */
+  bank: { url: string; model: string } | null;
   /** Real-news feeds for The 8-Bit Report ([] = off), and how many stories a day it may add. */
   newsFeeds: string[];
   newsPerDay: number;
@@ -64,6 +66,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): StationConfig 
     dailyBudgetUsd: num(env.DAILY_BUDGET_USD, 3),
     // Local writing is free, so a restream gets it around the clock; paid writing only when asked.
     twitchChannel: channelName(env.TWITCH_CHANNEL),
+    // On by default with the local writer (free); point BANK_OLLAMA_URL at another machine to use a
+    // bigger model there. Off with Claude unless a bank server is set (banking would cost money).
+    bank:
+      env.BANK === "off"
+        ? null
+        : env.BANK_OLLAMA_URL || writer === "local" || (writer === "auto" && !hasClaude)
+          ? { url: env.BANK_OLLAMA_URL ?? env.OLLAMA_URL ?? "http://localhost:11434", model: env.BANK_OLLAMA_MODEL ?? env.OLLAMA_MODEL ?? "llama3.1:8b" }
+          : null,
     newsFeeds: env.NEWS_FEEDS === "off" ? [] : env.NEWS_FEEDS ? env.NEWS_FEEDS.split(",").map((u) => u.trim()).filter((u) => /^https:\/\//.test(u)) : DEFAULT_FEEDS,
     newsPerDay: num(env.NEWS_PER_DAY, 6),
     shoutoutPaymentUrl: /^https:\/\/\S+$/.test(env.SHOUTOUT_PAYMENT_URL ?? "") ? env.SHOUTOUT_PAYMENT_URL! : "",

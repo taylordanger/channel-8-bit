@@ -30,6 +30,7 @@ import { ARTISTS } from "./catalog/music.js";
 import { generateSong, songShape, type SongSpec } from "../shared/music.js";
 import type { Script, Writer, WriterBrief } from "./writers/script.js";
 import { canPlan, phaseAt, type EpisodeBook, type GameResults } from "./episodes.js";
+import type { SceneBank } from "./bank.js";
 
 /** Names from the network's own fictional world, which the name check must never flag. */
 const FICTIONAL_NAMES = [
@@ -106,6 +107,10 @@ export interface ProducerDeps {
   episodes?: EpisodeBook;
   /** Finished games, for booking losers onto other shows. */
   results?: GameResults;
+  /** Scenes written ahead while nobody watched, aired when the live writer falls behind. */
+  bank?: SceneBank;
+  /** The writer that fills the bank (the local model, or a bigger one on another machine). */
+  bankWriter?: Writer;
   tts: TTSEngine;
   /** Tried in order; the last one should never fail (the improv writer). */
   writers: Writer[];
@@ -142,13 +147,20 @@ export class Producer {
       if (ad) return ad;
     }
 
-    // Running low on air and the main writer is slow: an encore keeps the timeline ahead.
+    // Running low on air and the main writer is slow: a banked scene (never aired) or an encore
+    // keeps the timeline ahead.
     if (opts.hurry) {
+      const banked = this.fromBank(slot.showId, remaining, at);
+      if (banked) return banked;
       const encore = this.rerun(slot.showId, remaining, at, ENCORE_FRESH_MS);
       if (encore) return encore;
       return this.live(at, slot, Math.min(MAX_SEGMENT_SEC, Math.floor((remaining - TAIL_MS) / 1000)), this.d.writers.slice(-1));
     }
 
+    if (opts.coldStart) {
+      const banked = this.fromBank(slot.showId, remaining, at);
+      if (banked) return banked;
+    }
     if (opts.rerun || opts.coldStart || slot.mode === "rerun") {
       const rerun = this.rerun(slot.showId, remaining, at, opts.coldStart ? ENCORE_FRESH_MS : undefined);
       if (rerun) return rerun;
@@ -262,7 +274,12 @@ export class Producer {
    */
   emergency(at: number, slot: ScheduledSlot): Produced {
     const remaining = Math.max(MIN_SEGMENT_MS, slot.endAt - at);
-    return this.rerun(slot.showId, remaining, at, ENCORE_FRESH_MS) ?? this.rerun(slot.showId, remaining, at, 0) ?? this.bumper(slot, STANDBY_MS, "We'll be right back");
+    return (
+      this.fromBank(slot.showId, remaining, at) ??
+      this.rerun(slot.showId, remaining, at, ENCORE_FRESH_MS) ??
+      this.rerun(slot.showId, remaining, at, 0) ??
+      this.bumper(slot, STANDBY_MS, "We'll be right back")
+    );
   }
 
   private bumper(slot: ScheduledSlot, remaining: number, title = this.comingUp(slot)): Produced {
@@ -290,6 +307,59 @@ export class Producer {
       return `Tonight ${when}: Hot Seat - the loser faces Rex`;
     }
     return `Coming up: ${slotAt(slot.endAt, this.d.timeZone).title}`;
+  }
+
+  /** A never-aired banked scene of this show that fits, if there is one. */
+  private fromBank(showId: string, maxMs: number, at: number): Produced | undefined {
+    const got = this.d.bank?.take(showId, maxMs - TAIL_MS, at);
+    if (!got) return undefined;
+    // Characters get redesigned; show everyone as they look today.
+    const cast = got.segment.cast.map((m) => (CHARACTERS[m.id] ? { ...m, look: getCharacter(m.id).look } : m));
+    return { segment: { ...got.segment, cast, id: crypto.randomUUID(), startAt: 0, kind: "live" }, summary: got.summary, notes: [] };
+  }
+
+  /** Shows the bank can write for: no games (they need live votes) and no commercials. */
+  bankable(show: Show): boolean {
+    return Boolean(this.d.bank && this.d.bankWriter) && !show.gameSteps && show.id !== AD_SHOW.id;
+  }
+
+  /**
+   * Write one standalone scene for the bank: the show's own topics, no episode plan, desk
+   * stories, mail, chat or headlines (they'd be stale by the time it airs), and only the bank's
+   * writer - an improv scene isn't worth banking.
+   */
+  async bankScene(showId: string, at: number): Promise<boolean> {
+    const show = getShow(showId);
+    if (!this.bankable(show)) return false;
+    const slot: ScheduledSlot = { slot: { startHour: -1, endHour: -1, showId, mode: "live" }, showId, title: show.title, startAt: at, endAt: at + 3_600_000, mode: "live" };
+    let brief: WriterBrief | undefined;
+    for (let t = at; t < at + 30_000 && !brief; t += 1000) {
+      const b = this.brief(t, slot, 60);
+      if (b.segmentType !== show.mailSegment && !show.musicFor?.[b.segmentType]) brief = b;
+    }
+    if (!brief) return false;
+    const r = rng(Math.floor(at / 1000) ^ 0xba2c);
+    const ownTopics = show.topicsFor?.[brief.segmentType];
+    brief = {
+      ...brief,
+      topic: ownTopics ? brief.topic : show.topics[Math.floor(r() * show.topics.length)],
+      deskTopicId: undefined,
+      source: undefined,
+      viewerMessage: undefined,
+      chat: undefined,
+      guestNote: undefined,
+      episode: undefined,
+      episodeSoFar: [],
+      lastSegment: undefined,
+    };
+    try {
+      const produced = await this.fromBrief(brief, [this.d.bankWriter!], at);
+      this.d.bank!.add({ ...produced.segment, writer: `${produced.segment.writer} (banked)` }, produced.summary, at);
+      return true;
+    } catch (e) {
+      this.d.log?.(`bank: couldn't write for ${show.title}: ${(e as Error).message}`);
+      return false;
+    }
   }
 
   /** An archived segment to re-air, skipping anything aired within `freshMs` (default 6 hours). */
