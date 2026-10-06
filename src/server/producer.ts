@@ -61,6 +61,11 @@ export function checkNoPrices(script: Script): StandardsResult {
 /** Formats whose casts talk to the audience (and so may read the live chat). */
 const FOURTH_WALL = new Set(["late_night", "morning", "hangout", "gameshow", "news", "callin", "cooking"]);
 
+/** A memory as a news headline: "Lola Vance stormed off the set of Pixel Heights: "I think..."" -> before the quote. */
+export function headline(text: string): string {
+  return text.replace(/:\s*["“].*$/s, "").replace(/\s+/g, " ").trim().replace(/\.$/, "");
+}
+
 /** Finished commercials kept per product; once there are this many, breaks rotate them. */
 export const ADS_PER_PRODUCT = 3;
 
@@ -343,10 +348,12 @@ export class Producer {
       return m ? [{ id, mood: m.mood, reason: m.reason }] : [];
     });
     const desk = this.d.desk?.nextFor(show.id);
-    // The news covers the network itself: today's big moments on other shows.
+    // The news covers the network itself: today's big moments on other shows, each reported once
+    // per episode (then it's back to the regular stories), as a short headline without the quote.
+    const reported = new Set(show.format === "news" ? this.d.timeline.recentTopics(show.id, at, 60, slot.startAt) : []);
     const headlines =
       show.format === "news"
-        ? this.d.memory.latest(200).filter((m) => m.createdAt > at - 12 * 3_600_000 && m.showId !== show.id && m.weight >= 0.6).map((m) => m.text)
+        ? [...new Set(this.d.memory.latest(200).filter((m) => m.createdAt > at - 12 * 3_600_000 && m.showId !== show.id && m.weight >= 0.6).map((m) => headline(m.text)))].filter((h) => !reported.has(h))
         : [];
     // Rotate topic seeds: never one of the last few this show used.
     const usedTopics = new Set(this.d.timeline.recentTopics(show.id, at, Math.min(4, show.topics.length - 1)));
@@ -354,7 +361,7 @@ export class Producer {
     return {
       show,
       segmentType,
-      topic: desk?.text ?? (headlines.length && r() < 0.7 ? `network news: ${pick(headlines)}` : pick(freshTopics.length ? freshTopics : show.topics)),
+      topic: desk?.text ?? (headlines.length && r() < 0.4 ? pick(headlines) : pick(freshTopics.length ? freshTopics : show.topics)),
       lastSegment: slot.endAt - at <= 5 * 60_000,
       deskTopicId: desk?.id,
       source: desk?.fetchStatus === "ok" ? (desk.source ?? undefined) : undefined,

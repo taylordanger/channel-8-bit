@@ -101,10 +101,10 @@ export class Timeline {
   }
 
   /** Topic seeds of a show's last few fresh scenes. */
-  recentTopics(showId: string, before: number, scenes: number): string[] {
+  recentTopics(showId: string, before: number, scenes: number, since = 0): string[] {
     const rows = this.db
-      .prepare("SELECT json_extract(body, '$.topic') AS topic FROM segments WHERE show_id = ? AND kind = 'live' AND start_at < ? ORDER BY start_at DESC LIMIT ?")
-      .all(showId, before, scenes) as { topic: string | null }[];
+      .prepare("SELECT json_extract(body, '$.topic') AS topic FROM segments WHERE show_id = ? AND kind = 'live' AND start_at < ? AND start_at >= ? ORDER BY start_at DESC LIMIT ?")
+      .all(showId, before, since, scenes) as { topic: string | null }[];
     return rows.map((r) => r.topic).filter((t): t is string => Boolean(t));
   }
 

@@ -92,6 +92,27 @@ describe("every show", () => {
     expect(topics.some((x) => x.includes("Pip won the Golden Pixel"))).toBe(true);
   });
 
+  it("the news reports each headline once per episode, short and without the quote", async () => {
+    const { headline } = await import("../src/server/producer.js");
+    expect(headline('Lola Vance stormed off the set of Pixel Heights: "I think I\'ll just go."')).toBe("Lola Vance stormed off the set of Pixel Heights");
+    const db = openDb(":memory:");
+    const memory = new MemoryBank(db);
+    const timeline = new Timeline(db);
+    const t = Date.UTC(2026, 9, 5, 18, 0);
+    memory.remember("pixel_heights", ["lola"], 'Lola Vance stormed off the set of Pixel Heights: "Bye."', 0.75, t - 3_600_000);
+    const p = new Producer({ timeline, memory, tts: new SilentTTS(), writers: [new ImprovWriter(1)], timeZone: "UTC" });
+    let at = t;
+    const topics: string[] = [];
+    for (let i = 0; i < 12; i++) {
+      const made = await p.produce(at, slotAt(at, "UTC"), { rerun: false });
+      made.segment.startAt = at;
+      timeline.append(made.segment, made.summary);
+      topics.push(made.segment.topic ?? "");
+      at += made.segment.durationMs;
+    }
+    expect(topics.filter((x) => x === "Lola Vance stormed off the set of Pixel Heights").length).toBeLessThanOrEqual(1);
+  });
+
   it("Ask Dr. Dot takes a different caller from another show for each call", () => {
     const db = openDb(":memory:");
     const p = new Producer({ timeline: new Timeline(db), memory: new MemoryBank(db), tts: new SilentTTS(), writers: [new ImprovWriter(1)], timeZone: "UTC" });
