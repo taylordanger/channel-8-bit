@@ -158,4 +158,10 @@ describe("quality checks from the show review", () => {
     );
     expect(r.script.beats.map((b) => b.line)).toContain("Gerald, it's your time! Do your thing.");
   });
+
+  it("doesn't treat Dr. or Mrs. as the end of a sentence", async () => {
+    const { sentences, dropOverused } = await import("../src/server/standards.js");
+    expect(sentences("Dante finds files about Dr. Kale. Victoria panics.").map((x) => x.trim())).toEqual(["Dante finds files about Dr. Kale.", "Victoria panics."]);
+    expect(dropOverused("Don't play dumb. Ask Dr. Dot instead.", ["don't play dumb"])).toBe("Ask Dr. Dot instead.");
+  });
 });

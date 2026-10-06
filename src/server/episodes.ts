@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sentences } from "./standards.js";
 import { CHARACTERS } from "./catalog/characters.js";
 import type { Show } from "./catalog/shows.js";
 import type { ScheduledSlot } from "./catalog/schedule.js";
@@ -45,6 +46,29 @@ export const SeasonSchema = z.object({
 });
 export type SeasonPlan = z.infer<typeof SeasonSchema>;
 
+/**
+ * What a model fills in: one field per day. Asked for as a seven-item list, the local model
+ * copied one development into all seven slots; separate named days don't invite that.
+ */
+const day = (name: string, note = "") => z.string().describe(`${name}'s development${note}`);
+export const SeasonDraftSchema = z.object({
+  title: SeasonSchema.shape.title,
+  question: SeasonSchema.shape.question,
+  monday: day("Monday", ": the question is raised"),
+  tuesday: day("Tuesday", ", different from Monday's"),
+  wednesday: day("Wednesday", ", a new clue or complication"),
+  thursday: day("Thursday", ", a reversal"),
+  friday: day("Friday", ", the stakes go up"),
+  saturday: day("Saturday", ", the cliffhanger before the finale"),
+  sunday: day("Sunday", ": the finale, which answers the question"),
+  answer: SeasonSchema.shape.answer,
+});
+export type SeasonDraft = z.infer<typeof SeasonDraftSchema>;
+
+export function fromDraft(d: SeasonDraft): SeasonPlan {
+  return { title: d.title, question: d.question, days: [d.monday, d.tuesday, d.wednesday, d.thursday, d.friday, d.saturday, d.sunday], answer: d.answer };
+}
+
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 /** Which week (keyed by its Monday's date) and which day of it (0 = Monday) an instant falls in. */
@@ -71,7 +95,7 @@ export function tidySeason(s: SeasonPlan): SeasonPlan {
         .trim(),
     )
     // At most two sentences a day: the whole week goes into every episode's planning prompt.
-    .map((d) => (d.match(/[^.!?]+[.!?]+/g)?.slice(0, 2).join("").trim() || d).slice(0, 320))
+    .map((d) => (sentences(d).slice(0, 2).join("").trim() || d).slice(0, 320))
     .filter((d) => d.length >= 3 && !/:$/.test(d))
     .slice(0, 7);
   // Too few: stretch the middle of the week, keeping the finale on Sunday.
@@ -301,6 +325,8 @@ export class EpisodeBook {
       if (!w.planSeason) continue;
       try {
         const season = tidySeason(await withTimeout(w.planSeason(show, this.memory.storyState(show.id) || (show.storySeed ?? ""), last), timeoutMs));
+        // A week that doesn't move isn't a season: try again on the next episode.
+        if (new Set(season.days.map((d) => d.toLowerCase())).size < 5) throw new Error("the season repeated the same development across the week");
         this.db.prepare("INSERT OR REPLACE INTO seasons (show_id, week, created_at, writer, plan) VALUES (?,?,?,?,?)").run(show.id, key, Date.now(), w.name, JSON.stringify(season));
         this.log?.(`planned the week on ${show.title} (${w.name}): ${season.title} - ${season.question}`);
         return season;

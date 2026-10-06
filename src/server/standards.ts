@@ -58,6 +58,16 @@ export function nearDuplicate(a: string, b: string): boolean {
   return shared / Math.min(new Set(wa).size, wb.size) >= 0.7;
 }
 
+/**
+ * Split text into sentences, keeping each one's punctuation and trailing space. Titles like
+ * "Dr." and "Mrs." don't end a sentence ("Dr. Kale" stays whole).
+ */
+export function sentences(text: string): string[] {
+  const guarded = text.replace(/\b(Dr|Mr|Mrs|Ms|St|Jr|Sr|Prof|vs)\./g, "$1\u0000");
+  const parts = guarded.match(/[^.!?]+[.!?]*["']?\s*/g) ?? [guarded];
+  return parts.map((p) => p.replaceAll("\u0000", "."));
+}
+
 export function cleanLine(line: string): string {
   return line
     .replace(/\*[^*]*\*/g, " ") // *leans in*
@@ -71,9 +81,8 @@ export function cleanLine(line: string): string {
 
 function capWords(line: string, max: number): string {
   if (line.split(/\s+/).length <= max) return line;
-  const sentences = line.match(/[^.!?]+[.!?]+["']?|\S[^.!?]*$/g) ?? [line];
   let out = "";
-  for (const s of sentences) {
+  for (const s of sentences(line)) {
     const next = (out + " " + s.trim()).trim();
     if (next.split(/\s+/).length > max) break;
     out = next;
@@ -126,7 +135,7 @@ export function deterministicStandards(
     // Goodbyes belong to the end of the show, not the middle of it.
     // (Only shows that talk to the audience: a soap character's "until next time" is part of the story.)
     if (writerChecks && brief.lastSegment === false && AUDIENCE_FORMATS.has(brief.show.format)) {
-      const kept = (b.line.match(/[^.!?]+[.!?]*\s*/g) ?? [b.line]).filter((s) => !SIGN_OFF.test(s)).join("").trim();
+      const kept = sentences(b.line).filter((s) => !SIGN_OFF.test(s)).join("").trim();
       if (kept !== b.line) {
         notes.push({ verdict: kept ? "fix" : "cut", line: b.line, reason: "signed off in the middle of the show" });
         b.line = kept;
@@ -280,9 +289,9 @@ const FILLER = new Set([
 export function dropOverused(line: string, phrases: string[]): string {
   if (!phrases.length) return line;
   const norm = (x: string) => x.toLowerCase().replace(/[^a-z' ]+/g, " ").replace(/\s+/g, " ").trim();
-  const sentences = line.match(/[^.!?]+[.!?]*\s*/g) ?? [line];
-  const kept = sentences.filter((s) => !phrases.some((p) => ` ${norm(s)} `.includes(` ${p} `)));
-  return kept.length === sentences.length ? line : kept.join("").trim();
+  const parts = sentences(line);
+  const kept = parts.filter((s) => !phrases.some((p) => ` ${norm(s)} `.includes(` ${p} `)));
+  return kept.length === parts.length ? line : kept.join("").trim();
 }
 
 /**

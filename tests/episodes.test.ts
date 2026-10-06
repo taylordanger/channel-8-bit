@@ -244,4 +244,19 @@ describe("weekly seasons", () => {
     expect(seasonsPlanned()).toBe(0);
     expect(asked[0].season).toBeUndefined();
   });
+
+  it("doesn't keep a season that repeats one development all week; tries again next episode", async () => {
+    const { producer, episodes } = seasonSetup(0);
+    const thu = Date.UTC(2026, 9, 5, 10, 30); // a Monday
+    const flat = { ...season, days: Array(7).fill("Secrets in the Walls") };
+    let tries = 0;
+    const w = (producer as unknown as { d: { writers: { planSeason?: () => Promise<SeasonPlan> }[] } }).d.writers[0];
+    w.planSeason = async () => (tries++, tries === 1 ? flat : season);
+    await producer.produce(thu, slotAt(thu, TZ), { rerun: false });
+    expect(episodes.getSeason("pixel_heights", "2026-10-05")).toBeUndefined();
+    // The next airing (Tuesday morning) plans it again, properly.
+    const tue = thu + 86_400_000;
+    await producer.produce(tue, slotAt(tue, TZ), { rerun: false });
+    expect(episodes.getSeason("pixel_heights", "2026-10-05")?.days[1]).toBe("a forged copy");
+  });
 });

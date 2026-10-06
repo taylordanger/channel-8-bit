@@ -3,7 +3,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { Clock } from "../clock.js";
 import { worstCaseUsd, type Ledger } from "../ledger.js";
 import { systemPrompt, userPrompt } from "./prompt.js";
-import { PlanSchema, planPrompt, SeasonSchema, seasonPrompt, type EpisodePlan, type PlanRequest, type SeasonPlan } from "../episodes.js";
+import { fromDraft, PlanSchema, planPrompt, SeasonDraftSchema, seasonPrompt, type EpisodePlan, type PlanRequest, type SeasonPlan } from "../episodes.js";
 import type { Show } from "../catalog/shows.js";
 import { ScriptSchema, type Writer, type WriterBrief, type WriterResult } from "./script.js";
 
@@ -89,11 +89,11 @@ export class ClaudeWriter implements Writer {
       max_tokens: 2000,
       system,
       messages: [{ role: "user", content: user }],
-      output_config: { format: zodOutputFormat(SeasonSchema), ...(supportsEffort(model) ? { effort: "medium" as const } : {}) },
+      output_config: { format: zodOutputFormat(SeasonDraftSchema), ...(supportsEffort(model) ? { effort: "medium" as const } : {}) },
     });
     this.opts.ledger.record(this.opts.clock.now(), model, `season:${show.id}`, response.usage);
     if (response.stop_reason === "refusal") throw new WriterRefusedError(`${model} declined to plan a season of ${show.id}`);
     if (!response.parsed_output) throw new Error(`${model} returned an unparseable season`);
-    return response.parsed_output;
+    return fromDraft(response.parsed_output);
   }
 }
