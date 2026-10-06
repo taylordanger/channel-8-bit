@@ -173,4 +173,13 @@ describe("name check and local fact-check", () => {
     const r2 = await new LocalFactChecker(new OllamaClient("http://o", "m", bad.fetcher)).check(script([beat("lola", "a")]), source);
     expect(r2.rejected).toMatch(/local fact-checker failed/);
   });
+
+  it("isn't fooled by sentence breaks or the network's own names", async () => {
+    const { namesIn, checkNumbers } = await import("../src/server/factcheck.js");
+    expect(namesIn("Fine. Show of hands, Lance. Don't look at me.")).toEqual([]);
+    expect(namesIn("I met Dana Reyes today.")).toEqual(["Dana Reyes"]);
+    const src = { url: "u", title: "Raccoon visits church", site: "x", description: "", publishedAt: "", text: "A raccoon visited a church." };
+    const r = checkNumbers(script([beat("lance", "Welcome to The 8-Bit Report."), beat("paige", "a"), beat("lance", "b"), beat("paige", "c"), beat("lance", "d"), beat("paige", "e")]), src, ["The 8-Bit Report"]);
+    expect(r.notes).toEqual([]);
+  });
 });

@@ -159,6 +159,16 @@ npm run shadow -- 24           # simulate a whole day in seconds and check for p
     - **No goodbyes mid-show:** on shows that talk to the audience, "that's all the time we have" only survives in a show's final minutes.
     - **No telling the same joke twice in one scene:** a line that mostly repeats an earlier one is cut (Jerome said the marble-rye line three times).
     - These apply to scenes the AI writes; the improv troupe's stock bits are exempt. On 1,415 real lines, the rules flagged 2 stage directions, a handful of mid-show goodbyes, and 18 repeated lines; two false alarms found that way were fixed.
+41. **Real news on The 8-Bit Report:** light stories (odd news, science, space) from public feeds: ScienceDaily's Strange & Offbeat, UPI Odd News, NASA, Phys.org.
+    - Each story passes a word filter, then the local model screens out tragedy, crime, politics, health claims and controversy.
+    - Stories that pass become top stories, fact-checked against the article (or the feed's summary when a site blocks the article).
+    - At most 6 a day. They're labeled "FROM THE NEWS FEEDS" on the desk. Set `NEWS_FEEDS=off` to stop.
+42. **Fixes for sourced stories** (found by watching the first real ones):
+    - The improv troupe no longer uses up a story it can't read.
+    - The name check no longer mistakes "Lance. Don't" for a person, and the "8" in "8-Bit" isn't a number claim.
+    - Story scenes skip the episode plan so the article is the scene's job.
+    - The fact-checker leaves the cast's own antics alone.
+43. **Storm Brewster, the 8-Bit Report's weatherman:** a weather segment with Storm and Lance at a new weather-map set. Forecasts are for Pixel City, the network's fictional hometown ("an eighty percent chance of Rex complaining"), never real weather.
 
 ---
 

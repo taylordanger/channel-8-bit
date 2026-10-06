@@ -595,6 +595,45 @@ const SETS: Record<Exclude<SetId, "bumper">, SetDef> = {
       }
     },
   },
+  weather_map: {
+    marks: [
+      { x: 70, y: 136, seated: false, face: 1 }, // Storm, in front of the map
+      { x: 268, y: 128, seated: true, face: -1 }, // Lance, chiming in from the side of the desk
+    ],
+    back: (g, t) => {
+      px(g, "#0b1a33", 0, 0, W, H);
+      // the big weather map of Pixel City
+      px(g, "#1d6fa5", 20, 12, 210, 110);
+      px(g, "#3f9d4f", 40, 30, 70, 40);
+      px(g, "#3f9d4f", 120, 50, 90, 55);
+      px(g, "#3f9d4f", 60, 80, 50, 30);
+      g.fillStyle = "#fff";
+      g.font = "bold 7px monospace";
+      g.fillText("PIXEL CITY", 132, 74);
+      // a cartoon sun that refuses to stay put, and a very dramatic cloud
+      const sx = 60 + Math.sin(t / 1200) * 6;
+      px(g, "#ffd23f", sx, 36, 12, 12);
+      for (let i = 0; i < 4; i++) px(g, "#ffd23f", sx + 4 + Math.cos(i * 1.57) * 10, 40 + Math.sin(i * 1.57) * 10, 3, 3);
+      px(g, "#d9dde0", 150, 30, 34, 12);
+      px(g, "#d9dde0", 158, 24, 20, 8);
+      if (Math.floor(t / 700) % 3 === 0) px(g, "#ffd23f", 166, 42, 3, 10); // lightning, for drama
+      // the temperature, which is always slightly wrong
+      g.font = "bold 10px monospace";
+      g.fillText(Math.floor(t / 4000) % 2 ? "71°" : "17°?", 92, 106);
+      // frame and floor
+      g.strokeStyle = "#c8102e";
+      g.lineWidth = 2;
+      g.strokeRect(20, 12, 210, 110);
+      px(g, "#0f2240", 0, 132, W, 48);
+    },
+    front: (g) => {
+      // the end of the anchor desk
+      px(g, "#1d3b66", 244, 118, 60, 28);
+      px(g, "#c8102e", 244, 118, 60, 3);
+      // Storm's clicker
+      px(g, "#222", 88, 118, 4, 7);
+    },
+  },
   kitchen: {
     marks: [
       { x: 112, y: 128, seated: false, face: 1 }, // Remy at the stove

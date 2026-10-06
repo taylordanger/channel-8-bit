@@ -130,4 +130,25 @@ describe("every show", () => {
     }
     expect(callers.size).toBeGreaterThan(3);
   });
+
+  it("the news weather segment is Storm and Lance at the weather map, with weather topics and no desk stories", async () => {
+    const { TopicDesk } = await import("../src/server/desk.js");
+    const db = openDb(":memory:");
+    const desk = new TopicDesk(db);
+    desk.add("a real story", "news", 3, 0);
+    const p = new Producer({ timeline: new Timeline(db), memory: new MemoryBank(db), desk, tts: new SilentTTS(), writers: [new ImprovWriter(1)], timeZone: "UTC" });
+    const t = Date.UTC(2026, 9, 5, 18, 5);
+    let found = 0;
+    for (let i = 0; i < 80 && !found; i++) {
+      const b = p.brief(t + i * 1000, slotAt(t, "UTC"), 60);
+      if (b.segmentType !== "weather") continue;
+      found++;
+      expect(b.cast.map((c) => c.id)).toEqual(["storm", "lance"]);
+      expect(b.deskTopicId).toBeUndefined();
+      expect(getShow("news").topicsFor!.weather).toContain(b.topic);
+      const made = await p.produce(t + i * 1000, slotAt(t, "UTC"), { rerun: false });
+      if (made.segment.kind === "live" && made.segment.cast.some((c) => c.id === "storm")) expect(made.segment.set).toBe("weather_map");
+    }
+    expect(found).toBe(1);
+  });
 });

@@ -54,7 +54,8 @@ describe("assignment desk", () => {
     // The improv troupe can't read the article, so it never puts the headline on air.
     expect(made.segment.title).not.toContain("Goat");
     expect(made.segment.cues.some((c) => c.text.includes("Honorary Mayor"))).toBe(false);
-    expect(desk.get(t.id)?.uses).toBe(1);
+    // ...and doesn't use the story up: it waits for a writer who can read it.
+    expect(desk.get(t.id)?.uses).toBe(0);
   });
 
   it("routes topics to the right show and retires them after their uses", () => {

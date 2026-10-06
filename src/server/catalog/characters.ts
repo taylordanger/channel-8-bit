@@ -784,6 +784,26 @@ export const CHARACTERS: Record<string, Character> = Object.fromEntries(
         outfit: "plain", build: "average", eyes: "wide", nose: "small", facial: "freckles", accessories: ["headset"], height: 39,
       },
     }),
+    c({
+      id: "storm",
+      name: "Storm Brewster",
+      bible:
+        "The 8-Bit Report's meteorologist. Treats a light drizzle like the end of days and a sunny afternoon like a personal insult. Constantly losing a fight with his weather map, which shows the wrong city, the wrong decade, or a cooking show. Forecasts only Pixel City, the network's fictional hometown, and sprinkles in network forecasts like 'an eighty percent chance of Rex complaining'.",
+      catchphrases: ["brace yourselves, Pixel City", "the radar doesn't lie, but it does exaggerate", "back to you, Lance, if you survive"],
+      bits: [
+        "Brace yourselves, Pixel City. Tomorrow: partly cloudy. I repeat: PARTLY.",
+        "The radar doesn't lie, {other}, but it does exaggerate. Much like me.",
+        "My map is showing the weather in 1987 again. It was nice in 1987.",
+        "Tonight's forecast: a ninety percent chance of {topic}, with scattered regret.",
+        "There's a high-pressure system moving in. It's me. I'm the high-pressure system.",
+        "Back to you, Lance, if you survive the next five minutes of light breeze.",
+      ],
+      voice: { say: "Fred", rate: 190, kokoro: "am_onyx", speed: 1.02 },
+      look: {
+        skin: "#d9a066", hair: "#c9c9d1", hairStyle: "pompadour", shirt: "#2a5d8f", pants: "#22303f", accent: "#ffd23f",
+        outfit: "suit", build: "round", eyes: "wide", nose: "big", facial: "mustache", accessories: ["bowtie"], height: 43,
+      },
+    }),
     // --- Ask Dr. Dot (call-in advice) ---------------------------------------------
     c({
       id: "dot",

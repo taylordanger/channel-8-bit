@@ -333,9 +333,12 @@ export class Producer {
     const booking = this.guestFor(show, slot, at);
     const guest = booking && /guest/.test(segmentType) ? getCharacter(booking.id) : undefined;
     const solo = show.soloFor?.[segmentType];
+    const own = show.segmentCast?.[segmentType];
     let cast = solo
       ? [getCharacter(solo)]
-      : [...show.cast.map(getCharacter), ...(guest ? [guest] : []), ...(game ? game.contestants.map(getCharacter) : [])];
+      : own
+        ? own.map(getCharacter)
+        : [...show.cast.map(getCharacter), ...(guest ? [guest] : []), ...(game ? game.contestants.map(getCharacter) : [])];
     // Whoever stormed off this show sits out - as long as at least two people are left to talk.
     const off = solo ? [] : (this.d.states?.offSet(show.id) ?? []);
     if (off.length) {
@@ -347,7 +350,9 @@ export class Producer {
       const m = this.d.states?.mood(id, at);
       return m ? [{ id, mood: m.mood, reason: m.reason }] : [];
     });
-    const desk = this.d.desk?.nextFor(show.id);
+    // Segments with their own topic seeds (the weather) don't take assignment-desk stories.
+    const ownTopics = show.topicsFor?.[segmentType];
+    const desk = ownTopics ? undefined : this.d.desk?.nextFor(show.id);
     // The news covers the network itself: today's big moments on other shows, each reported once
     // per episode (then it's back to the regular stories), as a short headline without the quote.
     const reported = new Set(show.format === "news" ? this.d.timeline.recentTopics(show.id, at, 60, slot.startAt) : []);
@@ -361,7 +366,7 @@ export class Producer {
     return {
       show,
       segmentType,
-      topic: desk?.text ?? (headlines.length && r() < 0.4 ? pick(headlines) : pick(freshTopics.length ? freshTopics : show.topics)),
+      topic: ownTopics ? pick(ownTopics) : (desk?.text ?? (headlines.length && r() < 0.4 ? pick(headlines) : pick(freshTopics.length ? freshTopics : show.topics))),
       lastSegment: slot.endAt - at <= 5 * 60_000,
       deskTopicId: desk?.id,
       source: desk?.fetchStatus === "ok" ? (desk.source ?? undefined) : undefined,
@@ -422,7 +427,8 @@ export class Producer {
     const brief = this.brief(at, slot, targetSeconds);
     const music = brief.show.musicFor?.[brief.segmentType];
     if (music) return this.music(at, brief.show, music, targetSeconds);
-    if (this.d.episodes && !brief.ad) {
+    // A real story is the scene's job; the episode arc waits for the next scene.
+    if (this.d.episodes && !brief.ad && !brief.source) {
       const plan = await this.d.episodes.ensure(brief.show, slot, writers, brief.localTime, {
         guest: brief.show.guestPerSegment ? undefined : this.guestFor(brief.show, slot)?.id,
         keepTemplate: !this.d.writers.some(canPlan),
@@ -443,7 +449,10 @@ export class Producer {
       try {
         const { script: draft, writer: writerName } = await writer.write(brief);
         // The writer-habit checks are for the model writers; the improv troupe's act *is* its stock bits.
-        const checked = await this.clear(draft, brief, writer.name !== "improv");
+        // The improv troupe can't read a linked article, so it ignores it: check its stock bits
+        // without the source, and don't let it use up the story.
+        const improv = writer.name === "improv";
+        const checked = await this.clear(draft, improv && brief.source ? { ...brief, source: undefined } : brief, !improv);
         if (checked.rejected) {
           record("rejected", checked.rejected);
           lastError = `${writer.name}: ${checked.rejected}`;
@@ -455,7 +464,7 @@ export class Producer {
         if (!brief.deskTopicId && !brief.shoutout && !brief.ad) segment.topic = brief.topic;
         record("ok", "", Date.now() - t0 - writeMs, writeMs);
         if (brief.game) this.attachGame(segment, brief.show, brief.game);
-        if (brief.deskTopicId) this.d.desk?.markUsed(brief.deskTopicId, at);
+        if (brief.deskTopicId && !(improv && brief.source)) this.d.desk?.markUsed(brief.deskTopicId, at);
         if (brief.viewerMessage) this.d.mailbag?.markAired(brief.viewerMessage.id, at, brief.show.id);
         return {
           segment,
@@ -633,7 +642,7 @@ export class Producer {
     if (brief.source) {
       r = step(checkVerbatim(r.script, brief.source));
       if (r.rejected) return { ...r, notes };
-      r = step(checkNumbers(r.script, brief.source));
+      r = step(checkNumbers(r.script, brief.source, FICTIONAL_NAMES));
       if (r.rejected) return { ...r, notes };
       r = step(checkNames(r.script, brief.source, FICTIONAL_NAMES));
       if (r.rejected) return { ...r, notes };
@@ -642,7 +651,7 @@ export class Producer {
         if (r.rejected) return { ...r, notes };
         r = step(deterministicStandards(r.script, brief, policy, { writerChecks: modelPasses }));
         if (r.rejected) return { ...r, notes };
-        r = step(checkNumbers(r.script, brief.source));
+        r = step(checkNumbers(r.script, brief.source, FICTIONAL_NAMES));
         if (r.rejected) return { ...r, notes };
         r = step(checkNames(r.script, brief.source, FICTIONAL_NAMES));
         if (r.rejected) return { ...r, notes };

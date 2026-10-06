@@ -8,7 +8,7 @@ import type { WriterBrief } from "./script.js";
  * Byte-identical across every segment of a show so it caches.
  */
 export function systemPrompt(networkName: string, show: Show): string {
-  const people = [...show.cast, ...(show.guestPool ?? [])].map((id) => CHARACTERS[id]);
+  const people = [...new Set([...show.cast, ...(show.guestPool ?? []), ...Object.values(show.segmentCast ?? {}).flat()])].map((id) => CHARACTERS[id]);
   return `You are the writers' room for ${networkName}, a 24/7 television network whose entire cast is fictional pixel-art characters. You write one segment at a time; it is voiced by text-to-speech and animated live.
 
 NETWORK STANDARDS (non-negotiable):

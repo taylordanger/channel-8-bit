@@ -31,6 +31,10 @@ export interface Show {
   bookLosersFrom?: string;
   /** A different guest for every segment (call-in shows) instead of one per airing. */
   guestPerSegment?: boolean;
+  /** Segment types with their own cast (e.g. the news's weather report: the weatherman and the anchor). */
+  segmentCast?: Record<string, string[]>;
+  /** Segment types with their own topic seeds (and no assignment-desk stories). */
+  topicsFor?: Record<string, string[]>;
   /** Whether the show carries an ongoing plot that the writers must advance. */
   serialized: boolean;
   bible: string;
@@ -198,9 +202,21 @@ export const SHOWS: Record<string, Show> = {
     cast: ["lance", "paige", "wren"],
     serialized: false,
     bible:
-      "The network's evening news, a parody of a self-important local newscast. Lance anchors with total gravitas and no understanding; Paige fact-checks him live; Wren reports 'live from the scene' from the wrong place. When a segment has SOURCE MATERIAL (a real article from the assignment desk), that's the top story: report it accurately from the source, and the comedy comes from the anchors' reactions, never from inventing facts. Otherwise the news is about this network's own fictional world - who won Hot Seat, who stormed off Pixel Heights, feuds, rumors from the halls of Channel 8-Bit - and never real-world news.",
-    segmentTypes: ["top story", "network news", "field report", "corrections", "viewer questions", "kicker"],
+      "The network's evening news, a parody of a self-important local newscast. Lance anchors with total gravitas and no understanding; Paige fact-checks him live; Wren reports 'live from the scene' from the wrong place; Storm Brewster does the weather (only for Pixel City, the network's fictional hometown, and always as if doom is coming) - never real forecasts. When a segment has SOURCE MATERIAL (a real article from the assignment desk), that's the top story: report it accurately from the source, and the comedy comes from the anchors' reactions, never from inventing facts. Otherwise the news is about this network's own fictional world - who won Hot Seat, who stormed off Pixel Heights, feuds, rumors from the halls of Channel 8-Bit - and never real-world news.",
+    segmentTypes: ["top story", "network news", "field report", "weather", "corrections", "viewer questions", "kicker"],
     mailSegment: "viewer questions",
+    setFor: { weather: "weather_map" },
+    segmentCast: { weather: ["storm", "lance"] },
+    topicsFor: {
+      weather: [
+        "the forecast for Pixel City, which is mild and therefore terrifying",
+        "a heat wave of exactly two degrees",
+        "fog so thick it has a personality",
+        "the weekend outlook, delivered as a eulogy",
+        "a pollen count that has become personal",
+        "network weather: storm fronts moving between the shows",
+      ],
+    },
     topics: [
       "a feud on another show here at the network",
       "the station's vending machine, which has achieved sentience",

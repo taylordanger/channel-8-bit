@@ -49,13 +49,14 @@ const SIGN_OFF = /\b(that's all the time we have|that's all for (tonight|today)|
 const AUDIENCE_FORMATS = new Set(["late_night", "morning", "hangout", "gameshow", "news", "callin", "cooking"]);
 
 /** Two lines that are mostly the same words (the same joke told twice). */
-export function nearDuplicate(a: string, b: string): boolean {
+export function nearDuplicate(a: string, b: string, opts: { minWords?: number; ratio?: number } = {}): boolean {
+  const { minWords = 5, ratio = 0.7 } = opts;
   const words = (x: string) => x.toLowerCase().replace(/[^a-z' ]+/g, " ").split(/\s+/).filter((w) => w.length > 2);
   const wa = words(a);
   const wb = new Set(words(b));
-  if (wa.length < 5 || wb.size < 5) return false;
+  if (wa.length < minWords || wb.size < minWords) return false;
   const shared = new Set(wa.filter((w) => wb.has(w))).size;
-  return shared / Math.min(new Set(wa).size, wb.size) >= 0.7;
+  return shared / Math.min(new Set(wa).size, wb.size) >= ratio;
 }
 
 /**
@@ -166,7 +167,8 @@ export function deterministicStandards(
     // (Catchphrases are meant to repeat, so compare what's left once they're taken out of both.)
     const bare = (x: string) => catchphrases.reduce((acc, p) => ` ${acc} `.replace(` ${p} `, " ").trim(), normalize(x));
     const mine = bare(b.line);
-    if (writerChecks && mine && examples.some((ex) => bare(ex) === mine || nearDuplicate(bare(ex), mine))) {
+    // Near word-for-word only: a fresh line in the character's voice is exactly what we asked for.
+    if (writerChecks && mine && examples.some((ex) => bare(ex) === mine || nearDuplicate(bare(ex), mine, { minWords: 7, ratio: 0.85 }))) {
       notes.push({ verdict: "cut", line: b.line, reason: "copied an example from the writers' notes" });
       continue;
     }
