@@ -69,7 +69,7 @@ export function userPrompt(b: WriterBrief): string {
     const g = b.guest;
     sections.push(`GUEST BIBLE: ${g.id} - ${g.name}: ${g.bible} | ${g.catchphrases.map((p) => `"${p}"`).join(", ")}`);
   }
-  if (b.episode) sections.push(episodeBlock(b.episode, name, b.show.serialized));
+  if (b.episode) sections.push(episodeBlock(b.episode, name, b.show.serialized, b.show.format, b.segmentType));
   if (b.source) sections.push(sourceBlock(b.source));
   if (b.storyState) sections.push(`STORY SO FAR:\n${b.storyState}`);
   if (b.previously.length) sections.push(`PREVIOUSLY:\n${b.previously.map((s) => `- ${s}`).join("\n")}`);
@@ -161,8 +161,22 @@ export function userPrompt(b: WriterBrief): string {
 }
 
 /** Tonight's arc, and this scene's job in it. Later beats stay hidden so scenes can't jump ahead. */
-export function episodeBlock(e: NonNullable<WriterBrief["episode"]>, name: (id: string) => string, serialized: boolean): string {
+/**
+ * Shows that talk to the audience (news, talk, morning, games, call-in, cooking): the episode's arc
+ * is a running thread in the background, not every scene's subject. Sitcoms and the soap keep it
+ * as the plot.
+ */
+const THREAD_FORMATS = new Set(["late_night", "morning", "hangout", "gameshow", "news", "callin", "cooking"]);
+
+export function episodeBlock(e: NonNullable<WriterBrief["episode"]>, name: (id: string) => string, serialized: boolean, format = "", segmentType = ""): string {
   const { plan, phase } = e;
+  if (THREAD_FORMATS.has(format)) {
+    return [
+      `TONIGHT'S RUNNING THREAD (part ${phase.index + 1} of ${phase.of}): ${plan.logline}`,
+      `Where it stands now: ${phase.job}`,
+      `This scene's real job is the "${segmentType}" segment itself. The thread gets a line or two at most, as a callback - never the whole scene, and never every scene.`,
+    ].join("\n");
+  }
   const lines = [
     `EPISODE PLAN (this scene is part ${phase.index + 1} of ${phase.of}): ${plan.logline}`,
     plan.wants.length ? `WANTS: ${plan.wants.map((w) => `${name(w.character)} wants ${w.want}`).join("; ")}.` : "",

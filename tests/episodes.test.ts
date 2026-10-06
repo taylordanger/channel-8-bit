@@ -149,6 +149,16 @@ describe("episode plans", () => {
     expect(text).toContain('OVERUSED LATELY (never use these phrases): "don\'t play dumb"');
   });
 
+  it("on shows that talk to the audience, the arc is a background thread, not the scene's subject", () => {
+    const p = plan();
+    const phase = phaseAt(p, { startAt: 0, endAt: 100 }, 45);
+    const news = episodeBlock({ plan: p, phase }, (id) => id, false, "news", "weather");
+    expect(news).toContain("RUNNING THREAD");
+    expect(news).toContain('real job is the "weather" segment');
+    expect(news).not.toContain("THIS SCENE'S JOB");
+    expect(episodeBlock({ plan: p, phase }, (id) => id, false, "sitcom", "diner scene")).toContain("THIS SCENE'S JOB - escalate");
+  });
+
   it("hides later beats from the scene being written", () => {
     const p = plan();
     const text = episodeBlock({ plan: p, phase: phaseAt(p, { startAt: 0, endAt: 100 }, 25) }, (id) => id, false);
