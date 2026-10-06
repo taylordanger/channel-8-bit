@@ -165,10 +165,13 @@ export class Station {
       }
       const now = this.d.clock.now();
       const lead = this.d.timeline.tailEnd() - now;
-      const coldStart = lead < 0;
+      // Writing for nobody (always-on hours): no one is waiting, so let the real writer take its time
+      // instead of filling with instant encores and improv.
+      const unwatched = decision.reason === "always-on hours";
+      const coldStart = lead < 0 && !unwatched;
       // Slow writers (local models) can't always outrun the clock; when the cushion is thin, buy time.
       // Hurry when what's already written would run out before the writer could finish another.
-      const hurry = !coldStart && this.slowWriter && lead < this.hurryThreshold();
+      const hurry = !coldStart && !unwatched && this.slowWriter && lead < this.hurryThreshold();
       const t0 = this.d.clock.now();
       const produced = await this.d.producer.produce(planAt, slot, { rerun: decision.rerunsOnly, coldStart, hurry });
       // Measure only the primary writer: instant fallbacks would make a slow writer look fast.
@@ -286,7 +289,9 @@ export class Station {
   watchdog(): Produced | null {
     if (!this.busy) return null;
     const now = this.d.clock.now();
-    if (this.d.governor.decide(now).leadTargetMs === 0) return null;
+    const decision = this.d.governor.decide(now);
+    // Nobody watching (idle, or writing ahead during always-on hours): no dead air to cover.
+    if (decision.leadTargetMs === 0 || decision.reason === "always-on hours") return null;
     if (this.d.timeline.tailEnd() - now > EMERGENCY_BELOW_MS) return null;
     const at = this.nextStart();
     const filler = this.d.producer.emergency(at, programAt(at, this.d.timeZone, this.override()));

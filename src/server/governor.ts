@@ -28,6 +28,8 @@ export class Governor {
        * We can't see the Twitch/YouTube audience, so outside these hours it airs reruns.
        */
       feedFreshHours?: Set<number>;
+      /** Hours when the station writes fresh scenes even with nobody watching (the advertised flagship). */
+      alwaysOnHours?: Set<number>;
       timeZone?: string;
     },
   ) {}
@@ -52,6 +54,13 @@ export class Governor {
 
   decide(now: number): GovernorDecision {
     const watching = this.viewers > 0 || now - this.lastViewerAt < this.opts.idleGraceMs;
+    // The advertised flagship gets written whether or not anyone's tuned in yet.
+    const alwaysOn = !watching && this.inHours(this.opts.alwaysOnHours, now);
+    if (alwaysOn) {
+      const spent = this.spentToday(now);
+      if (spent >= this.opts.dailyBudgetUsd) return { leadTargetMs: this.opts.leadTargetMs, rerunsOnly: true, reason: `daily budget spent ($${spent.toFixed(2)})` };
+      return { leadTargetMs: this.opts.leadTargetMs, rerunsOnly: false, reason: "always-on hours" };
+    }
     if (!watching && this.feeds === 0) return { leadTargetMs: 0, rerunsOnly: false, reason: "nobody watching" };
     if (!watching && !this.freshFeedHour(now)) {
       return { leadTargetMs: this.opts.leadTargetMs, rerunsOnly: true, reason: "restream only: reruns" };
@@ -64,7 +73,10 @@ export class Governor {
   }
 
   private freshFeedHour(now: number): boolean {
-    const hours = this.opts.feedFreshHours;
+    return this.inHours(this.opts.feedFreshHours, now);
+  }
+
+  private inHours(hours: Set<number> | undefined, now: number): boolean {
     if (!hours?.size) return false;
     const h = Number(new Intl.DateTimeFormat("en-US", { timeZone: this.opts.timeZone, hour: "numeric", hourCycle: "h23" }).format(new Date(now)));
     return hours.has(h);

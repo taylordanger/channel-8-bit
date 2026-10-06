@@ -22,6 +22,8 @@ export interface StationConfig {
   dailyBudgetUsd: number;
   /** Hours when a restream alone (no website viewers) gets fresh writing; see Governor. */
   feedFreshHours: Set<number>;
+  /** Hours (local) the station writes fresh scenes with nobody watching: the flagship, by default with the free local writer. */
+  alwaysOnHours: Set<number>;
   /** Real-news feeds for The 8-Bit Report ([] = off), and how many stories a day it may add. */
   newsFeeds: string[];
   newsPerDay: number;
@@ -66,6 +68,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): StationConfig 
     newsPerDay: num(env.NEWS_PER_DAY, 6),
     shoutoutPaymentUrl: /^https:\/\/\S+$/.test(env.SHOUTOUT_PAYMENT_URL ?? "") ? env.SHOUTOUT_PAYMENT_URL! : "",
     shoutoutPrice: (env.SHOUTOUT_PRICE ?? "").slice(0, 20),
+    alwaysOnHours: parseHours(env.ALWAYS_ON_HOURS ?? (writer === "auto" && !hasClaude || writer === "local" ? "21-24" : "")),
     feedFreshHours: parseHours(env.FEED_FRESH_HOURS ?? (writer === "auto" && !hasClaude || writer === "local" ? "0-24" : "")),
     leadTargetMs: num(env.LEAD_TARGET_SEC, 150) * 1000,
     idleGraceMs: num(env.IDLE_GRACE_SEC, 120) * 1000,

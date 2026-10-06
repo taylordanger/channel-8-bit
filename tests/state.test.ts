@@ -142,4 +142,12 @@ describe("ledger and governor", () => {
     expect(parseHours("0-24").size).toBe(24);
     expect(parseHours("").size).toBe(0);
   });
+
+  it("writes the flagship during always-on hours even with nobody watching", () => {
+    const ledger = new Ledger(openDb(":memory:"), "UTC");
+    const g = new Governor({ leadTargetMs: 60_000, idleGraceMs: 0, dailyBudgetUsd: 1, ledger, alwaysOnHours: parseHours("21-24"), timeZone: "UTC" });
+    expect(g.decide(20 * 3_600_000).leadTargetMs).toBe(0); // 8pm, nobody watching
+    expect(g.decide(21 * 3_600_000 + 60_000)).toMatchObject({ leadTargetMs: 60_000, rerunsOnly: false, reason: "always-on hours" });
+    expect(parseHours("21-24").has(23)).toBe(true);
+  });
 });

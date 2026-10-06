@@ -169,6 +169,7 @@ npm run shadow -- 24           # simulate a whole day in seconds and check for p
     - Story scenes skip the episode plan so the article is the scene's job.
     - The fact-checker leaves the cast's own antics alone.
 43. **Storm Brewster, the 8-Bit Report's weatherman:** a weather segment with Storm and Lance at a new weather-map set. Forecasts are for Pixel City, the network's fictional hometown ("an eighty percent chance of Rex complaining"), never real weather.
+44. **Always-on hours for the flagship:** from 9 PM to midnight the station writes fresh scenes even with nobody watching, so the advertised Hot Seat → Late Byte handoff always happens and joins the encore library. With nobody waiting, it doesn't fill with instant encores or improv. It's the free local writer, so there's no cost. With a Claude key it defaults to off. Set `ALWAYS_ON_HOURS` in `.env` to change the hours.
 
 ---
 
