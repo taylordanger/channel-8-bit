@@ -1,4 +1,5 @@
 import { channelName } from "./twitch.js";
+import { DEFAULT_FEEDS } from "./newsfeeds.js";
 import path from "node:path";
 import { kokoroInstalled } from "./tts.js";
 
@@ -21,6 +22,9 @@ export interface StationConfig {
   dailyBudgetUsd: number;
   /** Hours when a restream alone (no website viewers) gets fresh writing; see Governor. */
   feedFreshHours: Set<number>;
+  /** Real-news feeds for The 8-Bit Report ([] = off), and how many stories a day it may add. */
+  newsFeeds: string[];
+  newsPerDay: number;
   /** Shoutouts: a payment link shown on the request form (empty = free), and the price text. */
   shoutoutPaymentUrl: string;
   shoutoutPrice: string;
@@ -58,6 +62,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): StationConfig 
     dailyBudgetUsd: num(env.DAILY_BUDGET_USD, 3),
     // Local writing is free, so a restream gets it around the clock; paid writing only when asked.
     twitchChannel: channelName(env.TWITCH_CHANNEL),
+    newsFeeds: env.NEWS_FEEDS === "off" ? [] : env.NEWS_FEEDS ? env.NEWS_FEEDS.split(",").map((u) => u.trim()).filter((u) => /^https:\/\//.test(u)) : DEFAULT_FEEDS,
+    newsPerDay: num(env.NEWS_PER_DAY, 6),
     shoutoutPaymentUrl: /^https:\/\/\S+$/.test(env.SHOUTOUT_PAYMENT_URL ?? "") ? env.SHOUTOUT_PAYMENT_URL! : "",
     shoutoutPrice: (env.SHOUTOUT_PRICE ?? "").slice(0, 20),
     feedFreshHours: parseHours(env.FEED_FRESH_HOURS ?? (writer === "auto" && !hasClaude || writer === "local" ? "0-24" : "")),

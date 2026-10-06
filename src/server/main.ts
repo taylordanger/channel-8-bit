@@ -33,6 +33,10 @@ const offsetMin = Number(process.env.CLOCK_OFFSET_MIN ?? 0);
 const clock = offsetMin ? new OffsetClock(offsetMin * 60_000) : systemClock;
 const built = buildStation(config, { log, clock, onSegment: (s) => push(s), onRetract: (ids) => retract(ids), onPoll: (r) => pollResult(r) });
 const http = startHttp(config, built, path.resolve(here, "../../public"));
+if (config.newsFeeds.length) {
+  built.newsFeeds.start();
+  log(`news feeds: The 8-Bit Report picks up to ${config.newsPerDay} real stories a day from ${config.newsFeeds.length} feeds (NEWS_FEEDS=off to stop)`);
+}
 push = http.pushSegment;
 retract = http.retract;
 pollResult = http.pollResult;

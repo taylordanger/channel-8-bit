@@ -103,6 +103,13 @@ CREATE TABLE IF NOT EXISTS shoutouts (
   sender        TEXT NOT NULL            -- hashed IP, for rate limits only
 );
 
+CREATE TABLE IF NOT EXISTS news_seen (
+  url      TEXT PRIMARY KEY,         -- a feed story already considered (never screened twice)
+  at       INTEGER NOT NULL,
+  accepted INTEGER NOT NULL,
+  reason   TEXT NOT NULL DEFAULT ''
+);
+
 CREATE TABLE IF NOT EXISTS memories (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at INTEGER NOT NULL,
@@ -295,6 +302,7 @@ function migrate(db: DB) {
   for (const [name, type] of add) if (!topics.has(name)) db.exec(`ALTER TABLE topics ADD COLUMN ${name} ${type}`);
   const cs = cols("character_state");
   if (!cs.has("off_at")) db.exec("ALTER TABLE character_state ADD COLUMN off_at INTEGER NOT NULL DEFAULT 0");
+  if (!cols("topics").has("origin")) db.exec("ALTER TABLE topics ADD COLUMN origin TEXT NOT NULL DEFAULT 'desk'");
   if (!cols("clips").has("vertical_file")) db.exec("ALTER TABLE clips ADD COLUMN vertical_file TEXT");
   if (!cols("products").has("facts_at")) db.exec("ALTER TABLE products ADD COLUMN facts_at INTEGER NOT NULL DEFAULT 0");
   if (!cols("viewer_messages").has("aired_show")) db.exec("ALTER TABLE viewer_messages ADD COLUMN aired_show TEXT");

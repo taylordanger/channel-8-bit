@@ -16,6 +16,8 @@ export interface Topic {
   source: Source | null;
   fetchStatus: FetchStatus;
   fetchError: string | null;
+  /** "desk" for a human's topic, "feed" for a story the news feeds found. */
+  origin: "desk" | "feed";
 }
 
 interface Row {
@@ -30,6 +32,7 @@ interface Row {
   source: string | null;
   fetch_status: FetchStatus;
   fetch_error: string | null;
+  origin: "desk" | "feed" | null;
 }
 
 const toTopic = (r: Row): Topic => ({
@@ -44,6 +47,7 @@ const toTopic = (r: Row): Topic => ({
   source: r.source ? (JSON.parse(r.source) as Source) : null,
   fetchStatus: r.fetch_status,
   fetchError: r.fetch_error,
+  origin: r.origin ?? "desk",
 });
 
 export const MAX_TOPIC_LENGTH = 280;
@@ -60,15 +64,20 @@ export class TopicDesk {
     private reader: (url: string) => Promise<Source> = (u) => readSource(u),
   ) {}
 
-  add(text: string, showId: string | null, maxUses: number, at: number, url?: string | null): Topic {
+  add(text: string, showId: string | null, maxUses: number, at: number, url?: string | null, origin: "desk" | "feed" = "desk"): Topic {
     const clean = text.replace(/\s+/g, " ").trim().slice(0, MAX_TOPIC_LENGTH);
     const link = url?.trim() || null;
     if (!clean && !link) throw new Error("add a topic or a link");
     const uses = Math.max(1, Math.min(10, Math.round(maxUses)));
     const info = this.db
-      .prepare("INSERT INTO topics (text, show_id, created_at, max_uses, url, fetch_status) VALUES (?,?,?,?,?,?)")
-      .run(clean, showId, at, uses, link, link ? "pending" : "none");
+      .prepare("INSERT INTO topics (text, show_id, created_at, max_uses, url, fetch_status, origin) VALUES (?,?,?,?,?,?,?)")
+      .run(clean, showId, at, uses, link, link ? "pending" : "none", origin);
     return this.get(Number(info.lastInsertRowid))!;
+  }
+
+  /** Use this as the topic's source (e.g. a news feed's summary when the page itself won't load). */
+  setSource(id: number, source: Source): void {
+    this.db.prepare("UPDATE topics SET source = ?, fetch_status = 'ok', fetch_error = NULL WHERE id = ?").run(JSON.stringify(source), id);
   }
 
   /** Read a topic's link and store what was found. Never throws; failures are recorded on the topic. */

@@ -126,7 +126,7 @@
           const meta = document.createElement("div");
           meta.className = "meta";
           const waiting = t.fetchStatus === "pending" ? " · reading link" : t.fetchStatus === "failed" ? " · on hold" : "";
-          meta.textContent = `${showName(t.showId)} · aired ${t.uses}/${t.maxUses}${retired ? " · retired" : waiting || (t.uses ? "" : " · queued")}`;
+          meta.textContent = `${t.origin === "feed" ? "FROM THE NEWS FEEDS · " : ""}${showName(t.showId)} · aired ${t.uses}/${t.maxUses}${retired ? " · retired" : waiting || (t.uses ? "" : " · queued")}`;
           body.append(meta);
           if (t.url) body.append(sourceBox(t));
           const actions = document.createElement("div");

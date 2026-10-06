@@ -12,6 +12,7 @@ import { EpisodeBook, GameResults } from "./episodes.js";
 import { AudienceLog } from "./audience.js";
 import { ClipDesk, ffmpegVertical, FunnyMeter, processRenderer, type ClipRenderer } from "./clips.js";
 import { ShoutoutDesk } from "./shoutouts.js";
+import { NewsFeeds } from "./newsfeeds.js";
 import { CharacterStates, MemoryBank } from "./memory.js";
 import { Producer } from "./producer.js";
 import { TopicDesk } from "./desk.js";
@@ -174,7 +175,9 @@ export function buildStation(config: StationConfig, o: BuildOptions = {}) {
     dir: path.join(config.dataDir, "shoutouts"),
     log: o.log,
   });
-  return { shoutouts, audience, clips, funny, episodes, results, ollama, mailbag, chat, tracks, products, ops, db, clock, timeline, memory, states, polls, desk, ledger, governor, tts, writers, producer, station };
+  // Real news only reaches the news desk when there's a local model to screen it (not in tests).
+  const newsFeeds = new NewsFeeds(db, { desk, feeds: o.writers ? [] : config.newsFeeds, ollama: o.writers ? undefined : ollama, perDay: config.newsPerDay, log: o.log });
+  return { newsFeeds, shoutouts, audience, clips, funny, episodes, results, ollama, mailbag, chat, tracks, products, ops, db, clock, timeline, memory, states, polls, desk, ledger, governor, tts, writers, producer, station };
 }
 
 export type Built = ReturnType<typeof buildStation>;
